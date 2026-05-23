@@ -1,0 +1,19 @@
+# Node Modules
+node_modules/
+
+# Environment Variables (Secrets)
+.env
+.env.local
+
+# WhatsApp Session Storage (🚨 DO NOT PUSH THIS)
+storage/whatsapp-sessions/*
+sessions/
+
+# Build folders
+dist/
+.next/
+out/
+
+# OS files
+.DS_Store
+Thumbs.db

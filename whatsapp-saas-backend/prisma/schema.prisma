@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Merchant {
+  id                String   @id @default(uuid())
+  brandName         String
+  email             String   @unique
+  phone             String   @unique
+  password          String
+  
+  category          String   @default("ECOMMERCE") // ECOMMERCE, RESTAURANT
+  totalPaidAmount   Float    @default(0.0) 
+  
+  // Analytics
+  totalSent         Int      @default(0)
+  totalRead         Int      @default(0)
+  totalClicked      Int      @default(0)
+  totalConverted    Int      @default(0)
+  recoveredRevenue  Float    @default(0.0)
+
+  // Business Intel
+  storeUrl          String?
+  productsInfo      String?
+  deliveryPolicy    String?
+  returnPolicy      String?
+
+  // Admin Controls
+  shopifyToken      String?
+  subscriptionExpiry DateTime? 
+  shopifySecret     String?
+  
+  // Wallet & Plan
+  plan              String   @default("STARTER")
+  walletBalance     Float    @default(200.00)
+  
+  // Statuses
+  status            String   @default("PENDING_ONBOARDING")
+  whatsappConnected Boolean  @default(false)
+  whatsappSessionId String?  @unique
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // 🔗 RELATIONS (All fixed and mapped properly)
+  messages          Message[]
+  clicks            Click[]
+  customers         Customer[]
+  abandonedCarts    AbandonedCart[]
+  flows             AutomationFlow[]
+  campaigns         Campaign[]
+}
+
+model Message {
+  id            String   @id @default(uuid())
+  merchantId    String
+  customerPhone String
+  content       String   @db.Text
+  direction     String   // INCOMING or OUTGOING
+  status        String   @default("SENT") // NAYA: SENT, DELIVERED, READ, FAILED
+  timestamp     DateTime @default(now())
+  
+  merchant      Merchant @relation(fields: [merchantId], references: [id])
+}
+
+model Click {
+  id          String   @id @default(uuid())
+  merchantId  String
+  type        String   // ABANDONED_CART, CAMPAIGN_NAME
+  linkUrl     String?  // NAYA: Kaunsi link pe click kiya
+  timestamp   DateTime @default(now())
+  
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+}
+
+model AbandonedCart {
+  id              String   @id @default(uuid())
+  merchantId      String
+  shopifyCartId   String   @unique  
+  customerPhone   String
+  customerName    String
+  cartUrl         String
+  totalPrice      Float
+  status          String   @default("PENDING") // PENDING, SENT, RECOVERED, EXPIRED
+  createdAt       DateTime @default(now())
+  
+  merchant        Merchant @relation(fields: [merchantId], references: [id])
+}
+
+model Customer {
+
+id              String   @id @default(uuid())
+  merchantId      String
+  phone           String
+  name            String?
+  totalOrders     Int      @default(1)
+  totalSpent      Float    @default(0.0)
+  lastOrderDate   DateTime @default(now())
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  merchant        Merchant @relation(fields: [merchantId], references: [id])
+  
+  @@unique([merchantId, phone]) 
+
+}
+
+model AutomationFlow {
+  id            String   @id @default(uuid())
+  merchantId    String
+  
+  type          String   // e.g., "ABANDONED_CART_30M", "ABANDONED_CART_24H", "ORDER_CONFIRM"
+  isActive      Boolean  @default(false) 
+  
+  delayMinutes  Int      
+  template      String   @db.Text 
+  
+  updatedAt     DateTime @updatedAt
+
+  merchant      Merchant @relation(fields: [merchantId], references: [id])
+  
+  @@unique([merchantId, type]) 
+}
+
+model Campaign {
+  id              String   @id @default(uuid())
+  merchantId      String
+  
+  name            String   
+  template        String   @db.Text 
+  
+  status          String   @default("DRAFT") // DRAFT, SENDING, COMPLETED
+  totalRecipients Int      @default(0)
+  sentCount       Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+
+  merchant        Merchant @relation(fields: [merchantId], references: [id])
+}
