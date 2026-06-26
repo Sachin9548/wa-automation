@@ -13,6 +13,7 @@ import { restoreActiveSessions } from "./services/whatsapp.service";
 import { initMessageWorker } from './workers/message.worker';
 import flowRoutes from './routes/flow.routes';
 import trackingRoutes from './routes/tracking.routes';
+import webhookRoutes from './routes/webhook.routes';
 
 dotenv.config();
 
@@ -20,27 +21,21 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(express.json());
-
-// Isse app.use(express.json()) ki jagah replace kijiye
 app.use(express.json({
+  limit: '10mb',
   verify: (req: any, res, buf) => {
-    if (req.url.includes('/api/webhooks/shopify')) {
+    const currentUrl = req.originalUrl || req.url || "";
+    
+    if (currentUrl.includes('shopify')) { // Sirf 'shopify' check karo simplicity ke liye
       req.rawBody = buf;
+      console.log("🛠️ SUCCESS: RawBody captured for URL:", currentUrl);
     }
   }
 }));
 
+app.use(cors());
 
-app.use(express.json({
-  limit: '10mb', 
-  verify: (req: any, res, buf) => {
-    if (req.originalUrl.includes('/api/webhooks/shopify')) {
-      req.rawBody = buf; // Asli raw buffer yahan save hoga
-    }
-  }
-}));
+
 
 // Basic Health Check Route
 app.get("/health", (req: Request, res: Response) => {
@@ -56,7 +51,7 @@ app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/flows', flowRoutes);
 app.use('/api/tracking', trackingRoutes);
-
+app.use('/api/webhooks', webhookRoutes);
 
 
 

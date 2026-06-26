@@ -72,7 +72,6 @@ export default function FlowsManager() {
       const newStatus = !flowData?.isActive;
 
       if (!flowData) {
-        // Agar DB me exist nahi karta toh pehle Create karo (with default values)
         await axios.post("http://localhost:5000/api/flows", {
           type: predefinedFlow.type,
           template: predefinedFlow.defaultTemplate,

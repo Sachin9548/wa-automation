@@ -3,22 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import {
-  FaChartLine,
-  FaWhatsapp,
-  FaShoppingCart,
-  FaBullhorn,
-  FaCog,
-  FaSignOutAlt,
-  FaCheckCircle,
-  FaHourglassHalf,
-  FaSpinner,
-  FaEye,
-  FaMousePointer,
-  FaMoneyBillWave,
+import { 
+  FaChartLine, FaWhatsapp, FaShoppingCart, FaSignOutAlt, 
+  FaSpinner, FaEye, FaMousePointer, FaMoneyBillWave, FaClock 
 } from "react-icons/fa";
 
-// 🌟 REUSABLE STAT CARD COMPONENT
+const API_URL = "http://localhost:5000/api";
+
 const StatCard = ({ title, value, icon, subtext, colorClass }: any) => (
   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
     <div className="flex justify-between items-start">
@@ -26,204 +17,86 @@ const StatCard = ({ title, value, icon, subtext, colorClass }: any) => (
         <p className="text-gray-500 text-sm font-medium mb-1">{title}</p>
         <div className={`text-3xl font-bold ${colorClass}`}>{value}</div>
       </div>
-      <div
-        className={`p-3 rounded-lg bg-gray-50 ${colorClass.replace("text-", "text-opacity-20 ")}`}
-      >
-        {icon}
-      </div>
+      <div className={`p-3 rounded-lg bg-gray-50 ${colorClass}`}>{icon}</div>
     </div>
     <p className="text-gray-400 text-xs mt-2">{subtext}</p>
   </div>
 );
 
-export default function DashboardPage() {
+export default function MerchantDashboard() {
   const router = useRouter();
-  const [accountStatus, setAccountStatus] = useState<string>("PENDING_ADMIN");
-  const [merchantData, setMerchantData] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-
   useEffect(() => {
-    const initDashboard = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
-        if (!token) {
-          router.push("/login");
-          return;
-        }
+        if (!token) return router.push("/login");
 
-        // Parallel fetching (15 LPA Skill: Fast loading)
-        const [profileRes, statsRes] = await Promise.all([
-          axios.get(`${API_URL}/api/merchant/me`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${API_URL}/api/merchant/stats`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+        const [profile, stats] = await Promise.all([
+          axios.get(`${API_URL}/merchant/me`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`${API_URL}/merchant/stats`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
 
-        const merchant = profileRes.data.merchant;
-        if (!merchant.whatsappConnected) {
-          router.push("/onboarding");
-          return;
-        }
-
-        setMerchantData(merchant);
-        setAccountStatus(merchant.status);
-        setStats(statsRes.data);
-      } catch (error) {
-        console.error("Dashboard Load Error", error);
-        localStorage.removeItem("token");
+        setData({ ...profile.data.merchant, ...stats.data });
+      } catch (err) {
         router.push("/login");
       } finally {
         setLoading(false);
       }
     };
+    fetchData();
+  }, []);
 
-    initDashboard();
-  }, [router]);
+  if (loading) return <div className="h-screen flex items-center justify-center"><FaSpinner className="animate-spin text-4xl text-teal-700" /></div>;
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    router.push("/login");
-  };
-
-  const getDaysLeft = (expiryDate: any) => {
-    if (!expiryDate) return 0;
-    const diff = new Date(expiryDate).getTime() - new Date().getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    return days > 0 ? days : 0;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <FaSpinner className="text-4xl text-teal-700 animate-spin" />
-      </div>
-    );
-  }
+  const daysLeft = data?.subscriptionExpiry ? Math.ceil((new Date(data.subscriptionExpiry).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden relative">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-gray-200">
-          <FaWhatsapp className="text-3xl text-teal-700 mr-2" />
-          <span className="text-xl font-bold text-gray-800">WA-Auto</span>
-        </div>
-
-        <div className="p-4">
-          <div
-            className={`p-3 rounded-lg text-xs font-bold flex items-center justify-between ${getDaysLeft(merchantData?.subscriptionExpiry) < 5 ? "bg-red-50 text-red-700" : "bg-orange-50 text-orange-700"}`}
-          >
-            <span>⏳ Subscription</span>
-            <span>
-              {getDaysLeft(merchantData?.subscriptionExpiry)} Days Left
-            </span>
-          </div>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto py-2">
-          <ul className="space-y-1">
-            <li className="px-6 py-3 text-teal-700 bg-teal-50 border-r-4 border-teal-700 font-medium flex items-center">
-              <FaChartLine className="mr-3" /> Overview
-            </li>
-            <li className="px-6 py-3 text-gray-600 hover:bg-gray-50 flex items-center cursor-pointer">
-              <FaShoppingCart className="mr-3" /> Abandoned Carts
-            </li>
-            <li className="px-6 py-3 text-gray-600 hover:bg-gray-50 flex items-center cursor-pointer">
-              <FaBullhorn className="mr-3" /> Campaigns
-            </li>
-          </ul>
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar (Read Only) */}
+      <aside className="w-64 bg-white border-r flex flex-col">
+        <div className="p-6 border-b text-2xl font-bold text-teal-700 flex items-center"><FaWhatsapp className="mr-2"/> WA-Auto</div>
+        <nav className="flex-1 p-4 space-y-2">
+          <div className="flex items-center p-3 bg-teal-50 text-teal-700 rounded-lg font-bold"><FaChartLine className="mr-3"/> Overview</div>
+          <div className="p-3 text-gray-400 flex items-center cursor-not-allowed opacity-50"><FaShoppingCart className="mr-3"/> Automations (Admin Managed)</div>
         </nav>
-
-        <div className="p-4 border-t border-gray-200">
-          <button
-            onClick={handleLogout}
-            className="flex items-center text-gray-600 hover:text-red-600 text-sm font-medium w-full"
-          >
-            <FaSignOutAlt className="mr-3 text-lg" /> Logout
-          </button>
+        <div className="p-4 border-t">
+            <div className={`p-3 rounded-lg text-xs font-bold mb-4 ${daysLeft < 5 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                ⏳ {daysLeft > 0 ? `${daysLeft} Days Subscription Left` : 'Subscription Expired'}
+            </div>
+            <button onClick={() => { localStorage.clear(); router.push("/login"); }} className="flex items-center text-red-600 font-bold w-full p-2"><FaSignOutAlt className="mr-2"/> Logout</button>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        {/* Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
-          <h1 className="text-2xl font-bold text-gray-800">
-            Welcome, {merchantData?.brandName}
-          </h1>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-500 font-medium">Wallet:</span>
-            <span className="px-4 py-1 bg-green-100 text-green-800 font-bold rounded-full">
-              ₹{stats?.walletBalance?.toFixed(2)}
-            </span>
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-16 bg-white border-b flex items-center justify-between px-8">
+          <h1 className="text-xl font-bold">Welcome, {data?.brandName}</h1>
+          <div className="flex items-center bg-green-50 px-4 py-2 rounded-full border border-green-200">
+            <span className="text-sm text-green-700 font-bold">Wallet: ₹{data?.walletBalance?.toFixed(2)}</span>
           </div>
         </header>
 
-        {/* Dashboard Content */}
-        <div
-          className={`flex-1 overflow-y-auto p-8 transition-all duration-500 ${accountStatus !== "ACTIVE" ? "blur-md pointer-events-none" : ""}`}
-        >
-          {/* REAL STATS ROW */}
+        <div className={`p-8 overflow-y-auto ${data?.status !== 'ACTIVE' ? 'blur-md pointer-events-none' : ''}`}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <StatCard
-              title="Recovered Revenue"
-              value={`₹${stats?.recoveredRevenue || "0"}`}
-              icon={<FaMoneyBillWave />}
-              subtext="Sales saved from WhatsApp"
-              colorClass="text-green-600"
-            />
-            <StatCard
-              title="Messages Sent"
-              value={stats?.totalSent || "0"}
-              icon={<FaBullhorn />}
-              subtext={`Cost: ₹${(stats?.totalSent * 0.8).toFixed(2)}`}
-              colorClass="text-blue-600"
-            />
-            <StatCard
-              title="Open Rate"
-              value={`${stats?.openRate || "0.0"}%`}
-              icon={<FaEye />}
-              subtext="Messages read by customers"
-              colorClass="text-purple-600"
-            />
-            <StatCard
-              title="Link Clicks"
-              value={stats?.totalClicked || "0"}
-              icon={<FaMousePointer />}
-              subtext={`${stats?.clickRate || "0.0"}% Click-through rate`}
-              colorClass="text-orange-600"
-            />
+            <StatCard title="Recovered Revenue" value={`₹${data?.recoveredRevenue || 0}`} icon={<FaMoneyBillWave />} subtext="Direct sales from WhatsApp" colorClass="text-green-600" />
+            <StatCard title="Total Sent" value={data?.totalSent || 0} icon={<FaWhatsapp />} subtext={`Cost: ₹${((data?.totalSent || 0) * 0.8).toFixed(2)}`} colorClass="text-blue-600" />
+            <StatCard title="Open Rate" value={`${data?.openRate || 0}%`} icon={<FaEye />} subtext="Customers who read" colorClass="text-purple-600" />
+            <StatCard title="Link Clicks" value={data?.totalClicked || 0} icon={<FaMousePointer />} subtext={`${data?.clickRate || 0}% CTR`} colorClass="text-orange-600" />
           </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-96 flex flex-col items-center justify-center text-gray-400">
-            [ Revenue Trend Chart Rendering Area ]
+          
+          <div className="bg-white p-8 rounded-xl border border-dashed border-gray-300 h-64 flex items-center justify-center text-gray-400 font-medium italic">
+            "Your marketing campaigns are being optimized by our team. Live charts will appear here as data grows."
           </div>
         </div>
 
-        {/* MODAL (Waiting for Admin) */}
-        {accountStatus !== "ACTIVE" && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-30 backdrop-blur-sm">
-            <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-8 text-center">
-              <FaCheckCircle className="mx-auto h-16 w-16 text-green-500 mb-6" />
-              <h2 className="text-3xl font-extrabold text-gray-900 mb-4">
-                WhatsApp Linked!
-              </h2>
-              <p className="text-gray-600 mb-8">
-                Hey <b>{merchantData?.brandName}</b>, we are securely
-                integrating your Shopify store and training your AI bot. You'll
-                be live in 1-2 hours!
-              </p>
-              <div className="bg-blue-50 p-4 rounded-lg text-left text-sm text-blue-700 space-y-2">
-                <p>✅ WhatsApp Verification Successful</p>
-                <p className="flex items-center">
-                  <FaSpinner className="animate-spin mr-2" /> Connecting Shopify
-                  Webhooks...
-                </p>
-              </div>
+        {data?.status !== 'ACTIVE' && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10 z-50 backdrop-blur-sm">
+            <div className="bg-white p-10 rounded-2xl shadow-2xl text-center max-w-md">
+              <FaClock className="text-5xl text-orange-500 mx-auto mb-4 animate-pulse" />
+              <h2 className="text-2xl font-bold mb-2">Setting Up Your Store</h2>
+              <p className="text-gray-500">Our engineers are connecting your Shopify store and training your AI. You'll be live within 2 hours!</p>
             </div>
           </div>
         )}

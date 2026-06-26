@@ -8,20 +8,43 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 export const handleAbandonedCartWebhook = async (req: any, res: Response): Promise<any> => {
   const hmac = req.headers['x-shopify-hmac-sha256'] as string;
-  const merchantId = req.params.merchantId;
-  const shopifyData = req.body; // 👈 DEFINED NOW
+  const rawId = req.params.merchantId;
+  const merchantId = rawId ? rawId.trim() : null; // Clean the ID
+
+  console.log("--- 📥 NEW WEBHOOK ATTEMPT ---");
+  console.log("Step 1: ID from URL ->", merchantId);
 
   try {
-    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
-    
-    // Security Check
-    if (!merchant || !merchant.shopifySecret) return res.status(401).send("Unauthorized");
+    // 🔍 FIX: findFirst use karein safety ke liye
+    const merchant = await prisma.merchant.findFirst({
+      where: { id: merchantId as string }
+    });
 
-    // 🛡️ Verification (Using req.rawBody)
+    if (!merchant) {
+      console.log("❌ Step 2: Merchant NOT FOUND in DB. Looking for ID:", merchantId);
+      return res.status(404).send("Merchant not found");
+    }
+
+    console.log("✅ Step 2: Merchant Found ->", merchant.brandName);
+
+    if (!merchant.shopifySecret) {
+      console.log("❌ Step 3: shopifySecret is MISSING in DB for this merchant!");
+      return res.status(401).send("Configuration incomplete: Secret missing");
+    }
+
+    // 🛡️ Step 3: Verify HMAC
     const isValid = verifyShopifyWebhook(req.rawBody, hmac, merchant.shopifySecret);
-    if (!isValid) return res.status(401).send("Signature Mismatch");
+    
+    if (!isValid) {
+      console.error(`🚨 Step 4: SECURITY ALERT - HMAC MISMATCH for ${merchant.brandName}`);
+      return res.status(401).send("Forbidden: Invalid Signature");
+    }
 
-    // 1. Duplicate Prevention (Checkout ID unique hona chahiye)
+    console.log("✅ Step 4: Verification SUCCESS!");
+
+    const shopifyData = req.body;
+
+    // 1. Duplicate Prevention
     const exists = await prisma.abandonedCart.findUnique({
       where: { shopifyCartId: shopifyData.id.toString() }
     });
@@ -30,18 +53,21 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
     // 2. Fetch Active Flows
     const activeFlows = await prisma.automationFlow.findMany({
       where: {
-        merchantId: merchantId,
+        merchantId: merchant.id,
         isActive: true,
         type: { startsWith: 'ABANDONED_CART' }
       }
     });
 
-    if (activeFlows.length === 0) return res.status(200).send("No Active Flows");
+    if (activeFlows.length === 0) {
+      console.log("ℹ️ No active flows for this merchant.");
+      return res.status(200).send("No Active Flows");
+    }
 
     // 3. Save to Database
     const newCart = await prisma.abandonedCart.create({
       data: {
-        merchantId,
+        merchantId: merchant.id,
         shopifyCartId: shopifyData.id.toString(),
         customerPhone: shopifyData.phone || shopifyData.customer?.phone || "NO_PHONE",
         customerName: shopifyData.customer?.first_name || "Customer",
@@ -52,14 +78,14 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
 
     // 4. Queue with Delay
     for (const flow of activeFlows) {
-      const trackingUrl = `${BACKEND_URL}/api/tracking/go?m_id=${merchantId}&type=ABANDONED_CART&url=${encodeURIComponent(newCart.cartUrl)}`;
+      const trackingUrl = `${BACKEND_URL}/api/tracking/go?m_id=${merchant.id}&type=ABANDONED_CART&url=${encodeURIComponent(newCart.cartUrl)}`;
       const customizedMessage = flow.template
         .replace('{{name}}', newCart.customerName)
         .replace('{{link}}', trackingUrl);
 
       await messageQueue.add('send-automated-msg', {
         cartId: newCart.id,
-        merchantId: merchantId,
+        merchantId: merchant.id,
         phone: newCart.customerPhone,
         message: customizedMessage
       }, {
@@ -67,9 +93,11 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
       });
     }
 
+    console.log(`🚀 Success: Job queued for ${newCart.customerName}`);
     res.status(200).send("Webhook Processed");
+
   } catch (error) {
-    console.error("Webhook Error:", error);
+    console.error("💥 Webhook Internal Error:", error);
     res.status(500).send("Internal Error");
   }
 };

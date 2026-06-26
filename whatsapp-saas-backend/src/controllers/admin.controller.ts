@@ -7,33 +7,33 @@ import { messageQueue } from '../lib/queue';
 // 1. Merchant ko Activate karna (Token verify + 30 Days Expiry set karna)
 export const activateMerchant = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { merchantId, category, shopifyToken, storeUrl } = req.body;
+    // 🚨 FIX: shopifySecret ko bhi body se nikaalein
+    const { merchantId, category, shopifyToken, storeUrl, shopifySecret } = req.body;
 
-    // Shopify Token Verification
+    // 1. Shopify Verification
     const isValid = await verifyShopifyToken(storeUrl, shopifyToken);
     if (!isValid) {
-      return res.status(400).json({ message: "❌ Invalid Shopify Token or Store URL. Please check again." });
+      return res.status(400).json({ message: "❌ Invalid Shopify Token or Store URL." });
     }
 
-    // ⏳ Calculate Expiry (30 Days from now)
+    // 2. Expiry Calculation
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 30);
 
+    // 3. Database Update
     const updatedMerchant = await prisma.merchant.update({
       where: { id: merchantId },
       data: {
         status: 'ACTIVE',
         category: category || 'ECOMMERCE',
         shopifyToken: shopifyToken,
+        shopifySecret: shopifySecret, 
         storeUrl: storeUrl,
-        subscriptionExpiry: expiryDate, // 👈 THE FIX: Expiry date save karni zaroori hai!
+        subscriptionExpiry: expiryDate,
       }
     });
 
-    res.status(200).json({
-      message: `✅ ${updatedMerchant.brandName} is now LIVE for 30 days!`,
-      expiry: expiryDate
-    });
+    res.status(200).json({ message: "✅ Activated!", brand: updatedMerchant.brandName });
   } catch (error) {
     console.error('Activation Error:', error);
     res.status(500).json({ message: 'Error activating merchant' });

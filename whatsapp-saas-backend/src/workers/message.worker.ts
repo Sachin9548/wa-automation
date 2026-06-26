@@ -22,15 +22,23 @@ export const initMessageWorker = () => {
 
       try {
         const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
-        if (!cart || cart.status !== 'PENDING') return;
+        if (!cart) return;
 
+        if (cart.status === 'RECOVERED') {
+          console.log(`🚫 Skipping Job: Customer already purchased for Cart ${cartId}`);
+          return;
+        }
+
+        if (cart.status !== 'PENDING') {
+          return;
+        }
         // Eligibility Check (Subscription + Balance)
         const eligibility = await checkMerchantEligibility(merchantId);
         if (!eligibility.eligible) {
           console.log(`❌ Message blocked for ${merchantId}. Reason: ${eligibility.reason}`);
           return;
         }
-         // Production mein 'http://localhost:5000' ki jagah aapka live domain aayega
+        // Production mein 'http://localhost:5000' ki jagah aapka live domain aayega
         const trackingUrl = `http://localhost:5000/api/tracking/go?m_id=${merchantId}&type=ABANDONED_CART&url=${encodeURIComponent(cart.cartUrl)}`;
 
         // 2. Custom Message mein Asli Link ki jagah Tracking Link dalein
@@ -88,8 +96,8 @@ export const initMessageWorker = () => {
         // Eligibility Check
         const eligibility = await checkMerchantEligibility(merchantId);
         if (!eligibility.eligible) {
-           console.log(`❌ Message blocked for ${merchantId}. Reason: ${eligibility.reason}`);
-           return;
+          console.log(`❌ Message blocked for ${merchantId}. Reason: ${eligibility.reason}`);
+          return;
         }
 
         // Send Message via Baileys
@@ -100,9 +108,9 @@ export const initMessageWorker = () => {
           await prisma.$transaction([
             prisma.merchant.update({
               where: { id: merchantId },
-              data: { 
+              data: {
                 walletBalance: { decrement: 0.80 },
-                totalSent: { increment: 1 } 
+                totalSent: { increment: 1 }
               }
             }),
             prisma.campaign.update({
@@ -121,18 +129,23 @@ export const initMessageWorker = () => {
           ]);
           console.log(`✅ Campaign Message Sent to ${phone}`);
         }
-        
+
         // The Life-Saver Delay (15 seconds)
         await new Promise(resolve => setTimeout(resolve, 15000));
 
       } catch (error) {
-         console.error(`💥 Campaign Worker Error for Job ${job.id}:`, error);
+        console.error(`💥 Campaign Worker Error for Job ${job.id}:`, error);
       }
     }
-    
-  }, { connection: redis, concurrency: 1 });
 
-  // Job fail hone par terminal me batane ke liye
+  }, {
+    connection: {
+      url: process.env.REDIS_URL,
+      maxRetriesPerRequest: null
+    },
+    concurrency: 1
+  });
+
   worker.on('failed', (job, err) => {
     console.error(`🚨 Job ${job?.id} has failed with error: ${err.message}`);
   });

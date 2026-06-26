@@ -34,8 +34,7 @@ model Merchant {
   // Admin Controls
   shopifyToken      String?
   subscriptionExpiry DateTime? 
-  shopifySecret     String?
-  
+shopifySecret String?  
   // Wallet & Plan
   plan              String   @default("STARTER")
   walletBalance     Float    @default(200.00)

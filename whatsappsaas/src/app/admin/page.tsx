@@ -2,316 +2,320 @@
 
 import { useState, useEffect } from "react";
 import axios from "axios";
+import Link from "next/link";
 import {
-  FaCheckCircle,
-  FaLock,
-  FaUserSecret,
-  FaWhatsapp,
-  FaStore,
-  FaSpinner,
-  FaWallet,
-  FaChartBar,
-  FaPlusCircle,
-  FaUsers,
-  FaCalendarAlt,
+  FaUserSecret, FaWallet, FaChartPie, FaUsers, FaSearch,
+  FaSignOutAlt, FaExternalLinkAlt, FaCheckCircle, FaExclamationTriangle,
+  FaRupeeSign, FaStore, FaBell, FaShieldAlt, FaChartLine
 } from "react-icons/fa";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "http://localhost:5000/api/admin";
 
-export default function AdminPanel() {
-  const [adminKeyInput, setAdminKeyInput] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+const NAV_ITEMS = [
+  { icon: <FaChartPie />, label: "Dashboard", active: true },
+  { icon: <FaUsers />, label: "Merchants", active: false },
+  { icon: <FaChartLine />, label: "Analytics", active: false },
+  { icon: <FaShieldAlt />, label: "Security", active: false },
+];
+
+export default function AdminConsole() {
   const [merchants, setMerchants] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [adminKey, setAdminKey] = useState("");
+  const [isAuth, setIsAuth] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeNav, setActiveNav] = useState("Dashboard");
 
-  // Modal States
-  const [selectedMerchant, setSelectedMerchant] = useState<any>(null);
-  const [modalType, setModalType] = useState<"ACTIVATE" | "WALLET" | null>(
-    null,
-  );
-
-  // Form States
-  const [amount, setAmount] = useState("");
-  const [shopifyToken, setShopifyToken] = useState("");
-  const [category, setCategory] = useState("ECOMMERCE");
-  const [processing, setProcessing] = useState(false);
-
-  useEffect(() => {
-    const savedKey = sessionStorage.getItem("adminKey");
-    if (savedKey) {
-      verifyAndFetch(savedKey);
-    }
-  }, []);
-
-  const verifyAndFetch = async (key: string) => {
-    setLoading(true);
+  const fetchAll = async (key: string) => {
     try {
       const headers = { "x-admin-api-key": key };
       const [mRes, sRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/admin/merchants`, { headers }),
-        axios.get(`${API_BASE_URL}/admin/stats`, { headers }),
+        axios.get(`${API_BASE_URL}/merchants`, { headers }),
+        axios.get(`${API_BASE_URL}/stats`, { headers }),
       ]);
       setMerchants(mRes.data.merchants);
       setStats(sRes.data);
-      setIsAuthenticated(true);
+      setIsAuth(true);
       sessionStorage.setItem("adminKey", key);
-    } catch (err) {
-      alert("Invalid Admin Key!");
-      sessionStorage.removeItem("adminKey");
-    } finally {
-      setLoading(false);
+    } catch {
+      alert("Access Denied: Invalid Key");
     }
   };
 
-  const handleAction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setProcessing(true);
-    const key = sessionStorage.getItem("adminKey");
-    const headers = { "x-admin-api-key": key };
+  useEffect(() => {
+    const saved = sessionStorage.getItem("adminKey");
+    if (saved) fetchAll(saved);
+  }, []);
 
-    try {
-      if (modalType === "ACTIVATE") {
-        await axios.post(
-          `${API_BASE_URL}/admin/activate`,
-          {
-            merchantId: selectedMerchant.id,
-            category,
-            shopifyToken,
-            storeUrl: selectedMerchant.storeUrl,
-          },
-          { headers },
-        );
-      } else {
-        await axios.post(
-          `${API_BASE_URL}/admin/add-credits`,
-          {
-            merchantId: selectedMerchant.id,
-            amount,
-          },
-          { headers },
-        );
-      }
+  // ── Login Screen ────────────────────────────────────────────────
+  if (!isAuth) return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 relative overflow-hidden">
+      {/* Background decorations */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
-      alert("Success!");
-      closeModal();
-      verifyAndFetch(key || "");
-    } catch (err) {
-      alert("Action failed!");
-    } finally {
-      setProcessing(false);
-    }
-  };
+      <div className="relative z-10 bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-3xl shadow-2xl w-full max-w-sm">
+        {/* Icon */}
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-teal-500/30">
+          <FaUserSecret className="text-4xl text-white" />
+        </div>
 
-  const closeModal = () => {
-    setSelectedMerchant(null);
-    setModalType(null);
-    setAmount("");
-    setShopifyToken("");
-  };
+        <h1 className="text-3xl font-extrabold text-white text-center mb-1">Admin Portal</h1>
+        <p className="text-slate-400 text-sm text-center mb-8">Enter your master key to access the control panel</p>
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            verifyAndFetch(adminKeyInput);
-          }}
-          className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center"
-        >
-          <FaUserSecret className="text-5xl text-red-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-6">Admin Login</h1>
-          <input
-            type="password"
-            value={adminKeyInput}
-            onChange={(e) => setAdminKeyInput(e.target.value)}
-            className="w-full p-3 border rounded-lg mb-4"
-            placeholder="Enter Admin Secret Key"
-          />
-          <button className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700">
-            Access Dashboard
+        <div className="space-y-4">
+          <div className="relative">
+            <FaShieldAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+            <input
+              type="password"
+              placeholder="Master API Key"
+              className="w-full pl-11 pr-4 py-4 bg-white/10 border border-white/10 text-white placeholder-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 transition"
+              onChange={(e) => setAdminKey(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && fetchAll(adminKey)}
+            />
+          </div>
+          <button
+            onClick={() => fetchAll(adminKey)}
+            className="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white py-4 rounded-xl font-bold hover:from-teal-400 hover:to-teal-500 transition shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2"
+          >
+            <FaShieldAlt /> Unlock Console
           </button>
-        </form>
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
 
+  const filtered = merchants.filter((m) =>
+    m.brandName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const activeCount = merchants.filter((m) => m.status === "ACTIVE").length;
+  const pendingCount = merchants.filter((m) => m.status !== "ACTIVE").length;
+
+  // ── Main Dashboard ───────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* REVENUE STATS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
-            <div className="flex items-center text-gray-500 text-sm mb-2">
-              <FaChartBar className="mr-2" /> Total Earnings
-            </div>
-            <div className="text-3xl font-bold text-gray-800">
-              ₹{stats?.totalEarnings?.toLocaleString()}
-            </div>
+    <div className="min-h-screen bg-slate-950 flex">
+
+      {/* ── Sidebar ── */}
+      <aside className="w-72 bg-slate-900 border-r border-white/5 flex flex-col py-8 px-5 shrink-0">
+        {/* Brand */}
+        <div className="flex items-center gap-3 mb-10 px-2">
+          <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
+            <FaShieldAlt className="text-white text-lg" />
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
-            <div className="flex items-center text-gray-500 text-sm mb-2">
-              <FaUsers className="mr-2" /> Active Clients
-            </div>
-            <div className="text-3xl font-bold text-gray-800">
-              {stats?.totalActiveClients}
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-purple-500">
-            <div className="flex items-center text-gray-500 text-sm mb-2">
-              <FaStore className="mr-2" /> Total Registered
-            </div>
-            <div className="text-3xl font-bold text-gray-800">
-              {stats?.totalRegistered}
-            </div>
+          <div>
+            <p className="text-white font-extrabold text-base leading-tight">WA-SaaS</p>
+            <p className="text-teal-400 text-xs font-medium">Admin Console</p>
           </div>
         </div>
 
-        {/* MERCHANT TABLE */}
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="p-4 font-bold text-gray-600">Merchant</th>
-                <th className="p-4 font-bold text-gray-600">Wallet</th>
-                <th className="p-4 font-bold text-gray-600">Category</th>
-                <th className="p-4 font-bold text-gray-600">Status</th>
-                <th className="p-4 font-bold text-gray-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {merchants.map((m) => (
-                <tr key={m.id} className="border-b hover:bg-gray-50">
-                  <td className="p-4">
-                    <div className="font-bold">{m.brandName}</div>
-                    <div className="text-xs text-gray-400">{m.email}</div>
-                  </td>
-                  <td className="p-4">
-                    <div
-                      className={`font-bold ${m.walletBalance < 50 ? "text-red-500" : "text-green-600"}`}
-                    >
-                      ₹{m.walletBalance.toFixed(2)}
-                    </div>
-                    <div className="text-[10px] text-gray-400">
-                      Total Paid: ₹{m.totalPaidAmount}
-                    </div>
-                  </td>
-                  <td className="p-4 text-sm uppercase">{m.category}</td>
-                  <td className="p-4">
-                    <span
-                      className={`px-2 py-1 rounded text-[10px] font-bold ${m.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}
-                    >
-                      {m.status}
-                    </span>
-                  </td>
-                  <td className="p-4 flex space-x-2">
-                    <button
-                      onClick={() => {
-                        setSelectedMerchant(m);
-                        setModalType("WALLET");
-                      }}
-                      className="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
-                      title="Add Credits"
-                    >
-                      <FaWallet />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedMerchant(m);
-                        setModalType("SUBSCRIPTION");
-                      }}
-                      className="p-2 bg-orange-100 text-orange-600 rounded"
-                    >
-                      <FaCalendarAlt />
-                    </button>
-                    {m.status !== "ACTIVE" && (
-                      <button
-                        onClick={() => {
-                          setSelectedMerchant(m);
-                          setModalType("ACTIVATE");
-                        }}
-                        className="p-2 bg-green-50 text-green-600 rounded hover:bg-green-100"
-                        title="Activate"
-                      >
-                        <FaCheckCircle />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => setActiveNav(item.label)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition ${
+                activeNav === item.label
+                  ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+              }`}
+            >
+              <span className="text-base">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Bottom */}
+        <div className="space-y-3">
+          <div className="bg-teal-500/10 border border-teal-500/20 rounded-2xl p-4">
+            <p className="text-teal-300 text-xs font-bold uppercase tracking-wider mb-1">Active Clients</p>
+            <p className="text-3xl font-extrabold text-white">{activeCount}</p>
+            <p className="text-slate-400 text-xs mt-1">of {merchants.length} total</p>
+          </div>
+          <button
+            onClick={() => { sessionStorage.clear(); location.reload(); }}
+            className="w-full flex items-center gap-2 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition text-sm font-bold"
+          >
+            <FaSignOutAlt /> Logout
+          </button>
         </div>
-      </div>
+      </aside>
 
-      {/* MODAL SYSTEM */}
-      {selectedMerchant && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-            <h2 className="text-2xl font-bold mb-2">
-              {modalType === "ACTIVATE" ? "Activate Merchant" : "Add Credits"}
-            </h2>
-            <p className="text-gray-500 text-sm mb-6">
-              Managing:{" "}
-              <span className="font-bold">{selectedMerchant.brandName}</span>
-            </p>
+      {/* ── Main Area ── */}
+      <main className="flex-1 flex flex-col overflow-hidden">
 
-            <form onSubmit={handleAction} className="space-y-4">
-              {modalType === "ACTIVATE" ? (
-                <>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full p-3 border rounded-lg"
-                  >
-                    <option value="ECOMMERCE">E-Commerce</option>
-                    <option value="RESTAURANT">Restaurant</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Shopify Admin Token (shpat_...)"
-                    value={shopifyToken}
-                    onChange={(e) => setShopifyToken(e.target.value)}
-                    className="w-full p-3 border rounded-lg"
-                    required
-                  />
-                </>
-              ) : (
-                <div className="relative">
-                  <span className="absolute left-3 top-3 text-gray-400 font-bold">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    placeholder="Enter Amount"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full p-3 pl-8 border rounded-lg"
-                    required
+        {/* Top Header */}
+        <header className="h-16 bg-slate-900/80 backdrop-blur border-b border-white/5 flex items-center justify-between px-8 shrink-0">
+          <div>
+            <h1 className="text-xl font-extrabold text-white">Master Control</h1>
+            <p className="text-slate-400 text-xs">Monitoring {merchants.length} businesses in real-time</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
+              <input
+                type="text"
+                placeholder="Search merchant..."
+                className="pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-xl text-sm w-56 outline-none focus:ring-2 focus:ring-teal-500 transition"
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button className="relative w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-slate-400 transition">
+              <FaBell className="text-sm" />
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-8">
+
+          {/* ── Stat Cards ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Revenue */}
+            <div className="bg-gradient-to-br from-teal-600 to-teal-800 rounded-2xl p-6 shadow-xl shadow-teal-900/40 relative overflow-hidden">
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full" />
+              <div className="absolute -right-2 bottom-2 w-16 h-16 bg-white/5 rounded-full" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-teal-100 text-xs font-bold uppercase tracking-wider">Total Revenue</p>
+                  <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+                    <FaRupeeSign className="text-white text-sm" />
+                  </div>
+                </div>
+                <p className="text-4xl font-extrabold text-white mb-2">
+                  ₹{stats?.totalEarnings?.toLocaleString() ?? "—"}
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">+12%</span>
+                  <span className="text-teal-200 text-xs">from last month</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Subscriptions */}
+            <div className="bg-slate-800 border border-white/5 rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Active Subs</p>
+                <div className="w-9 h-9 bg-green-500/20 rounded-xl flex items-center justify-center">
+                  <FaCheckCircle className="text-green-400 text-sm" />
+                </div>
+              </div>
+              <p className="text-4xl font-extrabold text-white mb-2">{stats?.totalActiveClients ?? "—"}</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-slate-700 rounded-full h-1.5">
+                  <div
+                    className="bg-green-400 h-1.5 rounded-full"
+                    style={{ width: `${merchants.length > 0 ? (activeCount / merchants.length) * 100 : 0}%` }}
                   />
                 </div>
-              )}
-
-              <div className="flex space-x-3 mt-8">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex-1 py-3 border rounded-lg font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  disabled={processing}
-                  className="flex-1 py-3 bg-teal-700 text-white rounded-lg font-bold disabled:opacity-50"
-                >
-                  {processing ? "Processing..." : "Confirm Action"}
-                </button>
+                <span className="text-slate-400 text-xs">
+                  {merchants.length > 0 ? Math.round((activeCount / merchants.length) * 100) : 0}% retention
+                </span>
               </div>
-            </form>
+            </div>
+
+            {/* Total Registered */}
+            <div className="bg-slate-800 border border-white/5 rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Registered</p>
+                <div className="w-9 h-9 bg-indigo-500/20 rounded-xl flex items-center justify-center">
+                  <FaStore className="text-indigo-400 text-sm" />
+                </div>
+              </div>
+              <p className="text-4xl font-extrabold text-white mb-2">{merchants.length}</p>
+              <p className="text-slate-400 text-xs">
+                <span className="text-amber-400 font-bold">{pendingCount} pending</span> activation
+              </p>
+            </div>
           </div>
+
+          {/* ── Merchants Table ── */}
+          <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+              <h2 className="text-white font-bold text-base">All Merchants</h2>
+              <span className="bg-teal-500/20 text-teal-300 text-xs font-bold px-3 py-1 rounded-full border border-teal-500/20">
+                {filtered.length} records
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Merchant</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Wallet / Plan</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Expiry</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {filtered.map((m) => (
+                    <tr key={m.id} className="hover:bg-white/3 transition group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500/30 to-indigo-500/30 flex items-center justify-center border border-white/10 shrink-0">
+                            <FaStore className="text-teal-300 text-xs" />
+                          </div>
+                          <div>
+                            <p className="text-white font-bold text-sm">{m.brandName}</p>
+                            <p className="text-slate-500 text-xs truncate max-w-[180px]">{m.storeUrl || "—"}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-teal-400 font-extrabold">₹{m.walletBalance?.toFixed(2)}</p>
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">{m.plan} plan</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-slate-300 text-sm font-semibold">
+                          {m.subscriptionExpiry ? new Date(m.subscriptionExpiry).toLocaleDateString("en-IN") : "N/A"}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4">
+                        {m.status === "ACTIVE" ? (
+                          <span className="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                            <FaExclamationTriangle className="text-[8px]" />
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <Link
+                          href={`/admin/merchants/${m.id}`}
+                          className="inline-flex items-center gap-2 bg-teal-500/10 hover:bg-teal-500 border border-teal-500/30 hover:border-teal-500 text-teal-300 hover:text-white text-[11px] font-extrabold px-4 py-2 rounded-xl transition duration-200 uppercase tracking-wider"
+                        >
+                          <FaExternalLinkAlt className="text-[9px]" /> Manage
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-16 text-center">
+                        <FaUsers className="text-slate-600 text-4xl mx-auto mb-3" />
+                        <p className="text-slate-500 font-medium">No merchants found</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
-      )}
+      </main>
     </div>
   );
 }

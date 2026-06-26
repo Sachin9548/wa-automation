@@ -1,7 +1,15 @@
 import { Queue } from 'bullmq';
-import redis from './redis';
 
-// 'message-sending' naam ki ek line (queue) bana rahe hain
-export const messageQueue = new Queue('message-sending', { 
-  connection: redis 
+export const messageQueue = new Queue('message-sending', {
+  connection: {
+    url: process.env.REDIS_URL,
+    maxRetriesPerRequest: null,
+  },
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 10000,
+    },
+  },
 });
