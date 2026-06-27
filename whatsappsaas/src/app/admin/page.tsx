@@ -1,4 +1,5 @@
 "use client";
+import { API_URL } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import axios from "axios";
@@ -9,7 +10,7 @@ import {
   FaRupeeSign, FaStore, FaBell, FaShieldAlt, FaChartLine
 } from "react-icons/fa";
 
-const API_BASE_URL = "http://localhost:5000/api/admin";
+
 
 const NAV_ITEMS = [
   { icon: <FaChartPie />, label: "Dashboard", active: true },

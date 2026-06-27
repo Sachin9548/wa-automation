@@ -91,7 +91,8 @@ export const getMerchantStats = async (req: AuthRequest, res: Response): Promise
         walletBalance: true,
         subscriptionExpiry: true,
         brandName: true,
-        status: true
+        status: true,
+        plan: true
       }
     });
 

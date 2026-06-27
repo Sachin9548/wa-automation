@@ -173,13 +173,19 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
     });
 
     // 3. Queue mein saare messages daal dein (BullMQ 15-15 sec ke gap me khud bhejega)
+    const rawStoreUrl = merchant.storeUrl || '';
+    const realStoreUrl = rawStoreUrl.startsWith('http')
+      ? rawStoreUrl
+      : rawStoreUrl ? `https://${rawStoreUrl}` : 'https://your-store.myshopify.com';
+
     for (const customer of customers) {
-      // Template mein naam replace karo
-      const realStoreUrl = `https://${merchant.storeUrl}`;
-      const trackingUrl = `http://localhost:5000/api/tracking/go?m_id=${merchant.id}&type=CAMPAIGN&url=${encodeURIComponent(realStoreUrl)}`;
+      // Replace all template variables including {{discount_code}}
+      // Admin writes the actual discount code directly in the template text
+      // e.g. "Use code DIWALI20" — or use {{discount_code}} as placeholder if needed
       const customizedMessage = template
-        .replace('{{name}}', customer.name || 'there')
-        .replace('{{link}}', trackingUrl); // 👈 Link variable replace ho gaya!
+        .replace(/{{name}}/g, customer.name || 'there')
+        .replace(/{{link}}/g, realStoreUrl)
+        .replace(/{{discount_code}}/g, ''); // Admin writes actual code in template; this clears unfilled placeholder
 
       await messageQueue.add('send-campaign-msg', {
         campaignId: campaign.id,
@@ -197,5 +203,132 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
   } catch (error) {
     console.error('Campaign Launch Error:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// 6. Get single merchant detail (for merchant hub page)
+export const getMerchantDetail = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: merchantId },
+      select: {
+        id: true, brandName: true, email: true, phone: true,
+        status: true, plan: true, walletBalance: true,
+        whatsappConnected: true, storeUrl: true,
+        subscriptionExpiry: true, category: true,
+        totalSent: true, totalRead: true, totalClicked: true,
+        totalConverted: true, recoveredRevenue: true, createdAt: true,
+        _count: { select: { customers: true, campaigns: true, abandonedCarts: true } }
+      }
+    });
+    if (!merchant) return res.status(404).json({ message: 'Merchant not found' });
+    res.status(200).json({ merchant });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching merchant detail' });
+  }
+};
+
+// 7. Get campaigns for a merchant
+export const getMerchantCampaigns = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const campaigns = await prisma.campaign.findMany({
+      where: { merchantId },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+    res.status(200).json({ campaigns });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching campaigns' });
+  }
+};
+
+// 8. Sync Shopify customers (admin triggered)
+export const syncMerchantCustomers = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId } = req.body;
+    const { syncAllShopifyCustomers } = await import('../services/shopify/customer.service');
+    const count = await syncAllShopifyCustomers(merchantId);
+    res.status(200).json({ message: `✅ Synced ${count} customers!`, total: count });
+  } catch (error: any) {
+    console.error('Sync Error:', error);
+    res.status(500).json({ message: error.message || 'Sync failed' });
+  }
+};
+
+// 9. Admin: Get flows for a specific merchant
+export const getMerchantFlows = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const flows = await prisma.automationFlow.findMany({
+      where: { merchantId },
+      orderBy: { delayMinutes: 'asc' }
+    });
+    res.status(200).json({ flows });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching flows' });
+  }
+};
+
+// 10. Admin: Save/update a flow for a merchant
+export const saveMerchantFlow = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId, type, delayMinutes, template, isActive } = req.body;
+    if (!merchantId || !type || !template || delayMinutes === undefined) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    const flow = await prisma.automationFlow.upsert({
+      where: { merchantId_type: { merchantId, type } },
+      update: { delayMinutes: parseInt(delayMinutes), template, isActive },
+      create: { merchantId, type, delayMinutes: parseInt(delayMinutes), template, isActive }
+    });
+    res.status(200).json({ message: 'Flow saved!', flow });
+  } catch (error) {
+    console.error('Save Flow Error:', error);
+    res.status(500).json({ message: 'Error saving flow' });
+  }
+};
+
+// 11. Admin: Toggle a flow on/off for a merchant
+export const toggleMerchantFlow = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId, type, isActive } = req.body;
+    const result = await prisma.automationFlow.updateMany({
+      where: { merchantId, type },
+      data: { isActive }
+    });
+    if (result.count === 0) return res.status(404).json({ message: 'Flow not found' });
+    res.status(200).json({ message: `Flow ${isActive ? 'enabled' : 'disabled'}!` });
+  } catch (error) {
+    res.status(500).json({ message: 'Error toggling flow' });
+  }
+};
+
+// 12. Admin: Get customers list for a merchant (with pagination)
+export const getMerchantCustomers = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const search = (req.query.search as string) || '';
+    const skip = (page - 1) * limit;
+
+    const where: any = { merchantId };
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } }
+      ];
+    }
+
+    const [customers, total] = await Promise.all([
+      prisma.customer.findMany({ where, skip, take: limit, orderBy: { lastOrderDate: 'desc' } }),
+      prisma.customer.count({ where })
+    ]);
+
+    res.status(200).json({ customers, total, page, pages: Math.ceil(total / limit) });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching customers' });
   }
 };

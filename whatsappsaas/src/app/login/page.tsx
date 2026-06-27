@@ -1,4 +1,5 @@
 "use client";
+import { API_URL } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,10 +39,7 @@ export default function LoginPage() {
     }
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/login",
-        result.data,
-      );
+      const response = await axios.post(`${API_URL}/auth/login`, result.data);
 
       localStorage.setItem("token", response.data.token);
 

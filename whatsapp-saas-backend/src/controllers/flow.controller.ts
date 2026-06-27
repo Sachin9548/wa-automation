@@ -54,7 +54,17 @@ export const saveFlow = async (req: AuthRequest, res: Response): Promise<any> =>
   }
 };
 
-// 3. Flow ko ON/OFF karna (Master Toggle)
+// Also update the admin campaign default template
+export const CAMPAIGN_DEFAULT_TEMPLATE = `🎉 *Hey {{name}}!*
+
+We have something special just for you. ✨
+
+Our latest collection is live and we'd love for you to check it out!
+
+🛍️ *Shop now:*
+{{link}}
+
+_Reply STOP to unsubscribe._ 🙏`;
 export const toggleFlow = async (req: AuthRequest, res: Response): Promise<any> => {
   try {
     // 🚨 FIX 1: Ensure flowId is strictly a string

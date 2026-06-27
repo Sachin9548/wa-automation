@@ -8,7 +8,8 @@ const router = Router();
 router.use(protect);
 
 router.get('/', getFlows);
-router.post('/save', saveFlow);
+router.post('/', saveFlow);       // Frontend POST /api/flows
+router.post('/save', saveFlow);   // Legacy alias POST /api/flows/save
 router.put('/:flowId/toggle', toggleFlow);
 
 export default router;

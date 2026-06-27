@@ -38,12 +38,9 @@ export const initMessageWorker = () => {
           console.log(`❌ Message blocked for ${merchantId}. Reason: ${eligibility.reason}`);
           return;
         }
-        // Production mein 'http://localhost:5000' ki jagah aapka live domain aayega
-        const trackingUrl = `http://localhost:5000/api/tracking/go?m_id=${merchantId}&type=ABANDONED_CART&url=${encodeURIComponent(cart.cartUrl)}`;
-
-        // 2. Custom Message mein Asli Link ki jagah Tracking Link dalein
-        // Hum flow template use kar rahe the, toh agar message me link hai usko replace karo
-        const finalMessage = message.replace(cart.cartUrl, trackingUrl);
+        // Message is already fully built (with tracking URL) from the webhook handler.
+        // No further replacement needed here — use it directly.
+        const finalMessage = message;
 
         // Send Message via Baileys
         const success = await sendMessage(merchantId, phone, finalMessage);
@@ -73,6 +70,10 @@ export const initMessageWorker = () => {
             })
           ]);
           console.log(`✅ Message Sent & Money Deducted for Cart ${cartId}`);
+        } else {
+          // Session offline or send failed — throw so BullMQ retries the job
+          console.log(`⚠️ Send failed for Cart ${cartId} (session offline?) — job will retry`);
+          throw new Error(`sendMessage returned false for cart ${cartId}. Will retry.`);
         }
 
         // Rate Limiting (15 Seconds Gap to protect WhatsApp ban)
@@ -128,6 +129,20 @@ export const initMessageWorker = () => {
             })
           ]);
           console.log(`✅ Campaign Message Sent to ${phone}`);
+
+          // Check if this was the last message → mark campaign COMPLETED
+          // sentCount was already incremented by the transaction above, so read fresh value
+          const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
+          if (campaign && campaign.sentCount >= campaign.totalRecipients) {
+            await prisma.campaign.update({
+              where: { id: campaignId },
+              data: { status: 'COMPLETED' }
+            });
+            console.log(`🏁 Campaign ${campaignId} COMPLETED (${campaign.sentCount}/${campaign.totalRecipients})`);
+          }
+        } else {
+          console.log(`⚠️ Campaign send failed to ${phone} — job will retry`);
+          throw new Error(`sendMessage returned false for campaign ${campaignId}. Will retry.`);
         }
 
         // The Life-Saver Delay (15 seconds)

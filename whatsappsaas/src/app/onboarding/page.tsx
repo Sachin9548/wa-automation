@@ -1,4 +1,5 @@
 "use client";
+import { API_URL } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -34,12 +35,7 @@ export default function OnboardingPage() {
         if (!token) return router.push("/login");
 
         if (step === 1) {
-          const profileRes = await axios.get(
-            "http://localhost:5000/api/merchant/me",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
+          const profileRes = await axios.get(`${API_URL}/merchant/me`, { headers: { Authorization: `Bearer ${token}` } });
           const merchant = profileRes.data.merchant;
           if (merchant.whatsappConnected === true) {
             router.push("/dashboard");
@@ -49,12 +45,7 @@ export default function OnboardingPage() {
         }
 
         if (step === 2) {
-          const res = await axios.get(
-            "http://localhost:5000/api/whatsapp/status",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
+          const res = await axios.get(`${API_URL}/whatsapp/status`, { headers: { Authorization: `Bearer ${token}` } });
 
           if (res.data.status === "QR_READY") {
             // 🌟 FIX 2: Set the QR Code Image URL into state
@@ -83,11 +74,7 @@ export default function OnboardingPage() {
 
     try {
       const token = localStorage.getItem("token");
-      await axios.put(
-        "http://localhost:5000/api/merchant/onboarding",
-        { storeUrl, whatsappNumber },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      await axios.put(`${API_URL}/merchant/onboarding`, { storeUrl, whatsappNumber }, { headers: { Authorization: `Bearer ${token}` } });
       setStep(2);
     } catch (error) {
       alert("Failed to save details. Please try again.");

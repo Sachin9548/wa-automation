@@ -1,4 +1,5 @@
 "use client";
+import { API_URL } from "@/lib/api";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -50,7 +51,7 @@ const handleSignup = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     // 2. BACKEND API CALL (If Validation is successful)
     try {
       // result.data mein Zod ka verified clean data hota hai
-      const response = await axios.post("http://localhost:5000/api/auth/signup", result.data);
+      const response = await axios.post(`${API_URL}/auth/signup`, result.data);
       
       // 3. Token aur merchant data localStorage me save karo
       localStorage.setItem("token", response.data.token);

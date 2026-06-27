@@ -3,7 +3,8 @@ import { handleAbandonedCartWebhook, handleOrderCreatedWebhook } from '../webhoo
 
 const router = Router();
 
-router.post('/shopify/cart-abandoned/:merchantId', handleAbandonedCartWebhook);
+router.post('/shopify/cart-abandoned/:merchantId', handleAbandonedCartWebhook);   // legacy
+router.post('/shopify/abandoned-cart/:merchantId', handleAbandonedCartWebhook);  // Shopify's actual URL
 
 router.post('/shopify/order-created/:merchantId', handleOrderCreatedWebhook);
 

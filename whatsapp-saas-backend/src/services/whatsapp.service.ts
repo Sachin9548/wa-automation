@@ -32,11 +32,9 @@ export const startWhatsAppSession = async (merchantId: string) => {
   console.log(`⚙️ [${merchantId}] Initializing WhatsApp Baileys...`);
 
   try {
-    const sessionPath = path.resolve(
-      __dirname,
-      "../../storage/whatsapp-sessions",
-      merchantId,
-    );
+    const sessionPath = process.env.SESSION_PATH
+      ? path.join(process.env.SESSION_PATH, merchantId)
+      : path.resolve(__dirname, "../../storage/whatsapp-sessions", merchantId);
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -117,8 +115,10 @@ export const startWhatsAppSession = async (merchantId: string) => {
           // 5 seconds baad dobara koshish karo
           setTimeout(() => startWhatsAppSession(merchantId), 5000);
         } else {
-          // User ne Logout kiya: Database clean karo aur status badlo
-          console.log(`🧹 [${merchantId}] User Logged Out. Cleaning up...`);
+          // User ne Logout kiya / Session expired: Session files clean karo
+          // ⚠️ IMPORTANT: status field mat badlo — merchant ka ACTIVE status preserve karo
+          // Sirf whatsappConnected = false karo, baaki admin ne jo set kiya woh rehne do
+          console.log(`🧹 [${merchantId}] Session ended (code 401). Cleaning session files...`);
 
           const sessionPath = path.resolve(
             __dirname,
@@ -131,10 +131,14 @@ export const startWhatsAppSession = async (merchantId: string) => {
           sessions.delete(merchantId);
           qrCodes.delete(merchantId);
 
+          // Only mark WhatsApp as disconnected — DO NOT change merchant status to DISCONNECTED
+          // That would block all automation jobs
           await prisma.merchant.update({
             where: { id: merchantId },
-            data: { whatsappConnected: false, status: "DISCONNECTED" },
+            data: { whatsappConnected: false },
           });
+
+          console.log(`✅ [${merchantId}] Session cleaned. Merchant status preserved. QR scan needed to reconnect.`);
         }
       }
     });
