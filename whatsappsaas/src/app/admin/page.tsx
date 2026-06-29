@@ -31,8 +31,8 @@ export default function AdminConsole() {
     try {
       const headers = { "x-admin-api-key": key };
       const [mRes, sRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/merchants`, { headers }),
-        axios.get(`${API_BASE_URL}/stats`, { headers }),
+        axios.get(`${API_URL}/admin/merchants`, { headers }),
+        axios.get(`${API_URL}/admin/stats`, { headers }),
       ]);
       setMerchants(mRes.data.merchants);
       setStats(sRes.data);
