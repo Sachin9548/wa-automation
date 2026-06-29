@@ -63,8 +63,21 @@ app.listen(PORT, async () => {
     await prisma.$connect();
     console.log("📦 Database connected successfully!");
     initMessageWorker();
-
     await restoreActiveSessions();
+
+    // Keep-alive ping to prevent Render free tier from sleeping
+    if (process.env.BACKEND_URL && process.env.NODE_ENV === 'production') {
+      setInterval(async () => {
+        try {
+          const https = await import('https');
+          const http = await import('http');
+          const url = process.env.BACKEND_URL!;
+          const client = url.startsWith('https') ? https : http;
+          client.get(`${url}/health`, () => {}).on('error', () => {});
+        } catch {}
+      }, 14 * 60 * 1000); // ping every 14 minutes
+      console.log("🏓 Keep-alive ping enabled");
+    }
   } catch (error) {
     console.error("❌ Database connection failed:", error);
   }

@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: wa-saas-backend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: node dist/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: BACKEND_URL
+        sync: false
