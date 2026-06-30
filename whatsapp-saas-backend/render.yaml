@@ -2,6 +2,7 @@ services:
   - type: web
     name: wa-saas-backend
     env: node
+    rootDir: whatsapp-saas-backend
     buildCommand: npm install && npm run build
     startCommand: node dist/server.js
     envVars:

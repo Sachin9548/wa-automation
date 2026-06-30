@@ -1,5 +1,4 @@
 "use client";
-import { API_URL } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -13,9 +12,7 @@ import {
   FaEnvelope, FaCheckDouble
 } from "react-icons/fa";
 
-
-
-interface StatCardProps {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";interface StatCardProps {
   title: string;
   value: string | number;
   icon: React.ReactNode;

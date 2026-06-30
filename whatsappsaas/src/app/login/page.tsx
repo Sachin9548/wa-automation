@@ -1,12 +1,13 @@
 "use client";
-import { API_URL } from "@/lib/api";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaWhatsapp, FaArrowRight } from "react-icons/fa";
 import axios from "axios";
-
 import { loginSchema, LoginFormData } from "../../lib/validations";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export default function LoginPage() {
   const router = useRouter();

@@ -12,8 +12,7 @@ import {
   FaToggleOff, FaEdit, FaRobot,
 } from "react-icons/fa";
 
-import { API_URL } from "@/lib/api";
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 const ah = () => ({ "x-admin-api-key": sessionStorage.getItem("adminKey") || "" });
 
 // ── Preset templates ─────────────────────────────────────────────────────────

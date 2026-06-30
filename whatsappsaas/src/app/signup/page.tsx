@@ -1,14 +1,13 @@
 "use client";
-import { API_URL } from "@/lib/api";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaCheckCircle, FaWhatsapp, FaArrowRight, FaShieldAlt } from "react-icons/fa";
 import axios from 'axios';
-
-// Zod aur Types import kar rahe hain
 import { signupSchema, SignupFormData } from "../../lib/validations";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export default function SignupPage() {
   const router = useRouter();
