@@ -68,6 +68,10 @@ export default function MerchantControlHub() {
   const [shopifyToken, setShopifyToken] = useState("");
   const [shopifySecret, setShopifySecret] = useState("");
   const [storeUrl, setStoreUrl] = useState("");
+  // Meta Cloud API credentials
+  const [metaPhoneNumberId, setMetaPhoneNumberId] = useState("");
+  const [metaAccessToken, setMetaAccessToken] = useState("");
+  const [metaWabaId, setMetaWabaId] = useState("");
 
   // Wallet / Sub
   const [amount, setAmount] = useState("");
@@ -302,8 +306,25 @@ export default function MerchantControlHub() {
                     <label className="text-xs font-bold text-slate-400 mb-1 block">Webhook Secret</label>
                     <input type="text" placeholder="From Shopify → Settings → Notifications" value={shopifySecret} onChange={e => setShopifySecret(e.target.value)} className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500" />
                   </div>
+                  {/* Meta Cloud API Credentials */}
+                  <div className="md:col-span-2 border-t border-white/5 pt-4">
+                    <p className="text-teal-400 text-xs font-bold uppercase tracking-wider mb-3">Meta WhatsApp Cloud API</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 mb-1 block">Phone Number ID</label>
+                    <input type="text" placeholder="120364xxxxxxxxxx" value={metaPhoneNumberId} onChange={e => setMetaPhoneNumberId(e.target.value)} className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 mb-1 block">WABA ID</label>
+                    <input type="text" placeholder="WhatsApp Business Account ID" value={metaWabaId} onChange={e => setMetaWabaId(e.target.value)} className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500" />
+                  </div>
                   <div className="md:col-span-2">
-                    <button onClick={() => action("activate", { shopifyToken, shopifySecret, category, storeUrl }, "activate")}
+                    <label className="text-xs font-bold text-slate-400 mb-1 block">Permanent Access Token</label>
+                    <input type="password" placeholder="EAAxxxxxxxxxxxxxxxxx (system user token)" value={metaAccessToken} onChange={e => setMetaAccessToken(e.target.value)} className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500" />
+                    <p className="text-slate-500 text-xs mt-1">Generate from Business Settings → System Users → Generate Token (never expires)</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <button onClick={() => action("activate", { shopifyToken, shopifySecret, category, storeUrl, metaPhoneNumberId, metaAccessToken, metaWabaId }, "activate")}
                       disabled={!shopifyToken || !shopifySecret || loading === "activate"}
                       className="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white p-3.5 rounded-xl font-bold disabled:opacity-40 flex justify-center items-center gap-2">
                       {loading === "activate" ? <><FaSpinner className="animate-spin" /> Verifying...</> : <><FaCheckCircle /> Verify & Activate</>}

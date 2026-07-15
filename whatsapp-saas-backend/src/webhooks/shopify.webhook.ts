@@ -132,18 +132,13 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
         }
 
         for (const flow of activeFlows) {
-          // Shopify's abandoned_checkout_url already has the full store domain — use directly
           const cartLink = updatedCart.cartUrl;
-          const customizedMessage = flow.template
-            .replace(/{{name}}/g, updatedCart.customerName)
-            .replace(/{{link}}/g, cartLink)
-            .replace(/{{discount_code}}/g, '');
-
           await messageQueue.add('send-automated-msg', {
             cartId: updatedCart.id,
             merchantId: merchant.id,
             phone: customerPhone,
-            message: customizedMessage
+            templateName: flow.metaTemplateName || 'abandoned_cart_reminder',
+            variables: [updatedCart.customerName, cartLink]
           }, { delay: flow.delayMinutes * 60 * 1000 });
 
           console.log(`✅ Job re-queued with real phone: flow=${flow.type} delay=${flow.delayMinutes}min phone=${customerPhone}`);
@@ -190,25 +185,16 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
 
     // 4. Queue jobs with delay per flow
     for (const flow of activeFlows) {
-      // Shopify's abandoned_checkout_url already contains the full store domain:
-      // e.g. https://yourstore.myshopify.com/83738165469/checkouts/ac/.../recover?key=...
-      // Use it directly — no need to build anything.
-      const cartLink = newCart.cartUrl;  // = shopifyData.abandoned_checkout_url
-
-      const customizedMessage = flow.template
-        .replace(/{{name}}/g, newCart.customerName)
-        .replace(/{{link}}/g, cartLink)
-        .replace(/{{discount_code}}/g, '');  // clear unfilled placeholder if admin forgot to set it
-
+      const cartLink = newCart.cartUrl;
       await messageQueue.add('send-automated-msg', {
         cartId: newCart.id,
         merchantId: merchant.id,
         phone: newCart.customerPhone,
-        message: customizedMessage
+        templateName: (flow as any).metaTemplateName || 'abandoned_cart_reminder',
+        variables: [newCart.customerName, cartLink]
       }, {
         delay: flow.delayMinutes * 60 * 1000
       });
-
       console.log(`✅ Job queued: flow=${flow.type} delay=${flow.delayMinutes}min phone=${customerPhone}`);
     }
 

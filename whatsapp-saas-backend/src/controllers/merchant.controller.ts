@@ -7,8 +7,6 @@ import { syncAllShopifyCustomers } from '../services/shopify/customer.service';
 export const getMe = async (req: AuthRequest, res: Response): Promise<any> => {
   try {
     const merchantId = req.user.merchantId;
-
-    // Prisma se user ka data laao, par password 'select' mat karna (Security)
     const merchant = await prisma.merchant.findUnique({
       where: { id: merchantId },
       select: {
@@ -18,19 +16,13 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<any> => {
         phone: true,
         storeUrl: true,
         plan: true,
-        walletBalance: true,
         status: true,
         whatsappConnected: true,
         createdAt: true,
       }
     });
-
-    if (!merchant) {
-      return res.status(404).json({ message: 'Merchant not found' });
-    }
-
+    if (!merchant) return res.status(404).json({ message: 'Merchant not found' });
     res.status(200).json({ merchant });
-
   } catch (error) {
     console.error('Get Merchant Profile Error:', error);
     res.status(500).json({ message: 'Server error while fetching profile' });
@@ -88,7 +80,6 @@ export const getMerchantStats = async (req: AuthRequest, res: Response): Promise
         totalClicked: true,
         totalConverted: true,
         recoveredRevenue: true,
-        walletBalance: true,
         subscriptionExpiry: true,
         brandName: true,
         status: true,
@@ -98,21 +89,16 @@ export const getMerchantStats = async (req: AuthRequest, res: Response): Promise
 
     if (!stats) return res.status(404).json({ message: "Merchant not found" });
 
-   const openRate = stats.totalSent > 0 
-  ? ((stats.totalRead / stats.totalSent) * 100).toFixed(1) 
-  : "0.0";
+    const openRate = stats.totalSent > 0
+      ? ((stats.totalRead / stats.totalSent) * 100).toFixed(1)
+      : "0.0";
 
-const clickRate = stats.totalSent > 0 
-  ? ((stats.totalClicked / stats.totalSent) * 100).toFixed(1) 
-  : "0.0";
+    const clickRate = stats.totalSent > 0
+      ? ((stats.totalClicked / stats.totalSent) * 100).toFixed(1)
+      : "0.0";
 
-    res.status(200).json({
-      ...stats,
-      openRate,
-      clickRate
-    });
-
+    res.status(200).json({ ...stats, openRate, clickRate });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching real-time stats" });
+    res.status(500).json({ message: "Error fetching stats" });
   }
 };

@@ -33,16 +33,21 @@ model Merchant {
 
   // Admin Controls
   shopifyToken      String?
-  subscriptionExpiry DateTime? 
-shopifySecret String?  
-  // Wallet & Plan
+  subscriptionExpiry DateTime?
+  shopifySecret     String?
+
+  // Meta WhatsApp Cloud API credentials (set by admin per merchant)
+  metaPhoneNumberId String?   // Phone Number ID from Meta app dashboard
+  metaAccessToken   String?   // Permanent system user token (never expires)
+  metaWabaId        String?   // WhatsApp Business Account ID
+
+  // Plan (subscription only — Meta charges client directly)
   plan              String   @default("STARTER")
-  walletBalance     Float    @default(200.00)
-  
+
   // Statuses
   status            String   @default("PENDING_ONBOARDING")
   whatsappConnected Boolean  @default(false)
-  whatsappSessionId String?  @unique
+  // whatsappSessionId removed — was Baileys-only, not used with Meta Cloud API
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -115,11 +120,12 @@ model AutomationFlow {
   id            String   @id @default(uuid())
   merchantId    String
   
-  type          String   // e.g., "ABANDONED_CART_30M", "ABANDONED_CART_24H", "ORDER_CONFIRM"
+  type          String   // ABANDONED_CART_1, ABANDONED_CART_2, ORDER_CONFIRM
   isActive      Boolean  @default(false) 
   
-  delayMinutes  Int      
-  template      String   @db.Text 
+  delayMinutes      Int      
+  template          String   @db.Text   // display/preview text
+  metaTemplateName  String?             // actual Meta approved template name e.g. "abandoned_cart_reminder"
   
   updatedAt     DateTime @updatedAt
 

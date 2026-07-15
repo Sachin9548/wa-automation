@@ -1,6 +1,5 @@
 // src/services/automation.service.ts
 import prisma from "../lib/prisma";
-import { sessions } from "./whatsapp.service";
 
 export const checkMerchantEligibility = async (merchantId: string) => {
   const merchant = await prisma.merchant.findUnique({
@@ -15,23 +14,14 @@ export const checkMerchantEligibility = async (merchantId: string) => {
     return { eligible: false, reason: `Merchant not yet activated (status: ${merchant.status})` };
   }
 
-  if (merchant.status === "DISCONNECTED") {
-    return { eligible: false, reason: "WhatsApp session disconnected — merchant needs to reconnect" };
-  }
-
   const now = new Date();
   if (!merchant.subscriptionExpiry || merchant.subscriptionExpiry < now) {
     return { eligible: false, reason: `Subscription expired on ${merchant.subscriptionExpiry?.toDateString()}` };
   }
 
-  if (merchant.walletBalance < 0.80) {
-    return { eligible: false, reason: `Insufficient balance (₹${merchant.walletBalance.toFixed(2)})` };
-  }
-
-  // Check live WhatsApp session — if offline, job will throw and BullMQ will retry
-  const session = sessions.get(merchantId);
-  if (!session) {
-    return { eligible: false, reason: "WhatsApp session not connected — retry after reconnect" };
+  // Check Meta credentials are configured
+  if (!merchant.metaPhoneNumberId || !merchant.metaAccessToken) {
+    return { eligible: false, reason: "Meta WhatsApp credentials not configured — contact admin" };
   }
 
   return { eligible: true, merchant };

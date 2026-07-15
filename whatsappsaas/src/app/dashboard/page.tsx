@@ -170,7 +170,7 @@ export default function MerchantDashboard() {
                 subtext="Revenue from WhatsApp" accentClass="bg-green-500/20 text-green-400" />
               <StatCard title="Messages Sent" value={data?.totalSent || 0}
                 icon={<FaEnvelope className="text-sm" />}
-                subtext={`Spent: ₹${((data?.totalSent || 0) * 0.8).toFixed(2)}`} accentClass="bg-teal-500/20 text-teal-400" />
+                subtext="Via Meta Cloud API" accentClass="bg-teal-500/20 text-teal-400" />
               <StatCard title="Open Rate" value={`${data?.openRate || 0}%`}
                 icon={<FaEye className="text-sm" />}
                 subtext={`${data?.totalRead || 0} messages read`} accentClass="bg-indigo-500/20 text-indigo-400" />

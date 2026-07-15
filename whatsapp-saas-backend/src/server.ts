@@ -4,12 +4,10 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 
-// Routes Import
 import authRoutes from "./routes/auth.routes";
 import merchantRoutes from "./routes/merchant.routes";
 import whatsappRoutes from "./routes/whatsapp.routes";
 import adminRoutes from "./routes/admin.routes";
-import { restoreActiveSessions } from "./services/whatsapp.service";
 import { initMessageWorker } from './workers/message.worker';
 import flowRoutes from './routes/flow.routes';
 import trackingRoutes from './routes/tracking.routes';
@@ -21,30 +19,23 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 
+// Raw body capture for Shopify HMAC verification
 app.use(express.json({
   limit: '10mb',
-  verify: (req: any, res, buf) => {
-    const currentUrl = req.originalUrl || req.url || "";
-    
-    if (currentUrl.includes('shopify')) { // Sirf 'shopify' check karo simplicity ke liye
+  verify: (req: any, _res, buf) => {
+    const url = req.originalUrl || req.url || "";
+    if (url.includes('shopify')) {
       req.rawBody = buf;
-      console.log("🛠️ SUCCESS: RawBody captured for URL:", currentUrl);
     }
   }
 }));
 
 app.use(cors());
 
-
-
-// Basic Health Check Route
-app.get("/health", (req: Request, res: Response) => {
-  res
-    .status(200)
-    .json({ status: "OK", message: "WhatsApp SaaS Backend is running!" });
+app.get("/health", (_req: Request, res: Response) => {
+  res.status(200).json({ status: "OK", message: "WA-Automation Backend running!" });
 });
 
-// Use Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/merchant", merchantRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
@@ -53,30 +44,23 @@ app.use('/api/flows', flowRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/webhooks', webhookRoutes);
 
-
-
-
-// Start Server
 app.listen(PORT, async () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
   try {
     await prisma.$connect();
-    console.log("📦 Database connected successfully!");
+    console.log("📦 Database connected!");
     initMessageWorker();
-    await restoreActiveSessions();
 
-    // Keep-alive ping to prevent Render free tier from sleeping
+    // Keep-alive ping for Render free tier
     if (process.env.BACKEND_URL && process.env.NODE_ENV === 'production') {
       setInterval(async () => {
         try {
-          const https = await import('https');
-          const http = await import('http');
-          const url = process.env.BACKEND_URL!;
-          const client = url.startsWith('https') ? https : http;
-          client.get(`${url}/health`, () => {}).on('error', () => {});
+          const mod = process.env.BACKEND_URL!.startsWith('https')
+            ? await import('https') : await import('http');
+          (mod as any).get(`${process.env.BACKEND_URL}/health`, () => {}).on('error', () => {});
         } catch {}
-      }, 14 * 60 * 1000); // ping every 14 minutes
-      console.log("🏓 Keep-alive ping enabled");
+      }, 14 * 60 * 1000);
+      console.log("🏓 Keep-alive enabled");
     }
   } catch (error) {
     console.error("❌ Database connection failed:", error);

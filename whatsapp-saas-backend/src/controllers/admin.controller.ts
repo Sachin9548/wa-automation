@@ -4,32 +4,36 @@ import prisma from '../lib/prisma';
 import { verifyShopifyToken } from '../services/shopify.service';
 import { messageQueue } from '../lib/queue';
 
-// 1. Merchant ko Activate karna (Token verify + 30 Days Expiry set karna)
+// 1. Merchant ko Activate karna
 export const activateMerchant = async (req: Request, res: Response): Promise<any> => {
   try {
-    // 🚨 FIX: shopifySecret ko bhi body se nikaalein
-    const { merchantId, category, shopifyToken, storeUrl, shopifySecret } = req.body;
+    const { merchantId, category, shopifyToken, storeUrl, shopifySecret,
+            metaPhoneNumberId, metaAccessToken, metaWabaId } = req.body;
 
-    // 1. Shopify Verification
+    // Verify Shopify token
     const isValid = await verifyShopifyToken(storeUrl, shopifyToken);
     if (!isValid) {
       return res.status(400).json({ message: "❌ Invalid Shopify Token or Store URL." });
     }
 
-    // 2. Expiry Calculation
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 30);
 
-    // 3. Database Update
     const updatedMerchant = await prisma.merchant.update({
       where: { id: merchantId },
       data: {
         status: 'ACTIVE',
         category: category || 'ECOMMERCE',
-        shopifyToken: shopifyToken,
-        shopifySecret: shopifySecret, 
-        storeUrl: storeUrl,
+        shopifyToken,
+        shopifySecret,
+        storeUrl,
         subscriptionExpiry: expiryDate,
+        // Meta Cloud API credentials
+        ...(metaPhoneNumberId && { metaPhoneNumberId }),
+        ...(metaAccessToken && { metaAccessToken }),
+        ...(metaWabaId && { metaWabaId }),
+        // Mark WhatsApp as connected if Meta credentials provided
+        whatsappConnected: !!(metaPhoneNumberId && metaAccessToken),
       }
     });
 
@@ -179,19 +183,12 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
       : rawStoreUrl ? `https://${rawStoreUrl}` : 'https://your-store.myshopify.com';
 
     for (const customer of customers) {
-      // Replace all template variables including {{discount_code}}
-      // Admin writes the actual discount code directly in the template text
-      // e.g. "Use code DIWALI20" — or use {{discount_code}} as placeholder if needed
-      const customizedMessage = template
-        .replace(/{{name}}/g, customer.name || 'there')
-        .replace(/{{link}}/g, realStoreUrl)
-        .replace(/{{discount_code}}/g, ''); // Admin writes actual code in template; this clears unfilled placeholder
-
       await messageQueue.add('send-campaign-msg', {
         campaignId: campaign.id,
         merchantId: merchantId,
         phone: customer.phone,
-        message: customizedMessage
+        templateName: 'bulk_campaign',
+        variables: [customer.name || 'there', realStoreUrl]
       });
     }
 
@@ -214,11 +211,13 @@ export const getMerchantDetail = async (req: Request, res: Response): Promise<an
       where: { id: merchantId },
       select: {
         id: true, brandName: true, email: true, phone: true,
-        status: true, plan: true, walletBalance: true,
+        status: true, plan: true,
         whatsappConnected: true, storeUrl: true,
         subscriptionExpiry: true, category: true,
         totalSent: true, totalRead: true, totalClicked: true,
         totalConverted: true, recoveredRevenue: true, createdAt: true,
+        metaPhoneNumberId: true, metaWabaId: true,
+        // Never expose metaAccessToken in list responses
         _count: { select: { customers: true, campaigns: true, abandonedCarts: true } }
       }
     });
