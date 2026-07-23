@@ -137,7 +137,9 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
             cartId: updatedCart.id,
             merchantId: merchant.id,
             phone: customerPhone,
-            templateName: flow.metaTemplateName || 'abandoned_cart_reminder',
+            // TypeScript types don't have metaTemplateName yet (prisma migration pending)
+            // Using any cast to bypass until prisma db push is run
+            templateName: (flow as any).metaTemplateName || 'abandoned_cart_reminder',
             variables: [updatedCart.customerName, cartLink]
           }, { delay: flow.delayMinutes * 60 * 1000 });
 
@@ -190,6 +192,8 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
         cartId: newCart.id,
         merchantId: merchant.id,
         phone: newCart.customerPhone,
+        // TypeScript types don't have metaTemplateName yet (prisma migration pending)
+        // Using any cast to bypass until prisma db push is run
         templateName: (flow as any).metaTemplateName || 'abandoned_cart_reminder',
         variables: [newCart.customerName, cartLink]
       }, {

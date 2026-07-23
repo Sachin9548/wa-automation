@@ -26,7 +26,7 @@ export const sendMetaTemplateMessage = async (
         type: 'template',
         template: {
           name: templateName,
-          language: { code: 'en' },
+          language: { code: 'en_US' },
           components: parameters.length > 0
             ? [{ type: 'body', parameters }]
             : []

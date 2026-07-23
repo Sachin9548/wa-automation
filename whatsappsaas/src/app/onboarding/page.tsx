@@ -13,7 +13,6 @@ export default function OnboardingPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [storeUrl, setStoreUrl] = useState("");
-  const [whatsappNumber, setWhatsappNumber] = useState("");
 
   useEffect(() => {
     const check = async () => {
@@ -43,7 +42,7 @@ export default function OnboardingPage() {
     try {
       const token = localStorage.getItem("token");
       await axios.put(`${API_URL}/merchant/onboarding`,
-        { storeUrl, whatsappNumber },
+        { storeUrl },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSubmitted(true);
@@ -95,22 +94,8 @@ export default function OnboardingPage() {
                   placeholder="yourstore.myshopify.com"
                   className="w-full p-4 bg-slate-800 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 transition"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-300 mb-2">
-                  Business WhatsApp Number
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={whatsappNumber}
-                  onChange={e => setWhatsappNumber(e.target.value)}
-                  placeholder="+91 98765 XXXXX"
-                  className="w-full p-4 bg-slate-800 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 transition"
-                />
                 <p className="text-slate-500 text-xs mt-1.5">
-                  This number will be used to send WhatsApp messages to your customers.
+                  We will connect your Shopify store to start syncing customers automatically.
                 </p>
               </div>
 

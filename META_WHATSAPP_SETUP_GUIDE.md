@@ -186,7 +186,6 @@ App Secret                : [from Settings → Basic]
 ```
 Permanent System User Token : EAAxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
-
 ---
 
 ## 👤 PART 2 — PER CLIENT SETUP (30 minutes per client)

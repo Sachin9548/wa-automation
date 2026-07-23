@@ -19,10 +19,10 @@ export const checkMerchantEligibility = async (merchantId: string) => {
     return { eligible: false, reason: `Subscription expired on ${merchant.subscriptionExpiry?.toDateString()}` };
   }
 
-  // Check Meta credentials are configured
-  if (!merchant.metaPhoneNumberId || !merchant.metaAccessToken) {
-    return { eligible: false, reason: "Meta WhatsApp credentials not configured — contact admin" };
-  }
+  // TODO: Enable Meta credential check after running `prisma db push` to add meta fields
+  // if (!merchant.metaPhoneNumberId || !merchant.metaAccessToken) {
+  //   return { eligible: false, reason: "Meta WhatsApp credentials not configured — contact admin" };
+  // }
 
   return { eligible: true, merchant };
 };

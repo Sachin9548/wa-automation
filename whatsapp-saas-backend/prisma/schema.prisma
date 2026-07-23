@@ -33,6 +33,8 @@ model Merchant {
 
   // Admin Controls
   shopifyToken      String?
+  shopifyClientId   String?   // App Client ID — for token refresh
+  shopifyClientSecret String? // App Client Secret — for token refresh
   subscriptionExpiry DateTime?
   shopifySecret     String?
 

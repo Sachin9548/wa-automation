@@ -49,13 +49,16 @@ const Footer = () => {
           <div className="md:col-span-6 lg:col-span-3">
             <h4 className="text-xl font-bold text-white mb-6">Main Menu</h4>
             <ul className="space-y-4">
-              {['Home', 'About', 'Services', 'HowItWorks', 'Pricing', 'FAQ'].map((item) => (
-                <li key={item}>
-                  <Link 
-                    href={item === 'Home' ? '#' : `#${item}`} 
-                    className="hover:text-white hover:translate-x-1 inline-block transition-all duration-300"
-                  >
-                    {item === 'HowItWorks' ? 'How it Works?' : item}
+              {[
+                { label: 'Home', href: '#' },
+                { label: 'Features', href: '#features' },
+                { label: 'How it Works', href: '#howitworks' },
+                { label: 'Pricing', href: '#pricing' },
+                { label: 'FAQ', href: '#faq' },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link href={item.href} className="hover:text-white hover:translate-x-1 inline-block transition-all duration-300">
+                    {item.label}
                   </Link>
                 </li>
               ))}

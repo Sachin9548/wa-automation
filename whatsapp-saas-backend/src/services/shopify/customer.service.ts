@@ -14,59 +14,85 @@ export const syncAllShopifyCustomers = async (merchantId: string) => {
     .replace(/^https?:\/\//, "")
     .replace(/\/$/, "");
 
-  // 1. SMART SYNC LOGIC
-  const lastCustomer = await prisma.customer.findFirst({
-    where: { merchantId },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  // initial URL
-  let nextUrl: string | null = `https://${cleanUrl}/admin/api/2024-01/customers.json?limit=250`;
-
-  // 🚨 FIX: Safe string concatenation
-  if (lastCustomer && nextUrl) {
-    nextUrl = `${nextUrl}&updated_at_min=${lastCustomer.updatedAt.toISOString()}`;
-    console.log(`[${merchant.brandName}] Smart Sync chalu hai...`);
-  }
+  // Orders endpoint use karo — isme billing/shipping address ke saath phone milta hai
+  let nextUrl: string | null = `https://${cleanUrl}/admin/api/2024-01/orders.json?limit=250&status=any&fields=id,customer,billing_address,shipping_address`;
 
   let totalSynced = 0;
-  
-  interface ShopifyCustomerResponse {
-    customers: any[];
+  const seenPhones = new Set<string>(); // duplicate phones skip karo
+
+  interface ShopifyOrderResponse {
+    orders: any[];
   }
 
   try {
     while (nextUrl) {
-      // 🚨 FIX: explicit check taaki axios ko null na mile
-      const response = await axios.get<ShopifyCustomerResponse>(nextUrl, {
+      const response = await axios.get<ShopifyOrderResponse>(nextUrl, {
         headers: { "X-Shopify-Access-Token": merchant.shopifyToken },
       });
 
-      const customers = response.data.customers;
+      const orders = response.data.orders;
+      console.log(`📦 Shopify returned ${orders.length} orders in this page`);
 
-      for (const c of customers) {
-        const phone = c.phone || c.default_address?.phone || null;
-        if (!phone) continue;
+      if (orders.length > 0) {
+        console.log(`🔍 First order customer:`, {
+          customer: orders[0].customer,
+          billing: orders[0].billing_address,
+          shipping: orders[0].shipping_address,
+        });
+      }
+
+      for (const order of orders) {
+        // Phone: customer > billing_address > shipping_address se nikaalo
+        const phone =
+          order.customer?.phone ||
+          order.billing_address?.phone ||
+          order.shipping_address?.phone ||
+          null;
+
+        const email = order.customer?.email || null;
+        const firstName = order.customer?.first_name || order.billing_address?.first_name || order.shipping_address?.first_name || "Customer";
+        const lastName = order.customer?.last_name || order.billing_address?.last_name || order.shipping_address?.last_name || "";
+        const fullName = `${firstName} ${lastName}`.trim();
+
+        console.log(`👤 Order customer: ${fullName} | Phone: ${phone || "NONE"} | Email: ${email || "NONE"}`);
+
+        if (!phone && !email) {
+          console.log(`  ⚠️ Skipped — no phone or email`);
+          continue;
+        }
+
+        // WhatsApp ke liye phone zaroori hai — email wale skip
+        if (!phone) {
+          console.log(`  ℹ️ No phone, skipping (email only: ${email})`);
+          continue;
+        }
+
+        const cleanPhone = String(phone).replace(/\s+/g, "");
+
+        // Duplicate phone skip karo
+        if (seenPhones.has(cleanPhone)) continue;
+        seenPhones.add(cleanPhone);
 
         await prisma.customer.upsert({
-          where: { merchantId_phone: { merchantId, phone: String(phone) } },
+          where: { merchantId_phone: { merchantId, phone: cleanPhone } },
           update: {
-            name: c.first_name || "Customer",
-            totalSpent: parseFloat(c.total_spent || "0"),
+            name: fullName,
+            totalOrders: order.customer?.orders_count || 1,
+            totalSpent: parseFloat(order.customer?.total_spent || "0"),
           },
           create: {
             merchantId,
-            phone: String(phone),
-            name: c.first_name || "Customer",
-            totalSpent: parseFloat(c.total_spent || "0"),
+            phone: cleanPhone,
+            name: fullName,
+            totalOrders: order.customer?.orders_count || 1,
+            totalSpent: parseFloat(order.customer?.total_spent || "0"),
           },
         });
         totalSynced++;
       }
 
+      // Next page check
       const linkHeader = response.headers["link"] as string | undefined;
-      
-      // 🚨 FIX: Strict check for next page
       if (linkHeader && linkHeader.includes('rel="next"')) {
         const matches = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
         nextUrl = matches ? matches[1] : null;
@@ -74,13 +100,13 @@ export const syncAllShopifyCustomers = async (merchantId: string) => {
         nextUrl = null;
       }
 
-      console.log(`⏳ Progress: Synced ${totalSynced} customers...`);
+      console.log(`⏳ Progress: Synced ${totalSynced} customers so far...`);
     }
 
-    console.log(`✅ [${merchant.brandName}] Total ${totalSynced} synced!`);
+    console.log(`✅ [${merchant.brandName}] Total ${totalSynced} synced from orders!`);
     return totalSynced;
-  } catch (error) {
-    console.error("❌ Sync Error:", error);
+  } catch (error: any) {
+    console.error("❌ Sync Error:", error?.response?.data || error?.message || error);
     throw error;
   }
 };

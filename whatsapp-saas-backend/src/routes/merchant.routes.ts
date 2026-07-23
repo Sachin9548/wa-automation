@@ -1,6 +1,6 @@
 // src/routes/merchant.routes.ts
 import { Router } from 'express';
-import { updateOnboardingData , getMe, getMerchantStats} from '../controllers/merchant.controller';
+import { updateOnboardingData, getMe, getMerchantStats, triggerCustomerSync } from '../controllers/merchant.controller';
 import { protect } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -9,5 +9,6 @@ const router = Router();
 router.put('/onboarding', protect, updateOnboardingData);
 router.get('/me', protect, getMe);
 router.get('/stats', protect, getMerchantStats);
+router.post('/sync-customers', protect, triggerCustomerSync);
 
 export default router;

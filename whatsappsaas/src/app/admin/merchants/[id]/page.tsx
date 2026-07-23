@@ -49,6 +49,110 @@ const FLOW_TYPES = [
   },
 ];
 
+// ── Template Card Component ───────────────────────────────────────────────────
+function TemplateCard({ t, bodyComp, headerComp, footerComp, onDelete }: any) {
+  const [expanded, setExpanded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const isRejected = t.status === 'REJECTED';
+  const isApproved = t.status === 'APPROVED';
+  const isPending  = t.status === 'PENDING';
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete template "${t.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await onDelete(t.name);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className={`bg-slate-900 border rounded-xl overflow-hidden transition ${
+      isRejected ? 'border-red-500/30' : isApproved ? 'border-green-500/20' : 'border-white/5'
+    }`}>
+      {/* Header row */}
+      <div className="flex items-center gap-2 p-4">
+        <button onClick={() => setExpanded(!expanded)} className="flex-1 text-left flex items-start gap-3 hover:opacity-80 transition">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-white font-bold text-sm font-mono">{t.name}</span>
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                isApproved ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                isPending  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                             'bg-red-500/10 border-red-500/20 text-red-400'
+              }`}>{t.status}</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded">{t.language}</span>
+              <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded">{t.category}</span>
+            </div>
+          </div>
+          <span className="text-slate-500 text-xs mt-1 shrink-0">{expanded ? '▲' : '▼'}</span>
+        </button>
+
+        {/* Delete button */}
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="shrink-0 w-8 h-8 flex items-center justify-center bg-red-500/10 hover:bg-red-500/30 border border-red-500/20 text-red-400 rounded-lg transition disabled:opacity-40"
+          title="Delete template"
+        >
+          {deleting ? <FaSpinner className="animate-spin text-xs" /> : <FaTimes className="text-xs" />}
+        </button>
+      </div>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+          {/* Rejection reason */}
+          {isRejected && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+              <p className="text-red-400 text-xs font-bold mb-1">❌ Rejection Reason</p>
+              <p className="text-red-300 text-xs">
+                {t.rejected_reason || "No specific reason provided by Meta"}
+              </p>
+              <div className="mt-2 bg-slate-900 rounded-lg p-2 text-[11px] text-slate-400">
+                <p className="font-bold text-slate-300 mb-1">Common reasons:</p>
+                <ul className="space-y-1 list-disc list-inside">
+                  <li>Variables must be {`{{1}}`}, {`{{2}}`} not {`{{name}}`}</li>
+                  <li>Template name: lowercase + underscores only</li>
+                  <li>UTILITY category cannot have promotional/urgency language</li>
+                  <li>Content violates Meta commerce/messaging policy</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Header */}
+          {headerComp && (
+            <div>
+              <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Header</p>
+              <p className="text-slate-300 text-sm bg-slate-800 rounded-lg p-2">{headerComp.text || headerComp.format}</p>
+            </div>
+          )}
+
+          {/* Body */}
+          {bodyComp && (
+            <div>
+              <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Body</p>
+              <pre className="text-slate-300 text-sm bg-slate-800 rounded-lg p-3 whitespace-pre-wrap font-sans leading-relaxed">{bodyComp.text}</pre>
+            </div>
+          )}
+
+          {/* Footer */}
+          {footerComp && (
+            <div>
+              <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Footer</p>
+              <p className="text-slate-400 text-xs bg-slate-800 rounded-lg p-2">{footerComp.text}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MerchantControlHub() {
   const { id } = useParams();
   const router = useRouter();
@@ -61,7 +165,7 @@ export default function MerchantControlHub() {
   const [customerTotal, setCustomerTotal] = useState(0);
   const [fetching, setFetching] = useState(true);
   const [loading, setLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "flows" | "campaign" | "customers">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "flows" | "campaign" | "customers" | "credentials" | "templates">("overview");
 
   // Activation
   const [category, setCategory] = useState("ECOMMERCE");
@@ -88,6 +192,24 @@ export default function MerchantControlHub() {
   const [editTemplate, setEditTemplate] = useState("");
   const [editDelay, setEditDelay] = useState(0);
 
+  // Credentials update
+  const [credShopifyToken, setCredShopifyToken] = useState("");
+  const [credShopifySecret, setCredShopifySecret] = useState("");
+  const [credStoreUrl, setCredStoreUrl] = useState("");
+  const [credMetaPhoneId, setCredMetaPhoneId] = useState("");
+  const [credMetaToken, setCredMetaToken] = useState("");
+  const [credMetaWabaId, setCredMetaWabaId] = useState("");
+  const [credClientId, setCredClientId] = useState("");
+  const [credClientSecret, setCredClientSecret] = useState("");
+  // Templates
+  const [metaTemplates, setMetaTemplates] = useState<any[]>([]);
+  const [tmplName, setTmplName] = useState("");
+  const [tmplBody, setTmplBody] = useState("");
+  const [tmplHeader, setTmplHeader] = useState("");
+  const [tmplFooter, setTmplFooter] = useState("");
+  const [tmplCategory, setTmplCategory] = useState("MARKETING");
+  const [tmplLanguage, setTmplLanguage] = useState("en_US");
+
   const fetchAll = useCallback(async () => {
     try {
       const [mRes, cRes, fRes, custRes] = await Promise.all([
@@ -105,6 +227,18 @@ export default function MerchantControlHub() {
       setFlows(fRes.data.flows || []);
       setCustomers(custRes.data.customers || []);
       setCustomerTotal(custRes.data.total || 0);
+      // Pre-fill credentials form from DB
+      const m = mRes.data.merchant;
+      if (m) {
+        setCredStoreUrl(m.storeUrl || "");
+        setCredShopifyToken(m.shopifyToken || "");
+        setCredShopifySecret(m.shopifySecret || "");
+        setCredMetaPhoneId(m.metaPhoneNumberId || "");
+        setCredMetaToken(m.metaAccessToken || "");
+        setCredMetaWabaId(m.metaWabaId || "");
+        setCredClientId(m.shopifyClientId || "");
+        setCredClientSecret(m.shopifyClientSecret || "");
+      }
       if (mRes.data.merchant?.storeUrl) setStoreUrl(mRes.data.merchant.storeUrl);
     } finally {
       setFetching(false);
@@ -180,6 +314,76 @@ export default function MerchantControlHub() {
     setEditDelay(db?.delayMinutes ?? ft.defaultDelay);
   };
 
+  const handleUpdateCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading("creds");
+    try {
+      await axios.post(`${API_URL}/admin/update-credentials`, {
+        merchantId,
+        shopifyToken: credShopifyToken,
+        shopifySecret: credShopifySecret,
+        storeUrl: credStoreUrl,
+        metaPhoneNumberId: credMetaPhoneId,
+        metaAccessToken: credMetaToken,
+        metaWabaId: credMetaWabaId,
+        shopifyClientId: credClientId,
+        shopifyClientSecret: credClientSecret,
+      }, { headers: ah() });
+      alert("✅ Credentials saved!");
+      await fetchAll();
+    } catch (e: any) { alert(e.response?.data?.message || "Error"); }
+    finally { setLoading(null); }
+  };
+
+  const handleRefreshShopifyToken = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setLoading("refresh");
+    try {
+      const r = await axios.post(`${API_URL}/admin/refresh-shopify-token`, {
+        merchantId, clientId: credClientId, clientSecret: credClientSecret,
+      }, { headers: ah() });
+      alert(r.data.message);
+      setCredClientId(""); setCredClientSecret("");
+      await fetchAll(); // re-fetch so new token shows in form
+    } catch (e: any) { alert(e.response?.data?.message || "Refresh failed"); }
+    finally { setLoading(null); }
+  };
+
+  const fetchMetaTemplates = async () => {
+    setLoading("tmpl-fetch");
+    try {
+      const r = await axios.get(`${API_URL}/admin/meta-templates/${merchantId}`, { headers: ah() });
+      setMetaTemplates(r.data.templates || []);
+    } catch (e: any) { alert(e.response?.data?.message || "Failed to fetch templates"); }
+    finally { setLoading(null); }
+  };
+
+  const handleDeleteTemplate = async (templateName: string) => {
+    try {
+      await axios.delete(`${API_URL}/admin/meta-templates/${merchantId}/${templateName}`, { headers: ah() });
+      setMetaTemplates(prev => prev.filter(t => t.name !== templateName));
+      alert(`✅ Template "${templateName}" deleted!`);
+    } catch (e: any) {
+      alert(e.response?.data?.message || "Delete failed");
+    }
+  };
+
+  const handleCreateTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading("tmpl-create");
+    try {
+      const r = await axios.post(`${API_URL}/admin/meta-templates`, {
+        merchantId, name: tmplName, bodyText: tmplBody,
+        headerText: tmplHeader || undefined, footerText: tmplFooter || undefined,
+        category: tmplCategory, language: tmplLanguage,
+      }, { headers: ah() });
+      alert(r.data.message);
+      setTmplName(""); setTmplBody(""); setTmplHeader(""); setTmplFooter("");
+      await fetchMetaTemplates();
+    } catch (e: any) { alert(e.response?.data?.message || "Failed"); }
+    finally { setLoading(null); }
+  };
+
   if (fetching) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center">
       <FaSpinner className="animate-spin text-4xl text-teal-400" />
@@ -193,6 +397,8 @@ export default function MerchantControlHub() {
     { key: "flows", label: "Flows" },
     { key: "campaign", label: "Campaign" },
     { key: "customers", label: `Customers (${customerTotal})` },
+    { key: "credentials", label: "⚙️ Credentials" },
+    { key: "templates", label: "📋 Templates" },
   ];
 
   return (
@@ -228,10 +434,10 @@ export default function MerchantControlHub() {
           </div>
           <div className="flex gap-8">
             {[
-              { label: "Wallet", value: `₹${merchant?.walletBalance?.toFixed(2) ?? "—"}` },
               { label: "Customers", value: merchant?._count?.customers ?? customerTotal },
               { label: "Sent", value: merchant?.totalSent ?? 0 },
               { label: "Revenue", value: `₹${(merchant?.recoveredRevenue || 0).toFixed(0)}` },
+              { label: "Paid", value: `₹${(merchant?.totalPaidAmount || 0).toFixed(0)}` },
             ].map(s => (
               <div key={s.label} className="text-center">
                 <p className="text-xl font-extrabold text-white">{s.value}</p>
@@ -524,6 +730,261 @@ export default function MerchantControlHub() {
                   Showing 10 of {customerTotal} customers
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── CREDENTIALS TAB ── */}
+        {activeTab === "credentials" && (
+          <div className="max-w-2xl space-y-6">
+
+            {/* Single unified form — pre-filled from DB, save on button click */}
+            <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/5 flex items-center gap-2">
+                <FaKey className="text-teal-400" />
+                <div>
+                  <p className="text-white font-extrabold">Merchant Credentials</p>
+                  <p className="text-slate-400 text-xs">Edit any field and click Save — changes update the database directly</p>
+                </div>
+              </div>
+              <form onSubmit={handleUpdateCredentials} className="p-6 space-y-5">
+
+                {/* ── Shopify Section ── */}
+                <div>
+                  <p className="text-teal-400 text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <FaStore /> Shopify
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Store URL</label>
+                      <input
+                        type="text"
+                        value={credStoreUrl}
+                        onChange={e => setCredStoreUrl(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Admin Token</label>
+                      <input
+                        type="text"
+                        value={credShopifyToken}
+                        onChange={e => setCredShopifyToken(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-sm font-mono"
+                      />
+                      <p className="text-slate-600 text-xs mt-1">Use "Generate" section below to refresh</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Webhook Secret</label>
+                      <input
+                        type="text"
+                        value={credShopifySecret}
+                        onChange={e => setCredShopifySecret(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-sm font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">App Client ID</label>
+                      <input
+                        type="text"
+                        value={credClientId}
+                        onChange={e => setCredClientId(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-sm font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">App Client Secret</label>
+                      <input
+                        type="text"
+                        value={credClientSecret}
+                        onChange={e => setCredClientSecret(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-sm font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Meta Section ── */}
+                <div className="border-t border-white/5 pt-5">
+                  <p className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <FaWhatsapp /> Meta WhatsApp Cloud API
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Phone Number ID</label>
+                      <input
+                        type="text"
+                        value={credMetaPhoneId}
+                        onChange={e => setCredMetaPhoneId(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">WABA ID</label>
+                      <input
+                        type="text"
+                        value={credMetaWabaId}
+                        onChange={e => setCredMetaWabaId(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Permanent Access Token</label>
+                      <input
+                        type="text"
+                        value={credMetaToken}
+                        onChange={e => setCredMetaToken(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono"
+                      />
+                      <p className="text-slate-600 text-xs mt-1">System User token — never expires</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading === "creds"}
+                  className="w-full bg-teal-500 hover:bg-teal-400 text-white font-bold py-3.5 rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 transition"
+                >
+                  {loading === "creds"
+                    ? <><FaSpinner className="animate-spin" /> Saving...</>
+                    : <><FaCheckCircle /> Save All Changes</>
+                  }
+                </button>
+              </form>
+            </div>
+
+            {/* Shopify OAuth token refresh — separate utility */}
+            <div className="bg-slate-800 border border-amber-500/20 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-amber-500/10 flex items-center gap-2">
+                <FaSync className="text-amber-400" />
+                <div>
+                  <p className="text-white font-extrabold">Generate New Shopify Token</p>
+                  <p className="text-slate-400 text-xs">
+                    Uses saved Client ID + Secret to generate a fresh access token
+                  </p>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="bg-slate-900 border border-white/5 rounded-xl p-4 mb-4 text-sm text-slate-400 space-y-1">
+                  <p><span className="text-slate-300 font-bold">Client ID:</span> {credClientId ? `${credClientId.slice(0, 8)}...` : <span className="text-red-400">Not saved</span>}</p>
+                  <p><span className="text-slate-300 font-bold">Client Secret:</span> {credClientSecret ? `••••••••${credClientSecret.slice(-4)}` : <span className="text-red-400">Not saved</span>}</p>
+                  <p className="text-slate-600 text-xs">Save credentials above first if not set.</p>
+                </div>
+                <button
+                  onClick={handleRefreshShopifyToken as any}
+                  disabled={loading === "refresh" || !credClientId || !credClientSecret}
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 transition"
+                >
+                  {loading === "refresh"
+                    ? <><FaSpinner className="animate-spin" /> Generating...</>
+                    : <><FaSync /> Generate &amp; Save Token</>
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TEMPLATES TAB ── */}
+        {activeTab === "templates" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Create template */}
+              <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-2">
+                  <FaTag className="text-indigo-400" />
+                  <div>
+                    <p className="text-white font-extrabold">Create New Template</p>
+                    <p className="text-slate-400 text-xs">Submit to Meta for approval (~24hrs)</p>
+                  </div>
+                </div>
+                <form onSubmit={handleCreateTemplate} className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Template Name</label>
+                      <input type="text" required placeholder="abandoned_cart_1" value={tmplName} onChange={e => setTmplName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                      <p className="text-slate-600 text-xs mt-1">lowercase, underscores only</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Category</label>
+                      <select value={tmplCategory} onChange={e => setTmplCategory(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        <option value="MARKETING">MARKETING</option>
+                        <option value="UTILITY">UTILITY</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 mb-1 block">Language</label>
+                    <select value={tmplLanguage} onChange={e => setTmplLanguage(e.target.value)}
+                      className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                      <option value="en_US">English (US)</option>
+                      <option value="en">English</option>
+                      <option value="hi">Hindi</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 mb-1 block">Header (optional)</label>
+                    <input type="text" placeholder="Your cart is waiting! 🛒" value={tmplHeader} onChange={e => setTmplHeader(e.target.value)}
+                      className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 mb-1 block">Body Text *</label>
+                    <textarea rows={5} required placeholder={"Hi {{1}}, you left items in your cart.\n\nComplete your order: {{2}}"} value={tmplBody} onChange={e => setTmplBody(e.target.value)}
+                      className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none font-mono" />
+                    <p className="text-slate-600 text-xs mt-1">Variables: {`{{1}}`} {`{{2}}`} etc.</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 mb-1 block">Footer (optional)</label>
+                    <input type="text" placeholder="Reply STOP to unsubscribe" value={tmplFooter} onChange={e => setTmplFooter(e.target.value)}
+                      className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                  </div>
+                  <button type="submit" disabled={loading === "tmpl-create"}
+                    className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-3.5 rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 transition">
+                    {loading === "tmpl-create" ? <><FaSpinner className="animate-spin" /> Submitting...</> : <><FaCheckCircle /> Submit for Approval</>}
+                  </button>
+                </form>
+              </div>
+
+              {/* List templates */}
+              <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FaChartBar className="text-teal-400" />
+                    <p className="text-white font-extrabold">Meta Templates</p>
+                  </div>
+                  <button onClick={fetchMetaTemplates} disabled={loading === "tmpl-fetch"}
+                    className="bg-teal-500/20 hover:bg-teal-500 border border-teal-500/30 text-teal-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition disabled:opacity-40">
+                    {loading === "tmpl-fetch" ? <FaSpinner className="animate-spin" /> : <FaSync />} Refresh
+                  </button>
+                </div>
+              <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
+                  {metaTemplates.length === 0 ? (
+                    <div className="text-center py-12">
+                      <FaTag className="text-slate-600 text-3xl mx-auto mb-2" />
+                      <p className="text-slate-500 text-sm">Click Refresh to load from Meta</p>
+                    </div>
+                  ) : metaTemplates.map((t: any, i: number) => (
+                    <TemplateCard
+                      key={t.id || i}
+                      t={t}
+                      bodyComp={t.components?.find((c: any) => c.type === 'BODY')}
+                      headerComp={t.components?.find((c: any) => c.type === 'HEADER')}
+                      footerComp={t.components?.find((c: any) => c.type === 'FOOTER')}
+                      onDelete={handleDeleteTemplate}
+                    />
+                  ))}                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-900/20 border border-blue-500/20 rounded-xl p-4 text-sm text-slate-400 flex items-start gap-3">
+              <FaRobot className="text-blue-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-blue-300 font-bold mb-1">After Approval</p>
+                <p>Once template status shows APPROVED, go to Flows tab and set the <code className="bg-slate-800 text-teal-300 px-1 rounded">metaTemplateName</code> field to use it for abandoned cart automation.</p>
+              </div>
             </div>
           </div>
         )}

@@ -43,6 +43,7 @@ export default function LoginPage() {
       const response = await axios.post(`${API_URL}/auth/login`, result.data);
 
       localStorage.setItem("token", response.data.token);
+      localStorage.setItem("merchant", JSON.stringify(response.data.merchant));
 
       setLoading(false);
       router.push("/dashboard");

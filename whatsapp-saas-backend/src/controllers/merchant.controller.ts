@@ -18,6 +18,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<any> => {
         plan: true,
         status: true,
         whatsappConnected: true,
+        subscriptionExpiry: true,
         createdAt: true,
       }
     });
@@ -31,18 +32,17 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<any> => {
 
 export const updateOnboardingData = async (req: AuthRequest, res: Response): Promise<any> => {
   try {
-    const { storeUrl, whatsappNumber } = req.body;
+    const { storeUrl } = req.body;
     const merchantId = req.user.merchantId;
 
-    if (!storeUrl || !whatsappNumber) {
-      return res.status(400).json({ message: 'Store URL and WhatsApp Number are required.' });
+    if (!storeUrl) {
+      return res.status(400).json({ message: 'Store URL is required.' });
     }
 
     await prisma.merchant.update({
       where: { id: merchantId },
       data: {
         storeUrl: storeUrl,
-        phone: whatsappNumber, 
       }
     });
 

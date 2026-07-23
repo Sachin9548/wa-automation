@@ -72,26 +72,25 @@ export const extendSubscription = async (req: Request, res: Response): Promise<a
   }
 };
 
-// 3. Wallet Update (Credits Add karna)
-export const addCredits = async (req: Request, res: Response): Promise<any> => {
+// 3. Record Payment (subscription amount note karna — sirf record ke liye)
+export const recordPayment = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, amount } = req.body;
 
     const updatedMerchant = await prisma.merchant.update({
       where: { id: merchantId },
       data: {
-        walletBalance: { increment: parseFloat(amount) },
         totalPaidAmount: { increment: parseFloat(amount) }
       }
     });
 
     res.status(200).json({
-      message: `💰 Added ₹${amount} to ${updatedMerchant.brandName}'s wallet.`,
-      currentBalance: updatedMerchant.walletBalance
+      message: `✅ Payment of ₹${amount} recorded for ${updatedMerchant.brandName}.`,
+      totalPaid: updatedMerchant.totalPaidAmount
     });
   } catch (error) {
-    console.error('Add Credits Error:', error);
-    res.status(500).json({ message: 'Error adding credits' });
+    console.error('Record Payment Error:', error);
+    res.status(500).json({ message: 'Error recording payment' });
   }
 };
 
@@ -125,10 +124,10 @@ export const getAllMerchants = async (req: Request, res: Response): Promise<any>
         phone: true,
         status: true,
         plan: true,
-        walletBalance: true,
+        totalPaidAmount: true,
         whatsappConnected: true,
         storeUrl: true,
-        subscriptionExpiry: true, // 👈 Added this to see in Admin table
+        subscriptionExpiry: true,
         createdAt: true,
       },
       orderBy: {
@@ -215,9 +214,13 @@ export const getMerchantDetail = async (req: Request, res: Response): Promise<an
         whatsappConnected: true, storeUrl: true,
         subscriptionExpiry: true, category: true,
         totalSent: true, totalRead: true, totalClicked: true,
-        totalConverted: true, recoveredRevenue: true, createdAt: true,
+        totalConverted: true, recoveredRevenue: true, totalPaidAmount: true, createdAt: true,
         metaPhoneNumberId: true, metaWabaId: true,
-        // Never expose metaAccessToken in list responses
+        metaAccessToken: true,
+        shopifyToken: true,
+        shopifySecret: true,
+        shopifyClientId: true,
+        shopifyClientSecret: true,
         _count: { select: { customers: true, campaigns: true, abandonedCarts: true } }
       }
     });

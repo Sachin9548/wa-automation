@@ -54,6 +54,7 @@ const handleSignup = async (e: React.SyntheticEvent<HTMLFormElement>) => {
       
       // 3. Token aur merchant data localStorage me save karo
       localStorage.setItem("token", response.data.token);
+      localStorage.setItem("merchant", JSON.stringify(response.data.merchant));
       
       console.log("Signup Success:", response.data);
       setLoading(false);
@@ -89,7 +90,7 @@ const handleSignup = async (e: React.SyntheticEvent<HTMLFormElement>) => {
         <div className="space-y-4">
           <div className="flex items-center">
             <FaCheckCircle className="text-yellow-300 text-xl mr-4" />
-            <span className="text-lg">Get ₹200 Free Credits instantly</span>
+            <span className="text-lg">Abandoned cart recovery on autopilot</span>
           </div>
           <div className="flex items-center">
             <FaCheckCircle className="text-yellow-300 text-xl mr-4" />
@@ -97,7 +98,7 @@ const handleSignup = async (e: React.SyntheticEvent<HTMLFormElement>) => {
           </div>
           <div className="flex items-center">
             <FaCheckCircle className="text-yellow-300 text-xl mr-4" />
-            <span className="text-lg">No Meta API approval required</span>
+            <span className="text-lg">Festival campaigns to re-engage customers</span>
           </div>
         </div>
       </div>

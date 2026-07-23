@@ -43,12 +43,10 @@ const Navbar = () => {
           {/* Center: Desktop Menu */}
           <div className="hidden md:flex space-x-8">
             <a href="#" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">Home</a>
-            <a href="#About" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">About Us</a>
-            <a href="#Services" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">Services</a>
-            <a href="#HowItWorks" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">How it Works?</a>
-            <a href="#Pricing" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">Pricing</a>
-            {/* Escaped Quote for Next.js */}
-            <a href="#FAQ" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">FAQ&apos;s</a>
+            <a href="#features" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">Features</a>
+            <a href="#howitworks" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">How it Works</a>
+            <a href="#pricing" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">Pricing</a>
+            <a href="#faq" onClick={handleSmoothScroll} className="text-gray-600 hover:text-teal-700 font-medium transition">FAQ</a>
           </div>
 
           {/* Right Side: Desktop Login/Signup Buttons (Wrapped in a div) */}
@@ -79,11 +77,10 @@ const Navbar = () => {
         <div className="md:hidden bg-white border-t border-gray-100 shadow-xl absolute w-full left-0">
           <div className="px-4 pt-2 pb-6 space-y-1 flex flex-col">
             <a href="#" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">Home</a>
-            <a href="#About" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">About Us</a>
-            <a href="#Services" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">Services</a>
-            <a href="#HowItWorks" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">How it Works?</a>
-            <a href="#Pricing" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">Pricing</a>
-            <a href="#FAQ" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">FAQ&apos;s</a>
+            <a href="#features" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">Features</a>
+            <a href="#howitworks" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">How it Works</a>
+            <a href="#pricing" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">Pricing</a>
+            <a href="#faq" onClick={handleSmoothScroll} className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-teal-700 hover:bg-teal-50 rounded-lg">FAQ</a>
             
             {/* Mobile Login & Signup Buttons */}
             <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-3 px-2">
