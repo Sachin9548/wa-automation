@@ -203,6 +203,7 @@ export default function MerchantControlHub() {
   const [credClientSecret, setCredClientSecret] = useState("");
   // Templates
   const [metaTemplates, setMetaTemplates] = useState<any[]>([]);
+  const [webhookResults, setWebhookResults] = useState<any[]>([]);
   const [tmplName, setTmplName] = useState("");
   const [tmplBody, setTmplBody] = useState("");
   const [tmplHeader, setTmplHeader] = useState("");
@@ -358,8 +359,17 @@ export default function MerchantControlHub() {
     finally { setLoading(null); }
   };
 
-  const handleDeleteTemplate = async (templateName: string) => {
+  const handleRegisterWebhooks = async () => {
+    setLoading("webhooks");
     try {
+      const r = await axios.post(`${API_URL}/admin/register-webhooks`, { merchantId }, { headers: ah() });
+      setWebhookResults(r.data.results || []);
+      alert(r.data.message);
+    } catch (e: any) { alert(e.response?.data?.message || "Failed"); }
+    finally { setLoading(null); }
+  };
+
+  const handleDeleteTemplate = async (templateName: string) => {    try {
       await axios.delete(`${API_URL}/admin/meta-templates/${merchantId}/${templateName}`, { headers: ah() });
       setMetaTemplates(prev => prev.filter(t => t.name !== templateName));
       alert(`✅ Template "${templateName}" deleted!`);
@@ -852,6 +862,45 @@ export default function MerchantControlHub() {
                   }
                 </button>
               </form>
+            </div>
+
+            {/* Register Shopify Webhooks */}
+            <div className="bg-slate-800 border border-green-500/20 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-green-500/10 flex items-center gap-2">
+                <FaLink className="text-green-400" />
+                <div>
+                  <p className="text-white font-extrabold">Register Shopify Webhooks</p>
+                  <p className="text-slate-400 text-xs">Registers abandoned cart + order webhooks in Shopify automatically</p>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="bg-slate-900 border border-white/5 rounded-xl p-4 text-xs text-slate-400 space-y-1.5">
+                  <p className="text-slate-300 font-bold mb-2">Will register these webhooks:</p>
+                  <p>📦 <code className="text-teal-300">checkouts/create</code> — abandoned cart detect</p>
+                  <p>🔄 <code className="text-teal-300">checkouts/update</code> — cart update (phone added)</p>
+                  <p>✅ <code className="text-teal-300">orders/create</code> — revenue tracking</p>
+                </div>
+                {webhookResults.length > 0 && (
+                  <div className="space-y-1">
+                    {webhookResults.map((r: any, i: number) => (
+                      <div key={i} className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${r.status === 'registered' ? 'bg-green-500/10 text-green-400' : r.status === 'already_registered' ? 'bg-blue-500/10 text-blue-400' : 'bg-red-500/10 text-red-400'}`}>
+                        <span>{r.status === 'registered' ? '✅' : r.status === 'already_registered' ? 'ℹ️' : '❌'}</span>
+                        <span className="font-mono">{r.topic}</span>
+                        <span className="ml-auto font-bold">{r.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={handleRegisterWebhooks}
+                  disabled={loading === "webhooks"}
+                  className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3.5 rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 transition"
+                >
+                  {loading === "webhooks"
+                    ? <><FaSpinner className="animate-spin" /> Registering...</>
+                    : <><FaLink /> Register Webhooks in Shopify</>}
+                </button>
+              </div>
             </div>
 
             {/* Shopify OAuth token refresh — separate utility */}
