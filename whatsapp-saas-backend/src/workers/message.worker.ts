@@ -18,7 +18,10 @@ export const initMessageWorker = () => {
       }
 
       const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
-      if (!cart || cart.status === 'RECOVERED' || cart.status !== 'PENDING') return;
+      if (!cart || cart.status === 'RECOVERED' || cart.status !== 'PENDING') {
+        console.log(`ℹ️ Cart ${cartId} already processed or not found. Skipping.`);
+        return;
+      }
 
       const eligibility = await checkMerchantEligibility(merchantId);
       if (!eligibility.eligible) {
@@ -31,7 +34,7 @@ export const initMessageWorker = () => {
         merchant.metaPhoneNumberId,
         merchant.metaAccessToken,
         phone,
-        templateName || 'abandoned_cart_reminder',
+        templateName || 'hello_world',
         variables || []
       );
 
@@ -55,13 +58,10 @@ export const initMessageWorker = () => {
             }
           })
         ]);
-        console.log(`✅ Abandoned cart message sent for Cart ${cartId}`);
+        console.log(`✅ Abandoned cart message sent for Cart ${cartId} → ${phone}`);
       } else {
         throw new Error(`Meta send failed for cart ${cartId}. Will retry.`);
       }
-
-      // 15s delay between messages
-      await new Promise(r => setTimeout(r, 15000));
     }
 
     // ── 2. BULK CAMPAIGN ───────────────────────────────────────────────────
@@ -82,7 +82,7 @@ export const initMessageWorker = () => {
         merchant.metaPhoneNumberId,
         merchant.metaAccessToken,
         phone,
-        templateName || 'bulk_campaign',
+        templateName || 'hello_world',
         variables || []
       );
 
@@ -110,7 +110,7 @@ export const initMessageWorker = () => {
 
         // Mark campaign COMPLETED when all sent
         const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
-        if (campaign && campaign.sentCount >= campaign.totalRecipients) {
+        if (campaign && campaign.sentCount + 1 >= campaign.totalRecipients) {
           await prisma.campaign.update({
             where: { id: campaignId },
             data: { status: 'COMPLETED' }
@@ -120,19 +120,24 @@ export const initMessageWorker = () => {
       } else {
         throw new Error(`Meta send failed for campaign ${campaignId}. Will retry.`);
       }
-
-      // 15s delay between messages
-      await new Promise(r => setTimeout(r, 15000));
     }
 
   }, {
     connection: { url: process.env.REDIS_URL, maxRetriesPerRequest: null },
-    concurrency: 1
+    concurrency: 1,          // ek waqt mein sirf 1 job — no message gets skipped
+    limiter: {
+      max: 1,                 // max 1 job
+      duration: 15000,        // per 15 seconds — Meta rate limit safe
+    }
   });
 
   worker.on('failed', (job, err) => {
-    console.error(`🚨 Job ${job?.id} failed: ${err.message}`);
+    console.error(`🚨 Job ${job?.id} failed (will retry): ${err.message}`);
   });
 
-  console.log('👷 Message Worker Started (Meta Cloud API)');
+  worker.on('completed', (job) => {
+    console.log(`✅ Job ${job?.id} completed`);
+  });
+
+  console.log('👷 Message Worker Started (Meta Cloud API) — Rate limit: 1 msg/15s');
 };

@@ -203,4 +203,83 @@ router.post('/meta-templates', async (req: Request, res: Response): Promise<any>
   }
 });
 
+// ── Register Shopify webhooks for a merchant ─────────────────────────────────
+router.post('/register-webhooks', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId } = req.body;
+    if (!merchantId) return res.status(400).json({ message: 'merchantId required' });
+
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    if (!merchant?.shopifyToken || !merchant?.storeUrl) {
+      return res.status(400).json({ message: 'Shopify token and store URL required' });
+    }
+
+    const cleanUrl = merchant.storeUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const axios = await import('axios');
+    const headers = {
+      'X-Shopify-Access-Token': merchant.shopifyToken,
+      'Content-Type': 'application/json'
+    };
+
+    const webhooks = [
+      {
+        topic: 'checkouts/create',
+        address: `${backendUrl}/api/webhooks/shopify/abandoned-cart/${merchantId}`
+      },
+      {
+        topic: 'checkouts/update',
+        address: `${backendUrl}/api/webhooks/shopify/abandoned-cart/${merchantId}`
+      },
+      {
+        topic: 'orders/create',
+        address: `${backendUrl}/api/webhooks/shopify/order-created/${merchantId}`
+      }
+    ];
+
+    const results: any[] = [];
+
+    for (const wh of webhooks) {
+      try {
+        const resp = await axios.default.post(
+          `https://${cleanUrl}/admin/api/2024-01/webhooks.json`,
+          { webhook: { topic: wh.topic, address: wh.address, format: 'json' } },
+          { headers }
+        );
+        results.push({ topic: wh.topic, status: 'registered', id: resp.data.webhook?.id });
+        console.log(`✅ Webhook registered: ${wh.topic} → ${wh.address}`);
+      } catch (e: any) {
+        const msg = e.response?.data?.errors || e.message;
+        // "Address for this topic already taken" = already registered, that's fine
+        const alreadyExists = JSON.stringify(msg).includes('already');
+        results.push({ topic: wh.topic, status: alreadyExists ? 'already_registered' : 'failed', error: alreadyExists ? null : msg });
+        console.log(`${alreadyExists ? 'ℹ️' : '❌'} ${wh.topic}: ${alreadyExists ? 'already registered' : msg}`);
+      }
+    }
+
+    res.status(200).json({ message: '✅ Webhook registration complete!', results });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── List registered Shopify webhooks ─────────────────────────────────────────
+router.get('/list-webhooks/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchant = await prisma.merchant.findUnique({ where: { id: req.params.merchantId as string } });
+    if (!merchant?.shopifyToken || !merchant?.storeUrl) {
+      return res.status(400).json({ message: 'Shopify credentials not set' });
+    }
+    const cleanUrl = merchant.storeUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const axios = await import('axios');
+    const resp = await axios.default.get(
+      `https://${cleanUrl}/admin/api/2024-01/webhooks.json`,
+      { headers: { 'X-Shopify-Access-Token': merchant.shopifyToken } }
+    );
+    res.status(200).json({ webhooks: resp.data.webhooks || [] });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 export default router;
