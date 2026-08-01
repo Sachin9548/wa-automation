@@ -38,6 +38,10 @@ model Merchant {
   subscriptionExpiry DateTime?
   shopifySecret     String?
 
+  // Service Control (admin manually manages — never auto-stops)
+  serviceActive     Boolean  @default(true)   // admin toggle: ON = messages send, OFF = paused
+  isFree            Boolean  @default(false)  // free merchant flag
+
   // Meta WhatsApp Cloud API credentials (set by admin per merchant)
   metaPhoneNumberId String?   // Phone Number ID from Meta app dashboard
   metaAccessToken   String?   // Permanent system user token (never expires)
@@ -61,6 +65,9 @@ model Merchant {
   abandonedCarts    AbandonedCart[]
   flows             AutomationFlow[]
   campaigns         Campaign[]
+  payments          Payment[]
+  orders            Order[]
+  syncLog           SyncLog?
 }
 
 model Message {
@@ -100,22 +107,37 @@ model AbandonedCart {
 }
 
 model Customer {
-
-id              String   @id @default(uuid())
+  id              String   @id @default(uuid())
   merchantId      String
   phone           String
   name            String?
-  totalOrders     Int      @default(1)
-  totalSpent      Float    @default(0.0)
-  lastOrderDate   DateTime @default(now())
+  email           String?
   
+  // Purchase history
+  totalOrders     Int      @default(0)
+  totalSpent      Float    @default(0.0)
+  lastOrderDate   DateTime?
+  firstOrderDate  DateTime?
+  averageOrderValue Float  @default(0.0)
+
+  // Shopify data
+  shopifyCustomerId String?
+  city            String?
+  province        String?
+  country         String?
+  tags            String?   // comma separated
+
+  // Customer type tracking (point 12)
+  hasAbandonedCart  Boolean @default(false)
+  hasPlacedOrder    Boolean @default(false)
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
   merchant        Merchant @relation(fields: [merchantId], references: [id])
+  orders          Order[]
   
   @@unique([merchantId, phone]) 
-
 }
 
 model AutomationFlow {
@@ -150,4 +172,55 @@ model Campaign {
   createdAt       DateTime @default(now())
 
   merchant        Merchant @relation(fields: [merchantId], references: [id])
+}
+
+// Payment records — admin manually adds when merchant pays
+model Payment {
+  id          String   @id @default(uuid())
+  merchantId  String
+
+  amount      Float                    // Amount received (0 for free)
+  planDays    Int                      // How many days of service given
+  note        String?                  // Optional note (e.g. "Diwali offer", "Free trial")
+  paidAt      DateTime @default(now()) // When payment was received
+
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+}
+
+// Shopify orders — golden data
+model Order {
+  id              String   @id @default(uuid())
+  merchantId      String
+  customerId      String?  // FK to Customer
+
+  shopifyOrderId  String
+  orderNumber     String?  // e.g. "#1001"
+  totalPrice      Float    @default(0.0)
+  currency        String   @default("INR")
+  status          String   @default("unfulfilled") // fulfilled, unfulfilled, cancelled
+  paymentStatus   String   @default("paid")         // paid, pending, refunded
+
+  lineItems       String?  @db.Text  // JSON string of products ordered
+  shippingAddress String?  @db.Text  // JSON string
+
+  shopifyCreatedAt DateTime?
+  createdAt       DateTime @default(now())
+
+  merchant        Merchant  @relation(fields: [merchantId], references: [id])
+  customer        Customer? @relation(fields: [customerId], references: [id])
+
+  @@unique([merchantId, shopifyOrderId])
+}
+
+// Sync log — track last sync time per merchant (point 11)
+model SyncLog {
+  id          String   @id @default(uuid())
+  merchantId  String   @unique  // one record per merchant
+  
+  lastSyncAt  DateTime @default(now())
+  totalSynced Int      @default(0)
+  status      String   @default("completed") // running, completed, failed
+  note        String?
+
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
 }

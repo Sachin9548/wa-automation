@@ -270,8 +270,10 @@ export default function AdminConsole() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-teal-400 font-extrabold">₹{m.walletBalance?.toFixed(2)}</p>
-                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">{m.plan} plan</p>
+                        <p className="text-teal-400 font-extrabold">₹{m.totalPaidAmount?.toFixed(0) || '0'}</p>
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">
+                          {m.isFree ? '🎁 Free' : '💰 Paid'}
+                        </p>
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-slate-300 text-sm font-semibold">
@@ -279,17 +281,24 @@ export default function AdminConsole() {
                         </p>
                       </td>
                       <td className="px-6 py-4">
-                        {m.status === "ACTIVE" ? (
-                          <span className="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
-                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
-                            <FaExclamationTriangle className="text-[8px]" />
-                            Pending
-                          </span>
-                        )}
+                        <div className="space-y-1">
+                          {m.status === "ACTIVE" ? (
+                            <span className="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                              <FaExclamationTriangle className="text-[8px]" />
+                              Pending
+                            </span>
+                          )}
+                          {m.status === "ACTIVE" && (
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${m.serviceActive !== false ? 'bg-teal-500/10 border-teal-500/20 text-teal-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                              {m.serviceActive !== false ? '● Service ON' : '● Service OFF'}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <Link

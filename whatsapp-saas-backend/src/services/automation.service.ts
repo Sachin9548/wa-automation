@@ -10,19 +10,21 @@ export const checkMerchantEligibility = async (merchantId: string) => {
     return { eligible: false, reason: "Merchant not found" };
   }
 
+  // Must be activated by admin first
   if (merchant.status === "PENDING_ONBOARDING" || merchant.status === "PENDING_ADMIN") {
     return { eligible: false, reason: `Merchant not yet activated (status: ${merchant.status})` };
   }
 
-  const now = new Date();
-  if (!merchant.subscriptionExpiry || merchant.subscriptionExpiry < now) {
-    return { eligible: false, reason: `Subscription expired on ${merchant.subscriptionExpiry?.toDateString()}` };
+  // Admin manually controls service — subscription expiry does NOT stop service
+  // Only serviceActive toggle stops messages
+  if (!(merchant as any).serviceActive) {
+    return { eligible: false, reason: "Service paused by admin" };
   }
 
-  // TODO: Enable Meta credential check after running `prisma db push` to add meta fields
-  // if (!merchant.metaPhoneNumberId || !merchant.metaAccessToken) {
-  //   return { eligible: false, reason: "Meta WhatsApp credentials not configured — contact admin" };
-  // }
+  // Meta credentials must be set
+  if (!merchant.metaPhoneNumberId || !merchant.metaAccessToken) {
+    return { eligible: false, reason: "Meta WhatsApp credentials not configured" };
+  }
 
   return { eligible: true, merchant };
 };

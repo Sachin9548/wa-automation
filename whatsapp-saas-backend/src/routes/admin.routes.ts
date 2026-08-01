@@ -5,6 +5,7 @@ import {
   getAdminStats, getAllMerchants, launchCampaign,
   getMerchantDetail, getMerchantCampaigns, syncMerchantCustomers,
   getMerchantFlows, saveMerchantFlow, toggleMerchantFlow, getMerchantCustomers,
+  toggleMerchantService, setMerchantFree, addPayment, getPaymentHistory,
 } from "../controllers/admin.controller";
 import { adminProtect } from "../middleware/admin.middleware";
 import { sendMetaTextMessage, sendMetaTemplateMessage } from "../services/whatsapp.service";
@@ -27,6 +28,68 @@ router.get('/flows/:merchantId', getMerchantFlows);
 router.post('/flows/save', saveMerchantFlow);
 router.post('/flows/toggle', toggleMerchantFlow);
 router.get('/customers/:merchantId', getMerchantCustomers);
+router.post('/toggle-service', toggleMerchantService);
+router.post('/set-free', setMerchantFree);
+router.post('/add-payment', addPayment);
+router.get('/payments/:merchantId', getPaymentHistory);
+
+// ── Full Shopify Sync (background, rate-limit safe) ───────────────────────────
+router.post('/full-sync', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId } = req.body;
+    if (!merchantId) return res.status(400).json({ message: 'merchantId required' });
+
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    if (!merchant?.shopifyToken) return res.status(400).json({ message: 'Shopify token not set' });
+
+    // Return immediately — sync runs in background
+    res.status(200).json({ message: '🔄 Full sync started in background. Check sync status for progress.' });
+
+    // Run async after response sent
+    const { runFullShopifySync } = await import('../services/shopify/full-sync.service');
+    runFullShopifySync(merchantId).catch((err: any) => {
+      console.error(`❌ Full sync failed for ${merchantId}:`, err.message);
+    });
+
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Get sync status ───────────────────────────────────────────────────────────
+router.get('/sync-status/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const syncLog = await (prisma as any).syncLog.findUnique({
+      where: { merchantId: req.params.merchantId as string }
+    });
+    const customerCount = await prisma.customer.count({ where: { merchantId: req.params.merchantId as string } });
+    const orderCount = await (prisma as any).order.count({ where: { merchantId: req.params.merchantId as string } });
+    res.status(200).json({ syncLog, customerCount, orderCount });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Get orders for a merchant ─────────────────────────────────────────────────
+router.get('/orders/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    const [orders, total] = await Promise.all([
+      (prisma as any).order.findMany({
+        where: { merchantId: req.params.merchantId as string },
+        skip, take: limit,
+        orderBy: { shopifyCreatedAt: 'desc' }
+      }),
+      (prisma as any).order.count({ where: { merchantId: req.params.merchantId as string } })
+    ]);
+    res.status(200).json({ orders, total, page, pages: Math.ceil(total / limit) });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
 
 // ── Meta: Delete a template ───────────────────────────────────────────────────
 router.delete('/meta-templates/:merchantId/:templateName', async (req: Request, res: Response): Promise<any> => {
