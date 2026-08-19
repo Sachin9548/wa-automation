@@ -103,12 +103,16 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
         totalPrice: parseFloat(shopifyData.total_price || '0'),
       }
     });
-
     console.log(`✅ Cart saved: ${newCart.id}`);
 
     // ── 7. Queue messages ───────────────────────────────────────────────────
     if (customerPhone !== 'NO_PHONE') {
-      await queueAbandonedCartJobs(merchant, newCart, customerPhone);
+      // Pass line items from Shopify payload for template variables
+      const cartWithItems = {
+        ...newCart,
+        lineItems: shopifyData.line_items ? JSON.stringify(shopifyData.line_items.map((li: any) => ({ name: li.title || li.name }))) : null
+      };
+      await queueAbandonedCartJobs(merchant, cartWithItems, customerPhone);
     } else {
       console.log(`ℹ️ No phone yet — cart saved, will process on next webhook update`);
     }
@@ -128,18 +132,29 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
   });
 
   for (const flow of activeFlows) {
+    // shop_now template: {{1}}=name, {{2}}=products, {{3}}=cart_url
+    // hello_world template: no variables
+    const templateName = (flow as any).metaTemplateName || 'hello_world';
+    const productsList = cart.lineItems
+      ? JSON.parse(cart.lineItems).map((li: any) => li.name).join(', ')
+      : 'your items';
+
+    const variables = templateName === 'hello_world'
+      ? []
+      : [cart.customerName || 'there', productsList, cart.cartUrl];
+
     await messageQueue.add('send-automated-msg', {
       cartId: cart.id,
       merchantId: merchant.id,
       phone,
-      templateName: (flow as any).metaTemplateName || 'hello_world',
-      variables: [cart.customerName, cart.cartUrl]
+      templateName,
+      variables,
     }, {
       delay: flow.delayMinutes * 60 * 1000,
       attempts: 3,
       backoff: { type: 'exponential', delay: 60000 }
     });
-    console.log(`✅ Queued: flow=${flow.type} delay=${flow.delayMinutes}min phone=${phone} template=${(flow as any).metaTemplateName || 'hello_world'}`);
+    console.log(`✅ Queued: flow=${flow.type} delay=${flow.delayMinutes}min phone=${phone} template=${templateName}`);
   }
 }
 

@@ -124,11 +124,13 @@ export const initMessageWorker = () => {
 
   }, {
     connection: { url: process.env.REDIS_URL, maxRetriesPerRequest: null },
-    concurrency: 1,          // ek waqt mein sirf 1 job — no message gets skipped
+    concurrency: 1,
     limiter: {
-      max: 1,                 // max 1 job
-      duration: 15000,        // per 15 seconds — Meta rate limit safe
-    }
+      max: 1,
+      duration: 15000,        // Meta rate limit: 1 msg per 15 seconds
+    },
+    stalledInterval: 60000,   // Check stalled jobs every 60s (default 30s) — saves Redis requests
+    drainDelay: 30,           // Wait 30s before polling again when queue is empty — saves ~10x Redis requests
   });
 
   worker.on('failed', (job, err) => {

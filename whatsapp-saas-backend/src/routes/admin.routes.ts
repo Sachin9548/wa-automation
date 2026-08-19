@@ -266,6 +266,39 @@ router.post('/meta-templates', async (req: Request, res: Response): Promise<any>
   }
 });
 
+// ── Delete all Shopify webhooks for a merchant ───────────────────────────────
+router.post('/delete-webhooks', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId } = req.body;
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    if (!merchant?.shopifyToken || !merchant?.storeUrl) {
+      return res.status(400).json({ message: 'Shopify credentials not set' });
+    }
+    const cleanUrl = merchant.storeUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const axios = await import('axios');
+    const headers = { 'X-Shopify-Access-Token': merchant.shopifyToken };
+
+    // Get all webhooks
+    const listResp = await axios.default.get(
+      `https://${cleanUrl}/admin/api/2024-01/webhooks.json`,
+      { headers }
+    );
+    const webhooks = listResp.data.webhooks || [];
+
+    // Delete each one
+    for (const wh of webhooks) {
+      await axios.default.delete(
+        `https://${cleanUrl}/admin/api/2024-01/webhooks/${wh.id}.json`,
+        { headers }
+      );
+    }
+
+    res.status(200).json({ message: `✅ Deleted ${webhooks.length} webhooks` });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 // ── Register Shopify webhooks for a merchant ─────────────────────────────────
 router.post('/register-webhooks', async (req: Request, res: Response): Promise<any> => {
   try {
