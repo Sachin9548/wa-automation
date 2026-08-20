@@ -48,6 +48,7 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
       console.log(`   Secret length: ${merchant.shopifySecret.length}`);
       console.log(`   rawBody length: ${req.rawBody.length} bytes`);
       console.log(`   rawBody (first 50): ${rawBodyStr.substring(0, 50)}`);
+      console.log(`   rawBody first 20 bytes hex: ${req.rawBody.slice(0, 20).toString('hex')}`);
       console.log(`   Shopify sent: ${hmac}`);
       console.log(`   We computed:  ${computed}`);
       console.log(`   Match: ${hmac === computed}`);
