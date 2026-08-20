@@ -35,6 +35,9 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
 
       // Debug: log what we have
       const crypto = require('crypto');
+      const rawBodyStr = req.rawBody.toString('utf8');
+      
+      // Method 1: secret as raw string (Shopify standard)
       const computed = crypto
         .createHmac('sha256', merchant.shopifySecret)
         .update(req.rawBody)
@@ -43,6 +46,8 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
       console.log(`🔐 HMAC Debug:`);
       console.log(`   Secret (first 8): ${merchant.shopifySecret.substring(0, 8)}...`);
       console.log(`   Secret length: ${merchant.shopifySecret.length}`);
+      console.log(`   rawBody length: ${req.rawBody.length} bytes`);
+      console.log(`   rawBody (first 50): ${rawBodyStr.substring(0, 50)}`);
       console.log(`   Shopify sent: ${hmac}`);
       console.log(`   We computed:  ${computed}`);
       console.log(`   Match: ${hmac === computed}`);

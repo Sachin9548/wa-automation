@@ -23,10 +23,7 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json({
   limit: '10mb',
   verify: (req: any, _res, buf) => {
-    const url = req.originalUrl || req.url || "";
-    if (url.includes('shopify')) {
-      req.rawBody = buf;
-    }
+    req.rawBody = buf; // Always capture rawBody for all routes
   }
 }));
 
