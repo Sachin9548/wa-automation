@@ -32,6 +32,21 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
         console.error('❌ rawBody missing — middleware issue');
         return res.status(401).send('rawBody not captured');
       }
+
+      // Debug: log what we have
+      const crypto = require('crypto');
+      const computed = crypto
+        .createHmac('sha256', merchant.shopifySecret)
+        .update(req.rawBody)
+        .digest('base64');
+
+      console.log(`🔐 HMAC Debug:`);
+      console.log(`   Secret (first 8): ${merchant.shopifySecret.substring(0, 8)}...`);
+      console.log(`   Secret length: ${merchant.shopifySecret.length}`);
+      console.log(`   Shopify sent: ${hmac}`);
+      console.log(`   We computed:  ${computed}`);
+      console.log(`   Match: ${hmac === computed}`);
+
       const isValid = verifyShopifyWebhook(req.rawBody, hmac, merchant.shopifySecret);
       if (!isValid) {
         console.error(`🚨 HMAC verification failed for merchant: ${merchant.brandName}`);
