@@ -251,9 +251,12 @@ export default function MerchantControlHub() {
   const [payNote, setPayNote] = useState("");
   const [payments, setPayments] = useState<any[]>([]);
 
-  // Customer filter
+  // Customers
   const [customerFilter, setCustomerFilter] = useState("all");
   const [syncStatus, setSyncStatus] = useState<any>(null);
+
+  // Flow drafts — local state before save
+  const [flowDrafts, setFlowDrafts] = useState<Record<string, { template: string; delay: number; active: boolean }>>({});
 
   // Campaign
   const [campaignName, setCampaignName] = useState("");
@@ -877,27 +880,59 @@ export default function MerchantControlHub() {
         {/* ── FLOWS TAB ── */}
         {activeTab === "flows" && (
           <div className="space-y-6">
-
-            {/* Info banner */}
-            <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-xl p-4 text-sm text-slate-400 flex items-start gap-3">
+            {/* Info */}
+            <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-xl p-4 text-sm text-slate-300 flex items-start gap-3">
               <FaRobot className="text-indigo-400 mt-0.5 shrink-0 text-lg" />
               <div>
-                <p className="text-indigo-300 font-bold mb-1">How Flows Work</p>
-                <p>Select an approved Meta template, set delay time, and enable the flow. When a customer abandons cart, message is sent automatically after the delay.</p>
+                <p className="text-indigo-300 font-bold mb-1">How to set up a flow</p>
+                <p>1. Select approved WhatsApp template &nbsp;·&nbsp; 2. Set delay &nbsp;·&nbsp; 3. Toggle ON &nbsp;·&nbsp; 4. Click <strong>Save &amp; Publish</strong></p>
               </div>
             </div>
 
-            {/* Flow cards */}
             {FLOW_TYPES.map(ft => {
               const db = flows.find((f: any) => f.type === ft.type);
-              const on = db?.isActive ?? false;
-              const savedTemplate = db?.metaTemplateName || '';
+              const draft = flowDrafts[ft.type];
+              const currentTemplate = draft?.template ?? db?.metaTemplateName ?? '';
+              const currentDelay = draft?.delay ?? db?.delayMinutes ?? ft.defaultDelay;
+              const currentActive = draft?.active ?? db?.isActive ?? false;
+              const isDirty = draft !== undefined;
               const approvedTemplates = metaTemplates.filter((t: any) => t.status === 'APPROVED');
 
+              const updateDraft = (patch: Partial<{ template: string; delay: number; active: boolean }>) => {
+                setFlowDrafts(prev => ({
+                  ...prev,
+                  [ft.type]: {
+                    template: patch.template !== undefined ? patch.template : currentTemplate,
+                    delay: patch.delay !== undefined ? patch.delay : currentDelay,
+                    active: patch.active !== undefined ? patch.active : currentActive,
+                  }
+                }));
+              };
+
+              const handleSaveFlow = async () => {
+                if (!currentTemplate) { alert('Please select a WhatsApp template first.'); return; }
+                setLoading(`flow-${ft.type}`);
+                try {
+                  await axios.post(`${API_URL}/admin/flows/save`, {
+                    merchantId, type: ft.type,
+                    delayMinutes: currentDelay,
+                    template: ft.defaultTemplate,
+                    metaTemplateName: currentTemplate,
+                    isActive: currentActive,
+                  }, { headers: ah() });
+                  setFlowDrafts(prev => { const n = { ...prev }; delete n[ft.type]; return n; });
+                  await fetchAll();
+                  alert(`✅ Flow "${ft.label}" saved!`);
+                } catch (e: any) { alert(e.response?.data?.message || 'Save failed'); }
+                finally { setLoading(null); }
+              };
+
               return (
-                <div key={ft.type} className={`bg-slate-800 border-2 rounded-2xl overflow-hidden transition ${on ? 'border-green-500/40' : 'border-white/5'}`}>
-                  {/* Flow header */}
-                  <div className={`px-6 py-4 flex items-center justify-between ${on ? 'bg-green-500/5' : 'bg-white/2'}`}>
+                <div key={ft.type} className={`bg-slate-800 rounded-2xl overflow-hidden border-2 transition ${
+                  currentActive && !isDirty ? 'border-green-500/40' : isDirty ? 'border-amber-500/40' : 'border-white/5'
+                }`}>
+                  {/* Header */}
+                  <div className={`px-6 py-4 flex items-center justify-between ${currentActive && !isDirty ? 'bg-green-500/5' : isDirty ? 'bg-amber-500/5' : ''}`}>
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 ${ft.bg} rounded-xl flex items-center justify-center`}>
                         <span className={`text-lg ${ft.color}`}>{ft.icon}</span>
@@ -905,164 +940,103 @@ export default function MerchantControlHub() {
                       <div>
                         <p className="text-white font-extrabold text-sm">{ft.label}</p>
                         <p className="text-slate-500 text-xs">
-                          {db ? `Delay: ${db.delayMinutes} min · Template: ${db.metaTemplateName || 'not set'}` : 'Not configured yet'}
+                          {currentActive && !isDirty ? `🟢 LIVE · ${currentTemplate} · ${currentDelay} min delay`
+                            : isDirty ? '🟡 Unsaved changes'
+                            : 'Not configured'}
                         </p>
                       </div>
                     </div>
-                    {/* Toggle */}
-                    <button
-                      onClick={() => toggleFlow(ft.type, on)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition ${
-                        on
-                          ? 'bg-green-500/20 border-green-500/30 text-green-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400'
-                          : 'bg-slate-700 border-white/10 text-slate-400 hover:bg-green-500/10 hover:text-green-400'
-                      }`}
-                    >
-                      {on ? <FaToggleOn className="text-xl" /> : <FaToggleOff className="text-xl" />}
-                      {on ? 'LIVE' : 'OFF'}
-                    </button>
+                    <span className={`text-xs font-extrabold px-3 py-1 rounded-full border ${
+                      currentActive && !isDirty ? 'bg-green-500/10 border-green-500/20 text-green-400'
+                      : isDirty ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                      : 'bg-slate-700 border-white/10 text-slate-400'
+                    }`}>
+                      {currentActive && !isDirty ? '● LIVE' : isDirty ? 'UNSAVED' : 'OFF'}
+                    </span>
                   </div>
 
-                  {/* Flow config form */}
+                  {/* Form */}
                   <div className="px-6 py-5 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                      {/* Template selector */}
+                      {/* Template */}
                       <div>
-                        <label className="text-xs font-bold text-slate-400 mb-2 block">
-                          WhatsApp Template <span className="text-red-400">*</span>
-                        </label>
-                        <select
-                          value={savedTemplate}
-                          onChange={async (e) => {
-                            const selected = e.target.value;
-                            // Save immediately on select
-                            try {
-                              await axios.post(`${API_URL}/admin/flows/save`, {
-                                merchantId,
-                                type: ft.type,
-                                delayMinutes: db?.delayMinutes ?? ft.defaultDelay,
-                                template: db?.template || ft.defaultTemplate,
-                                metaTemplateName: selected,
-                                isActive: db?.isActive ?? false,
-                              }, { headers: ah() });
-                              await fetchAll();
-                            } catch { alert('Save failed'); }
-                          }}
-                          className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                        >
-                          <option value="">-- Select Template --</option>
-                          {approvedTemplates.map((t: any) => (
-                            <option key={t.name} value={t.name}>
-                              {t.name} ({t.language})
-                            </option>
-                          ))}
-                        </select>
-                        {savedTemplate && (
-                          <div className="mt-2 bg-slate-900 border border-white/5 rounded-lg p-3 text-xs text-slate-400">
-                            {(() => {
-                              const tmpl = metaTemplates.find((t: any) => t.name === savedTemplate);
-                              const body = tmpl?.components?.find((c: any) => c.type === 'BODY');
-                              return body ? <pre className="whitespace-pre-wrap font-sans line-clamp-3 text-slate-300">{body.text.substring(0, 120)}...</pre> : null;
-                            })()}
+                        <label className="text-xs font-bold text-slate-400 mb-2 block">WhatsApp Template <span className="text-red-400">*</span></label>
+                        {approvedTemplates.length === 0 ? (
+                          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
+                            ⚠️ No approved templates.{' '}
+                            <button onClick={() => setActiveTab('templates')} className="underline font-bold">Create one →</button>
                           </div>
+                        ) : (
+                          <select
+                            value={currentTemplate}
+                            onChange={e => updateDraft({ template: e.target.value })}
+                            className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          >
+                            <option value="">-- Select Template --</option>
+                            {approvedTemplates.map((t: any) => (
+                              <option key={t.name} value={t.name}>{t.name} ({t.language})</option>
+                            ))}
+                          </select>
                         )}
-                        {approvedTemplates.length === 0 && (
-                          <p className="text-amber-400 text-xs mt-1">⚠️ No approved templates. Go to Templates tab first.</p>
-                        )}
+                        {currentTemplate && (() => {
+                          const tmpl = metaTemplates.find((t: any) => t.name === currentTemplate);
+                          const body = tmpl?.components?.find((c: any) => c.type === 'BODY');
+                          return body ? (
+                            <div className="mt-2 bg-slate-900 border border-white/5 rounded-lg p-3 text-xs text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">
+                              {body.text.substring(0, 150)}{body.text.length > 150 ? '...' : ''}
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
 
-                      {/* Delay setting */}
+                      {/* Delay */}
                       <div>
-                        <label className="text-xs font-bold text-slate-400 mb-2 block">
-                          Send After (minutes) <span className="text-red-400">*</span>
-                        </label>
+                        <label className="text-xs font-bold text-slate-400 mb-2 block">Send After (minutes)</label>
                         <input
                           type="number"
                           min="1"
-                          defaultValue={db?.delayMinutes ?? ft.defaultDelay}
-                          key={`delay-${ft.type}-${db?.delayMinutes}`}
-                          onBlur={async (e) => {
-                            const mins = parseInt(e.target.value) || ft.defaultDelay;
-                            try {
-                              await axios.post(`${API_URL}/admin/flows/save`, {
-                                merchantId,
-                                type: ft.type,
-                                delayMinutes: mins,
-                                template: db?.template || ft.defaultTemplate,
-                                metaTemplateName: db?.metaTemplateName || null,
-                                isActive: db?.isActive ?? false,
-                              }, { headers: ah() });
-                              await fetchAll();
-                            } catch { alert('Save failed'); }
-                          }}
+                          value={currentDelay}
+                          onChange={e => updateDraft({ delay: parseInt(e.target.value) || 1 })}
                           className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
-                        <div className="mt-2 grid grid-cols-3 gap-1">
-                          {[
-                            { label: '30 min', val: 30 },
-                            { label: '1 hour', val: 60 },
-                            { label: '24 hrs', val: 1440 },
-                          ].map(p => (
-                            <button
-                              key={p.val}
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  await axios.post(`${API_URL}/admin/flows/save`, {
-                                    merchantId,
-                                    type: ft.type,
-                                    delayMinutes: p.val,
-                                    template: db?.template || ft.defaultTemplate,
-                                    metaTemplateName: db?.metaTemplateName || null,
-                                    isActive: db?.isActive ?? false,
-                                  }, { headers: ah() });
-                                  await fetchAll();
-                                } catch { alert('Save failed'); }
-                              }}
-                              className={`text-xs py-1.5 rounded-lg border font-bold transition ${
-                                (db?.delayMinutes ?? ft.defaultDelay) === p.val
-                                  ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
-                                  : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                              }`}
-                            >
+                        <div className="mt-2 grid grid-cols-4 gap-1">
+                          {[{ label: '1 min', val: 1 }, { label: '30 min', val: 30 }, { label: '1 hr', val: 60 }, { label: '24 hrs', val: 1440 }].map(p => (
+                            <button key={p.val} type="button" onClick={() => updateDraft({ delay: p.val })}
+                              className={`text-xs py-1.5 rounded-lg border font-bold transition ${currentDelay === p.val ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>
                               {p.label}
                             </button>
                           ))}
                         </div>
+                        <p className="text-slate-600 text-xs mt-1.5">Use 1 min for testing · 30 min for production</p>
                       </div>
                     </div>
 
-                    {/* Status info */}
-                    {on && !savedTemplate && (
-                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-xs text-red-400 flex items-center gap-2">
-                        ⚠️ Flow is ON but no template selected — messages will not send!
-                      </div>
-                    )}
-                    {on && savedTemplate && (
-                      <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-xs text-green-400 flex items-center gap-2">
-                        ✅ Active — sending <strong>{savedTemplate}</strong> after <strong>{db?.delayMinutes} min</strong> delay
-                      </div>
-                    )}
+                    {/* Toggle + Save button */}
+                    <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <div onClick={() => updateDraft({ active: !currentActive })}
+                          className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 cursor-pointer ${currentActive ? 'bg-green-500' : 'bg-slate-600'}`}>
+                          <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${currentActive ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </div>
+                        <span className={`text-sm font-bold ${currentActive ? 'text-green-400' : 'text-slate-400'}`}>
+                          {currentActive ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </label>
+
+                      <button onClick={handleSaveFlow} disabled={loading === `flow-${ft.type}`}
+                        className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white font-bold px-6 py-2.5 rounded-xl disabled:opacity-40 flex items-center gap-2 transition text-sm shadow-lg shadow-teal-900/30">
+                        {loading === `flow-${ft.type}` ? <><FaSpinner className="animate-spin" /> Saving...</> : <><FaCheckCircle /> Save &amp; Publish</>}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
             })}
 
-            {/* Actions */}
-            <div className="flex gap-4 pt-2">
-              <button
-                onClick={() => { fetchMetaTemplates(); setActiveTab("templates"); }}
-                className="bg-indigo-500/20 hover:bg-indigo-500 border border-indigo-500/30 text-indigo-300 hover:text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition"
-              >
+            <div className="flex gap-4">
+              <button onClick={() => { fetchMetaTemplates(); setActiveTab('templates'); }}
+                className="bg-indigo-500/20 hover:bg-indigo-500 border border-indigo-500/30 text-indigo-300 hover:text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition">
                 <FaTag /> Manage Templates
-              </button>
-              <button
-                onClick={handleSync}
-                disabled={loading === "sync" || !isActive}
-                className="bg-blue-500/20 hover:bg-blue-500 border border-blue-500/30 text-blue-300 hover:text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 disabled:opacity-40 transition"
-              >
-                {loading === "sync" ? <FaSpinner className="animate-spin" /> : <FaSync />} Sync Customers ({customerTotal})
               </button>
             </div>
           </div>
