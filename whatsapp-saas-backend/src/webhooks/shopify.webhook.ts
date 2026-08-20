@@ -4,6 +4,8 @@ import prisma from '../lib/prisma';
 import { messageQueue } from '../lib/queue';
 import { verifyShopifyWebhook } from '../lib/shopify.security';
 
+const SKIP_VERIFY = process.env.SKIP_WEBHOOK_VERIFY === 'true';
+
 export const handleAbandonedCartWebhook = async (req: any, res: Response): Promise<any> => {
   const hmac    = req.headers['x-shopify-hmac-sha256'] as string;
   const merchantId = (req.params.merchantId || '').trim();
@@ -19,23 +21,24 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
     }
 
     // ── 2. HMAC Verification ────────────────────────────────────────────────
-    if (!merchant.shopifySecret) {
-      console.error(`❌ shopifySecret missing for merchant: ${merchant.brandName}`);
-      return res.status(401).send('Webhook secret not configured');
+    if (SKIP_VERIFY) {
+      console.log(`⚠️ HMAC verification SKIPPED (SKIP_WEBHOOK_VERIFY=true)`);
+    } else {
+      if (!merchant.shopifySecret) {
+        console.error(`❌ shopifySecret missing for merchant: ${merchant.brandName}`);
+        return res.status(401).send('Webhook secret not configured');
+      }
+      if (!req.rawBody) {
+        console.error('❌ rawBody missing — middleware issue');
+        return res.status(401).send('rawBody not captured');
+      }
+      const isValid = verifyShopifyWebhook(req.rawBody, hmac, merchant.shopifySecret);
+      if (!isValid) {
+        console.error(`🚨 HMAC verification failed for merchant: ${merchant.brandName}`);
+        return res.status(401).send('Forbidden: Invalid Signature');
+      }
+      console.log(`✅ HMAC verified for ${merchant.brandName}`);
     }
-
-    if (!req.rawBody) {
-      console.error('❌ rawBody missing — middleware issue');
-      return res.status(401).send('rawBody not captured');
-    }
-
-    const isValid = verifyShopifyWebhook(req.rawBody, hmac, merchant.shopifySecret);
-    if (!isValid) {
-      console.error(`🚨 HMAC verification failed for merchant: ${merchant.brandName}`);
-      return res.status(401).send('Forbidden: Invalid Signature');
-    }
-
-    console.log(`✅ HMAC verified for ${merchant.brandName}`);
 
     // ── 3. Extract data ─────────────────────────────────────────────────────
     const shopifyData = req.body;
@@ -68,7 +71,6 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
     });
 
     if (existingCart) {
-      // If we now have a phone that we didn't have before — update & re-queue
       if (existingCart.customerPhone === 'NO_PHONE' && customerPhone !== 'NO_PHONE') {
         console.log(`🔄 Updating cart ${cartUniqueId} with phone: ${customerPhone}`);
         const updatedCart = await prisma.abandonedCart.update({
@@ -107,10 +109,11 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
 
     // ── 7. Queue messages ───────────────────────────────────────────────────
     if (customerPhone !== 'NO_PHONE') {
-      // Pass line items from Shopify payload for template variables
       const cartWithItems = {
         ...newCart,
-        lineItems: shopifyData.line_items ? JSON.stringify(shopifyData.line_items.map((li: any) => ({ name: li.title || li.name }))) : null
+        lineItems: shopifyData.line_items
+          ? JSON.stringify(shopifyData.line_items.map((li: any) => ({ name: li.title || li.name })))
+          : null
       };
       await queueAbandonedCartJobs(merchant, cartWithItems, customerPhone);
     } else {
@@ -132,8 +135,6 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
   });
 
   for (const flow of activeFlows) {
-    // shop_now template: {{1}}=name, {{2}}=products, {{3}}=cart_url
-    // hello_world template: no variables
     const templateName = (flow as any).metaTemplateName || 'hello_world';
     const productsList = cart.lineItems
       ? JSON.parse(cart.lineItems).map((li: any) => li.name).join(', ')
@@ -165,12 +166,14 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
 
   try {
     const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
-    if (!merchant?.shopifySecret) return res.status(401).send('Unauthorized');
+    if (!merchant) return res.status(404).send('Merchant not found');
 
-    if (!req.rawBody) return res.status(401).send('rawBody missing');
-
-    const isValid = verifyShopifyWebhook(req.rawBody, hmac, merchant.shopifySecret);
-    if (!isValid) return res.status(401).send('Forbidden');
+    if (!SKIP_VERIFY) {
+      if (!merchant.shopifySecret) return res.status(401).send('Unauthorized');
+      if (!req.rawBody) return res.status(401).send('rawBody missing');
+      const isValid = verifyShopifyWebhook(req.rawBody, hmac, merchant.shopifySecret);
+      if (!isValid) return res.status(401).send('Forbidden');
+    }
 
     const orderData  = req.body;
     const phone      = orderData.phone || orderData.customer?.phone || orderData.customer?.default_address?.phone;
@@ -180,30 +183,21 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
 
     if (!phone) return res.status(200).send('No phone, skipping');
 
-    // Check if we sent a message to this customer in last 48 hours
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
     const recentMessage = await prisma.message.findFirst({
       where: { merchantId, customerPhone: phone, direction: 'OUTGOING', timestamp: { gte: fortyEightHoursAgo } }
     });
 
     if (recentMessage) {
-      // This order was likely recovered by our message — count it!
       await prisma.merchant.update({
         where: { id: merchantId },
-        data: {
-          totalConverted: { increment: 1 },
-          recoveredRevenue: { increment: orderTotal }
-        }
+        data: { totalConverted: { increment: 1 }, recoveredRevenue: { increment: orderTotal } }
+      });
+      await prisma.abandonedCart.updateMany({
+        where: { merchantId, customerPhone: phone, status: 'SENT' },
+        data: { status: 'RECOVERED' }
       });
       console.log(`💰 Revenue recovered: ₹${orderTotal} for ${merchant.brandName}`);
-
-      // Mark the cart as RECOVERED
-      if (phone) {
-        await prisma.abandonedCart.updateMany({
-          where: { merchantId, customerPhone: phone, status: 'SENT' },
-          data: { status: 'RECOVERED' }
-        });
-      }
     }
 
     res.status(200).send('Webhook processed');
