@@ -1,11 +1,23 @@
 // src/services/whatsapp.service.ts
-// Meta Cloud API — Official WhatsApp Business API (v23.0)
-// Replaces Baileys entirely. No QR codes, no sessions, no ban risk.
-
 import axios from 'axios';
 
 const META_API_VERSION = 'v23.0';
 const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`;
+
+// Error codes that should NOT be retried
+export const NON_RETRYABLE_META_CODES = [
+  131030, // Recipient phone number not in allowed list (test mode)
+  131047, // Recipient opted out
+  131026, // Message undeliverable
+  100,    // Invalid parameter
+];
+
+export type MetaSendResult = {
+  success: boolean;
+  retryable: boolean;
+  errorCode?: number;
+  errorMessage?: string;
+};
 
 // ── Send a template message via Meta Cloud API ────────────────────────────────
 export const sendMetaTemplateMessage = async (
@@ -13,10 +25,10 @@ export const sendMetaTemplateMessage = async (
   accessToken: string,
   toPhone: string,
   templateName: string,
-  variables: string[]    // ordered list matching {{1}}, {{2}}, {{3}} in template
-): Promise<boolean> => {
+  variables: string[]
+): Promise<MetaSendResult> => {
   try {
-    const parameters = variables.map(v => ({ type: 'text', text: v }));
+    const parameters = variables.map(v => ({ type: 'text', text: String(v) }));
 
     await axios.post(
       `${META_BASE_URL}/${phoneNumberId}/messages`,
@@ -40,17 +52,25 @@ export const sendMetaTemplateMessage = async (
       }
     );
 
-    return true;
+    return { success: true, retryable: false };
+
   } catch (error: any) {
-    console.error(
-      `❌ Meta API error for ${toPhone}:`,
-      error.response?.data?.error || error.message
-    );
-    return false;
+    const metaError = error.response?.data?.error;
+    const code: number = metaError?.code;
+    const message: string = metaError?.message || error.message;
+    const retryable = !NON_RETRYABLE_META_CODES.includes(code);
+
+    console.error(`❌ Meta API error for ${toPhone}:`, metaError || error.message);
+
+    if (!retryable) {
+      console.error(`🚫 Non-retryable Meta error (${code}) — no retry will happen`);
+    }
+
+    return { success: false, retryable, errorCode: code, errorMessage: message };
   }
 };
 
-// ── Send a free-form text message (only within 24hr customer service window) ──
+// ── Send a free-form text message ─────────────────────────────────────────────
 export const sendMetaTextMessage = async (
   phoneNumberId: string,
   accessToken: string,
@@ -76,15 +96,12 @@ export const sendMetaTextMessage = async (
     );
     return true;
   } catch (error: any) {
-    console.error(
-      `❌ Meta text message error for ${toPhone}:`,
-      error.response?.data?.error || error.message
-    );
+    console.error(`❌ Meta text message error for ${toPhone}:`, error.response?.data?.error || error.message);
     return false;
   }
 };
 
-// ── Mark message as read (for incoming messages) ──────────────────────────────
+// ── Mark message as read ──────────────────────────────────────────────────────
 export const markMessageRead = async (
   phoneNumberId: string,
   accessToken: string,
@@ -93,17 +110,8 @@ export const markMessageRead = async (
   try {
     await axios.post(
       `${META_BASE_URL}/${phoneNumberId}/messages`,
-      {
-        messaging_product: 'whatsapp',
-        status: 'read',
-        message_id: messageId
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
+      { messaging_product: 'whatsapp', status: 'read', message_id: messageId },
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
     );
-  } catch { /* non-critical, ignore */ }
+  } catch { /* non-critical */ }
 };
