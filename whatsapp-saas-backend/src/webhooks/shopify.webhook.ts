@@ -91,7 +91,14 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
           where: { shopifyCartId: cartUniqueId },
           data: { customerPhone, customerName, status: 'PENDING' }
         });
-        await queueAbandonedCartJobs(merchant, updatedCart, customerPhone);
+        // Pass line items from current payload
+        const cartWithItems = {
+          ...updatedCart,
+          lineItems: shopifyData.line_items
+            ? JSON.stringify(shopifyData.line_items.map((li: any) => ({ name: li.title || li.name })))
+            : null
+        };
+        await queueAbandonedCartJobs(merchant, cartWithItems, customerPhone);
         return res.status(200).send('Updated & queued');
       }
       console.log(`ℹ️ Cart already exists: ${cartUniqueId}`);
@@ -161,10 +168,19 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
   for (const flow of activeFlows) {
     const templateName = (flow as any).metaTemplateName || 'hello_world';
     const templateLang = (flow as any).metaTemplateLang || 'en_US';
-    const productsList = cart.lineItems
-      ? JSON.parse(cart.lineItems).map((li: any) => li.name).join(', ')
-      : 'your items';
+    
+    // Extract product names from line items
+    let productsList = 'items in your cart';
+    if (cart.lineItems) {
+      try {
+        const items = JSON.parse(cart.lineItems);
+        if (Array.isArray(items) && items.length > 0) {
+          productsList = items.map((li: any) => li.name).filter(Boolean).join(', ');
+        }
+      } catch { /* keep default */ }
+    }
 
+    // Template variables: {{1}}=name, {{2}}=products, {{3}}=cart_url
     const variables = templateName === 'hello_world'
       ? []
       : [cart.customerName || 'there', productsList, cart.cartUrl];
