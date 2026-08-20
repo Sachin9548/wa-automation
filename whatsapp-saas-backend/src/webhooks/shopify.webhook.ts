@@ -44,15 +44,7 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
         .update(req.rawBody)
         .digest('base64');
 
-      console.log(`🔐 HMAC Debug:`);
-      console.log(`   Using: ${(merchant as any).shopifyClientSecret ? 'shopifyClientSecret (shpss_...)' : 'shopifySecret (fallback)'}`);
-      console.log(`   Secret (first 8): ${signingSecret.substring(0, 8)}...`);
-      console.log(`   rawBody length: ${req.rawBody.length} bytes`);
-      console.log(`   rawBody (first 50): ${rawBodyStr.substring(0, 50)}`);
-      console.log(`   rawBody first 20 bytes hex: ${req.rawBody.slice(0, 20).toString('hex')}`);
-      console.log(`   Shopify sent: ${hmac}`);
-      console.log(`   We computed:  ${computed}`);
-      console.log(`   Match: ${hmac === computed}`);
+      console.log(`🔐 Verifying HMAC for ${merchant.brandName}...`);
 
       const isValid = verifyShopifyWebhook(req.rawBody, hmac, signingSecret);
       if (!isValid) {
