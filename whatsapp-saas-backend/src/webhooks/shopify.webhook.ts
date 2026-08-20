@@ -24,28 +24,29 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
     if (SKIP_VERIFY) {
       console.log(`⚠️ HMAC verification SKIPPED (SKIP_WEBHOOK_VERIFY=true)`);
     } else {
-      if (!merchant.shopifySecret) {
-        console.error(`❌ shopifySecret missing for merchant: ${merchant.brandName}`);
-        return res.status(401).send('Webhook secret not configured');
+      // Shopify signs webhooks using the App's Client Secret (shpss_...)
+      // NOT the webhook signing secret shown in Settings → Notifications
+      const signingSecret = (merchant as any).shopifyClientSecret || merchant.shopifySecret;
+
+      if (!signingSecret) {
+        console.error(`❌ No signing secret for merchant: ${merchant.brandName}. Set shopifyClientSecret in credentials.`);
+        return res.status(401).send('Signing secret not configured');
       }
       if (!req.rawBody) {
-        console.error('❌ rawBody missing — middleware issue');
+        console.error('❌ rawBody missing');
         return res.status(401).send('rawBody not captured');
       }
 
-      // Debug: log what we have
       const crypto = require('crypto');
       const rawBodyStr = req.rawBody.toString('utf8');
-      
-      // Method 1: secret as raw string (Shopify standard)
       const computed = crypto
-        .createHmac('sha256', merchant.shopifySecret)
+        .createHmac('sha256', signingSecret)
         .update(req.rawBody)
         .digest('base64');
 
       console.log(`🔐 HMAC Debug:`);
-      console.log(`   Secret (first 8): ${merchant.shopifySecret.substring(0, 8)}...`);
-      console.log(`   Secret length: ${merchant.shopifySecret.length}`);
+      console.log(`   Using: ${(merchant as any).shopifyClientSecret ? 'shopifyClientSecret (shpss_...)' : 'shopifySecret (fallback)'}`);
+      console.log(`   Secret (first 8): ${signingSecret.substring(0, 8)}...`);
       console.log(`   rawBody length: ${req.rawBody.length} bytes`);
       console.log(`   rawBody (first 50): ${rawBodyStr.substring(0, 50)}`);
       console.log(`   rawBody first 20 bytes hex: ${req.rawBody.slice(0, 20).toString('hex')}`);
@@ -53,7 +54,7 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
       console.log(`   We computed:  ${computed}`);
       console.log(`   Match: ${hmac === computed}`);
 
-      const isValid = verifyShopifyWebhook(req.rawBody, hmac, merchant.shopifySecret);
+      const isValid = verifyShopifyWebhook(req.rawBody, hmac, signingSecret);
       if (!isValid) {
         console.error(`🚨 HMAC verification failed for merchant: ${merchant.brandName}`);
         return res.status(401).send('Forbidden: Invalid Signature');
@@ -200,9 +201,10 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
     if (!merchant) return res.status(404).send('Merchant not found');
 
     if (!SKIP_VERIFY) {
-      if (!merchant.shopifySecret) return res.status(401).send('Unauthorized');
+      const signingSecret = (merchant as any).shopifyClientSecret || merchant.shopifySecret;
+      if (!signingSecret) return res.status(401).send('Signing secret not configured');
       if (!req.rawBody) return res.status(401).send('rawBody missing');
-      const isValid = verifyShopifyWebhook(req.rawBody, hmac, merchant.shopifySecret);
+      const isValid = verifyShopifyWebhook(req.rawBody, hmac, signingSecret);
       if (!isValid) return res.status(401).send('Forbidden');
     }
 
