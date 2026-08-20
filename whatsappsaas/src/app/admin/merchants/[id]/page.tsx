@@ -256,7 +256,7 @@ export default function MerchantControlHub() {
   const [syncStatus, setSyncStatus] = useState<any>(null);
 
   // Flow drafts — local state before save
-  const [flowDrafts, setFlowDrafts] = useState<Record<string, { template: string; delay: number; active: boolean }>>({});
+  const [flowDrafts, setFlowDrafts] = useState<Record<string, { template: string; delay: number; active: boolean; lang: string }>>({});
 
   // Campaign
   const [campaignName, setCampaignName] = useState("");
@@ -895,16 +895,18 @@ export default function MerchantControlHub() {
               const currentTemplate = draft?.template ?? db?.metaTemplateName ?? '';
               const currentDelay = draft?.delay ?? db?.delayMinutes ?? ft.defaultDelay;
               const currentActive = draft?.active ?? db?.isActive ?? false;
+              const currentLang = draft?.lang ?? (db as any)?.metaTemplateLang ?? 'en_US';
               const isDirty = draft !== undefined;
               const approvedTemplates = metaTemplates.filter((t: any) => t.status === 'APPROVED');
 
-              const updateDraft = (patch: Partial<{ template: string; delay: number; active: boolean }>) => {
+              const updateDraft = (patch: Partial<{ template: string; delay: number; active: boolean; lang: string }>) => {
                 setFlowDrafts(prev => ({
                   ...prev,
                   [ft.type]: {
                     template: patch.template !== undefined ? patch.template : currentTemplate,
                     delay: patch.delay !== undefined ? patch.delay : currentDelay,
                     active: patch.active !== undefined ? patch.active : currentActive,
+                    lang: patch.lang !== undefined ? patch.lang : currentLang,
                   }
                 }));
               };
@@ -918,6 +920,7 @@ export default function MerchantControlHub() {
                     delayMinutes: currentDelay,
                     template: ft.defaultTemplate,
                     metaTemplateName: currentTemplate,
+                    metaTemplateLang: currentLang,
                     isActive: currentActive,
                   }, { headers: ah() });
                   setFlowDrafts(prev => { const n = { ...prev }; delete n[ft.type]; return n; });
@@ -940,7 +943,7 @@ export default function MerchantControlHub() {
                       <div>
                         <p className="text-white font-extrabold text-sm">{ft.label}</p>
                         <p className="text-slate-500 text-xs">
-                          {currentActive && !isDirty ? `🟢 LIVE · ${currentTemplate} · ${currentDelay} min delay`
+                          {currentActive && !isDirty ? `🟢 LIVE · ${currentTemplate} (${currentLang}) · ${currentDelay} min delay`
                             : isDirty ? '🟡 Unsaved changes'
                             : 'Not configured'}
                         </p>
@@ -969,7 +972,12 @@ export default function MerchantControlHub() {
                         ) : (
                           <select
                             value={currentTemplate}
-                            onChange={e => updateDraft({ template: e.target.value })}
+                            onChange={e => {
+                            const selected = e.target.value;
+                            const tmpl = metaTemplates.find((t: any) => t.name === selected);
+                            const lang = tmpl?.language || 'en_US';
+                            updateDraft({ template: selected, lang });
+                          }}
                             className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                           >
                             <option value="">-- Select Template --</option>

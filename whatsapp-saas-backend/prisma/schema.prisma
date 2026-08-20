@@ -149,7 +149,8 @@ model AutomationFlow {
   
   delayMinutes      Int      
   template          String   @db.Text   // display/preview text
-  metaTemplateName  String?             // actual Meta approved template name e.g. "abandoned_cart_reminder"
+  metaTemplateName  String?             // actual Meta approved template name e.g. "shop_now"
+  metaTemplateLang  String?  @default("en_US")  // template language code e.g. "en", "en_US", "hi"
   
   updatedAt     DateTime @updatedAt
 

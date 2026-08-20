@@ -18,12 +18,12 @@ export const initMessageWorker = () => {
 
     // ── 1. ABANDONED CART ──────────────────────────────────────────────────
     if (job.name === 'send-automated-msg') {
-      const { cartId, merchantId, phone, templateName, variables } = job.data;
-      console.log(`🤖 Job: ${job.id} | Cart: ${cartId} | Phone: ${phone}`);
+      const { cartId, merchantId, phone, templateName, templateLang, variables } = job.data;
+      console.log(`🤖 Job: ${job.id} | Cart: ${cartId} | Phone: ${phone} | Template: ${templateName} (${templateLang || 'en_US'})`);
 
       if (!phone || phone === 'NO_PHONE') {
         console.log(`❌ Skipped: No phone for Cart ${cartId}`);
-        return; // no retry
+        return;
       }
 
       const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
@@ -40,14 +40,15 @@ export const initMessageWorker = () => {
 
       const { merchant } = eligibility as any;
       const toPhone = formatPhone(phone);
-      console.log(`📱 Sending to: ${toPhone} via template: ${templateName}`);
+      console.log(`📱 Sending to: ${toPhone} via template: ${templateName} lang: ${templateLang || 'en_US'}`);
 
       const result = await sendMetaTemplateMessage(
         merchant.metaPhoneNumberId,
         merchant.metaAccessToken,
         toPhone,
         templateName || 'hello_world',
-        variables || []
+        variables || [],
+        templateLang || 'en_US'   // dynamic language from flow config
       );
 
       if (result.success) {
@@ -73,24 +74,18 @@ export const initMessageWorker = () => {
         console.log(`✅ Abandoned cart message sent → ${toPhone}`);
 
       } else if (!result.retryable) {
-        // Non-retryable error (e.g. #131030 test mode restriction) — mark as failed, no retry
-        console.error(`🚫 Non-retryable error (${result.errorCode}) for cart ${cartId}. Marking FAILED.`);
-        await prisma.abandonedCart.update({
-          where: { id: cartId },
-          data: { status: 'PENDING' } // keep PENDING so admin can see it
-        });
-        return; // NO throw — BullMQ will NOT retry
+        console.error(`🚫 Non-retryable error (${result.errorCode}) for cart ${cartId}. No retry.`);
+        return; // no throw = no BullMQ retry
 
       } else {
-        // Retryable error — throw so BullMQ retries
         throw new Error(`Meta send failed (${result.errorCode}): ${result.errorMessage}`);
       }
     }
 
     // ── 2. BULK CAMPAIGN ───────────────────────────────────────────────────
     if (job.name === 'send-campaign-msg') {
-      const { campaignId, merchantId, phone, templateName, variables } = job.data;
-      console.log(`📢 Campaign Job: ${job.id} | Phone: ${phone}`);
+      const { campaignId, merchantId, phone, templateName, templateLang, variables } = job.data;
+      console.log(`📢 Campaign Job: ${job.id} | Phone: ${phone} | Template: ${templateName} (${templateLang || 'en_US'})`);
 
       if (!phone || phone === 'NO_PHONE') return;
 
@@ -108,7 +103,8 @@ export const initMessageWorker = () => {
         merchant.metaAccessToken,
         toPhone,
         templateName || 'hello_world',
-        variables || []
+        variables || [],
+        templateLang || 'en_US'   // dynamic language
       );
 
       if (result.success) {
@@ -144,7 +140,7 @@ export const initMessageWorker = () => {
 
       } else if (!result.retryable) {
         console.error(`🚫 Non-retryable error (${result.errorCode}) for campaign ${campaignId} → ${toPhone}. Skipping.`);
-        return; // no retry
+        return;
 
       } else {
         throw new Error(`Meta send failed (${result.errorCode}): ${result.errorMessage}`);

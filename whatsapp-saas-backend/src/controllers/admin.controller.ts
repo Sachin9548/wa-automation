@@ -280,7 +280,7 @@ export const getMerchantFlows = async (req: Request, res: Response): Promise<any
 // 10. Admin: Save/update a flow for a merchant
 export const saveMerchantFlow = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { merchantId, type, delayMinutes, template, isActive, metaTemplateName } = req.body;
+    const { merchantId, type, delayMinutes, template, isActive, metaTemplateName, metaTemplateLang } = req.body;
     if (!merchantId || !type || delayMinutes === undefined) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
@@ -290,6 +290,7 @@ export const saveMerchantFlow = async (req: Request, res: Response): Promise<any
         delayMinutes: parseInt(delayMinutes),
         template: template || '',
         metaTemplateName: metaTemplateName || null,
+        metaTemplateLang: metaTemplateLang || 'en_US',
         isActive
       },
       create: {
@@ -298,6 +299,7 @@ export const saveMerchantFlow = async (req: Request, res: Response): Promise<any
         delayMinutes: parseInt(delayMinutes),
         template: template || '',
         metaTemplateName: metaTemplateName || null,
+        metaTemplateLang: metaTemplateLang || 'en_US',
         isActive
       }
     });

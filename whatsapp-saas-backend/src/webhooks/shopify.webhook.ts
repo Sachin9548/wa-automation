@@ -160,6 +160,7 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
 
   for (const flow of activeFlows) {
     const templateName = (flow as any).metaTemplateName || 'hello_world';
+    const templateLang = (flow as any).metaTemplateLang || 'en_US';
     const productsList = cart.lineItems
       ? JSON.parse(cart.lineItems).map((li: any) => li.name).join(', ')
       : 'your items';
@@ -173,6 +174,7 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
       merchantId: merchant.id,
       phone,
       templateName,
+      templateLang,
       variables,
     }, {
       delay: flow.delayMinutes * 60 * 1000,

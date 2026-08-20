@@ -25,7 +25,8 @@ export const sendMetaTemplateMessage = async (
   accessToken: string,
   toPhone: string,
   templateName: string,
-  variables: string[]
+  variables: string[],
+  languageCode: string = 'en_US'
 ): Promise<MetaSendResult> => {
   try {
     const parameters = variables.map(v => ({ type: 'text', text: String(v) }));
@@ -38,7 +39,7 @@ export const sendMetaTemplateMessage = async (
         type: 'template',
         template: {
           name: templateName,
-          language: { code: 'en_US' },
+          language: { code: languageCode },
           components: parameters.length > 0
             ? [{ type: 'body', parameters }]
             : []
