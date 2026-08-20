@@ -95,17 +95,27 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
     }
 
     // ── 6. Save cart ────────────────────────────────────────────────────────
-    const newCart = await prisma.abandonedCart.create({
-      data: {
-        merchantId: merchant.id,
-        shopifyCartId: cartUniqueId,
-        customerPhone,
-        customerName,
-        cartUrl,
-        totalPrice: parseFloat(shopifyData.total_price || '0'),
+    let newCart;
+    try {
+      newCart = await prisma.abandonedCart.create({
+        data: {
+          merchantId: merchant.id,
+          shopifyCartId: cartUniqueId,
+          customerPhone,
+          customerName,
+          cartUrl,
+          totalPrice: parseFloat(shopifyData.total_price || '0'),
+        }
+      });
+      console.log(`✅ Cart saved: ${newCart.id}`);
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        // Race condition — another request already saved this cart
+        console.log(`ℹ️ Cart race condition — already saved by parallel request: ${cartUniqueId}`);
+        return res.status(200).send('Already processed');
       }
-    });
-    console.log(`✅ Cart saved: ${newCart.id}`);
+      throw e;
+    }
 
     // ── 7. Queue messages ───────────────────────────────────────────────────
     if (customerPhone !== 'NO_PHONE') {
