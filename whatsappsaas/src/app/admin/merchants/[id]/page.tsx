@@ -262,7 +262,12 @@ export default function MerchantControlHub() {
   const [addCustEmail, setAddCustEmail] = useState("");
 
   // Flow drafts — local state before save
-  const [flowDrafts, setFlowDrafts] = useState<Record<string, { template: string; delay: number; active: boolean; lang: string }>>({});
+  const [flowDrafts, setFlowDrafts] = useState<Record<string, { template: string; delay: number; active: boolean; lang: string; discount: string }>>({});
+
+  // Analytics
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsDays, setAnalyticsDays] = useState(30);
 
   // Campaign
   const [campaignName, setCampaignName] = useState("");
@@ -599,8 +604,21 @@ export default function MerchantControlHub() {
     }
   };
 
-  const handleCreateTemplate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchAnalytics = async (days: number = 30) => {
+    setAnalyticsLoading(true);
+    try {
+      const r = await axios.get(`${API_URL}/admin/analytics/${merchantId}?days=${days}`, { headers: ah() });
+      setAnalytics(r.data);
+    } catch (e: any) { alert(e.response?.data?.message || 'Failed to load analytics'); }
+    finally { setAnalyticsLoading(false); }
+  };
+
+  // Auto-load analytics when tab opens
+  useEffect(() => {
+    if (activeTab === 'analytics' && !analytics) fetchAnalytics(analyticsDays);
+  }, [activeTab]);
+
+  const handleCreateTemplate = async (e: React.FormEvent) => {    e.preventDefault();
     setLoading("tmpl-create");
     try {
       const r = await axios.post(`${API_URL}/admin/meta-templates`, {
@@ -628,6 +646,7 @@ export default function MerchantControlHub() {
     { key: "flows", label: "Flows" },
     { key: "campaign", label: "Campaign" },
     { key: "customers", label: `Customers (${customerTotal})` },
+    { key: "analytics", label: "📊 Analytics" },
     { key: "credentials", label: "⚙️ Credentials" },
     { key: "templates", label: "📋 Templates" },
   ];
@@ -974,10 +993,11 @@ export default function MerchantControlHub() {
               const currentDelay = draft?.delay ?? db?.delayMinutes ?? ft.defaultDelay;
               const currentActive = draft?.active ?? db?.isActive ?? false;
               const currentLang = draft?.lang ?? (db as any)?.metaTemplateLang ?? 'en_US';
+              const currentDiscount = draft?.discount ?? (db as any)?.discountCode ?? '';
               const isDirty = draft !== undefined;
               const approvedTemplates = metaTemplates.filter((t: any) => t.status === 'APPROVED');
 
-              const updateDraft = (patch: Partial<{ template: string; delay: number; active: boolean; lang: string }>) => {
+              const updateDraft = (patch: Partial<{ template: string; delay: number; active: boolean; lang: string; discount: string }>) => {
                 setFlowDrafts(prev => ({
                   ...prev,
                   [ft.type]: {
@@ -985,6 +1005,7 @@ export default function MerchantControlHub() {
                     delay: patch.delay !== undefined ? patch.delay : currentDelay,
                     active: patch.active !== undefined ? patch.active : currentActive,
                     lang: patch.lang !== undefined ? patch.lang : currentLang,
+                    discount: patch.discount !== undefined ? patch.discount : currentDiscount,
                   }
                 }));
               };
@@ -999,6 +1020,7 @@ export default function MerchantControlHub() {
                     template: ft.defaultTemplate,
                     metaTemplateName: currentTemplate,
                     metaTemplateLang: currentLang,
+                    discountCode: currentDiscount || null,
                     isActive: currentActive,
                   }, { headers: ah() });
                   setFlowDrafts(prev => { const n = { ...prev }; delete n[ft.type]; return n; });
@@ -1095,6 +1117,23 @@ export default function MerchantControlHub() {
                         </div>
                         <p className="text-slate-600 text-xs mt-1.5">Use 1 min for testing · 30 min for production</p>
                       </div>
+                    </div>
+
+                    {/* Discount code */}
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-2 block">
+                        Discount Code <span className="text-slate-600">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. VIP10, SAVE5, WELCOME20"
+                        value={currentDiscount}
+                        onChange={e => updateDraft({ discount: e.target.value.toUpperCase() })}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+                      />
+                      <p className="text-slate-600 text-xs mt-1.5">
+                        Auto-appended to cart URL + tracked separately in Analytics
+                      </p>
                     </div>
 
                     {/* Toggle + Save button */}
@@ -1340,6 +1379,155 @@ export default function MerchantControlHub() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── ANALYTICS TAB ── */}
+        {activeTab === "analytics" && (
+          <div className="space-y-6">
+            {/* Period selector */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-white font-extrabold text-lg">Message Analytics</h2>
+              <div className="flex gap-2">
+                {[7, 30, 90].map(d => (
+                  <button key={d} onClick={() => { setAnalyticsDays(d); fetchAnalytics(d); }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${analyticsDays === d ? 'bg-teal-500/20 border-teal-500/30 text-teal-300' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>
+                    {d}d
+                  </button>
+                ))}
+                <button onClick={() => fetchAnalytics(analyticsDays)} disabled={analyticsLoading}
+                  className="bg-teal-500/20 hover:bg-teal-500 border border-teal-500/30 text-teal-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition">
+                  {analyticsLoading ? <FaSpinner className="animate-spin" /> : <FaSync />} Refresh
+                </button>
+              </div>
+            </div>
+
+            {analyticsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <FaSpinner className="animate-spin text-4xl text-teal-400" />
+              </div>
+            ) : analytics ? (
+              <>
+                {/* Message metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Sent', value: analytics.messages.sent, color: 'text-teal-400', bg: 'bg-teal-500/10' },
+                    { label: 'Delivered', value: analytics.messages.delivered, sub: `${analytics.messages.deliveryRate}% rate`, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                    { label: 'Read (Opened)', value: analytics.messages.read, sub: `${analytics.messages.openRate}% open rate`, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+                    { label: 'Failed', value: analytics.messages.failed, color: 'text-red-400', bg: 'bg-red-500/10' },
+                  ].map((s, i) => (
+                    <div key={i} className={`${s.bg} border border-white/5 rounded-2xl p-5`}>
+                      <p className={`text-3xl font-extrabold ${s.color}`}>{s.value}</p>
+                      <p className="text-slate-400 text-xs mt-1 font-bold uppercase tracking-wider">{s.label}</p>
+                      {s.sub && <p className="text-slate-500 text-xs mt-0.5">{s.sub}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Click & Conversion metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Link Clicks', value: analytics.clicks.total, sub: `${analytics.clicks.clickRate}% click rate`, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+                    { label: 'Conversions', value: analytics.clicks.converted, sub: `${analytics.clicks.conversionRate}% conv. rate`, color: 'text-green-400', bg: 'bg-green-500/10' },
+                    { label: 'Revenue from Clicks', value: `₹${analytics.clicks.revenueFromClicks?.toFixed(0) || 0}`, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+                    { label: 'Total Revenue', value: `₹${analytics.revenue.total?.toFixed(0) || 0}`, color: 'text-teal-400', bg: 'bg-teal-500/10' },
+                  ].map((s, i) => (
+                    <div key={i} className={`${s.bg} border border-white/5 rounded-2xl p-5`}>
+                      <p className={`text-3xl font-extrabold ${s.color}`}>{s.value}</p>
+                      <p className="text-slate-400 text-xs mt-1 font-bold uppercase tracking-wider">{s.label}</p>
+                      {s.sub && <p className="text-slate-500 text-xs mt-0.5">{s.sub}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Discount code performance */}
+                {analytics.revenue.byDiscountCode?.length > 0 && (
+                  <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
+                    <div className="px-6 py-4 border-b border-white/5">
+                      <p className="text-white font-extrabold">Discount Code Performance</p>
+                    </div>
+                    <div className="divide-y divide-white/5">
+                      {analytics.revenue.byDiscountCode.map((d: any, i: number) => (
+                        <div key={i} className="px-6 py-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-mono font-bold px-3 py-1 rounded-lg text-sm">
+                              {d.discountCode}
+                            </span>
+                          </div>
+                          <div className="flex gap-6 text-right">
+                            <div>
+                              <p className="text-white font-bold">{d._count.id}</p>
+                              <p className="text-slate-500 text-xs">Conversions</p>
+                            </div>
+                            <div>
+                              <p className="text-green-400 font-bold">₹{(d._sum.convertedRevenue || 0).toFixed(0)}</p>
+                              <p className="text-slate-500 text-xs">Revenue</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Failed messages */}
+                {analytics.failedMessages.total > 0 && (
+                  <div className="bg-slate-800 border border-red-500/10 rounded-2xl overflow-hidden">
+                    <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                      <p className="text-white font-extrabold">Failed Messages ({analytics.failedMessages.total})</p>
+                    </div>
+                    {/* Failure reason summary */}
+                    <div className="px-6 py-4 flex gap-3 flex-wrap border-b border-white/5">
+                      {Object.entries(analytics.failedMessages.reasons || {}).map(([reason, count]: any) => (
+                        <span key={reason} className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold px-3 py-1.5 rounded-lg">
+                          {reason}: {count}
+                        </span>
+                      ))}
+                    </div>
+                    {/* Recent failures */}
+                    <div className="divide-y divide-white/5 max-h-64 overflow-y-auto">
+                      {analytics.failedMessages.recent?.slice(0, 20).map((m: any) => (
+                        <div key={m.id} className="px-6 py-3 flex items-center justify-between">
+                          <div>
+                            <p className="text-white text-sm font-mono">{m.customerPhone}</p>
+                            <p className="text-red-400 text-xs mt-0.5">{m.failReason || 'Unknown error'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-slate-400 text-xs">{m.templateName}</p>
+                            <p className="text-slate-500 text-xs">{new Date(m.timestamp).toLocaleDateString('en-IN')}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* All time stats */}
+                {analytics.allTime && (
+                  <div className="bg-slate-800 border border-white/5 rounded-2xl p-5">
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">All Time Stats</p>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      {[
+                        { label: 'Total Sent', value: analytics.allTime.totalSent },
+                        { label: 'Total Read', value: analytics.allTime.totalRead },
+                        { label: 'Total Clicked', value: analytics.allTime.totalClicked },
+                        { label: 'Total Converted', value: analytics.allTime.totalConverted },
+                        { label: 'Total Revenue', value: `₹${(analytics.allTime.recoveredRevenue || 0).toFixed(0)}` },
+                      ].map((s, i) => (
+                        <div key={i} className="bg-slate-900 rounded-xl p-3 text-center">
+                          <p className="text-white font-extrabold text-lg">{s.value}</p>
+                          <p className="text-slate-500 text-xs mt-0.5">{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-20">
+                <p className="text-slate-500">Click Refresh to load analytics</p>
+              </div>
+            )}
           </div>
         )}
 

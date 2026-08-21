@@ -168,7 +168,8 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
   for (const flow of activeFlows) {
     const templateName = (flow as any).metaTemplateName || 'hello_world';
     const templateLang = (flow as any).metaTemplateLang || 'en_US';
-    
+    const discountCode = (flow as any).discountCode || null;
+
     // Extract product names from line items
     let productsList = 'items in your cart';
     if (cart.lineItems) {
@@ -180,10 +181,29 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
       } catch { /* keep default */ }
     }
 
-    // Template variables: {{1}}=name, {{2}}=products, {{3}}=cart_url
+    // Create tracking link — customer clicks this, we record it, then redirect
+    const backendUrl = process.env.BACKEND_URL || 'https://api.wautomation.shop';
+    let trackingLink: any = null;
+
+    if (cart.cartUrl) {
+      trackingLink = await (prisma as any).trackingLink.create({
+        data: {
+          merchantId: merchant.id,
+          customerPhone: phone,
+          originalUrl: cart.cartUrl,
+          discountCode: discountCode,
+        }
+      });
+    }
+
+    const trackingUrl = trackingLink
+      ? `${backendUrl}/api/tracking/click/${trackingLink.id}`
+      : cart.cartUrl;
+
+    // Template variables: {{1}}=name, {{2}}=products, {{3}}=tracking_url
     const variables = templateName === 'hello_world'
       ? []
-      : [cart.customerName || 'there', productsList, cart.cartUrl];
+      : [cart.customerName || 'there', productsList, trackingUrl];
 
     await messageQueue.add('send-automated-msg', {
       cartId: cart.id,
@@ -191,13 +211,15 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
       phone,
       templateName,
       templateLang,
+      discountCode,
+      trackingLinkId: trackingLink?.id,
       variables,
     }, {
       delay: flow.delayMinutes * 60 * 1000,
       attempts: 3,
       backoff: { type: 'exponential', delay: 60000 }
     });
-    console.log(`✅ Queued: flow=${flow.type} delay=${flow.delayMinutes}min phone=${phone} template=${templateName}`);
+    console.log(`✅ Queued: flow=${flow.type} delay=${flow.delayMinutes}min phone=${phone} template=${templateName} discount=${discountCode || 'none'}`);
   }
 }
 
@@ -236,10 +258,19 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         where: { id: merchantId },
         data: { totalConverted: { increment: 1 }, recoveredRevenue: { increment: orderTotal } }
       });
+
+      // Mark abandoned cart as recovered
       await prisma.abandonedCart.updateMany({
         where: { merchantId, customerPhone: phone, status: 'SENT' },
         data: { status: 'RECOVERED' }
       });
+
+      // Mark tracking link as converted with revenue
+      await (prisma as any).trackingLink.updateMany({
+        where: { merchantId, customerPhone: phone, converted: false },
+        data: { converted: true, convertedAt: new Date(), convertedRevenue: orderTotal }
+      });
+
       console.log(`💰 Revenue recovered: ₹${orderTotal} for ${merchant.brandName}`);
     }
 

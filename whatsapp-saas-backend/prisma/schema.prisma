@@ -68,6 +68,7 @@ model Merchant {
   payments          Payment[]
   orders            Order[]
   syncLog           SyncLog?
+  trackingLinks     TrackingLink[]
 }
 
 model Message {
@@ -75,11 +76,37 @@ model Message {
   merchantId    String
   customerPhone String
   content       String   @db.Text
-  direction     String   // INCOMING or OUTGOING
-  status        String   @default("SENT") // NAYA: SENT, DELIVERED, READ, FAILED
+  direction     String              // INCOMING or OUTGOING
+  status        String   @default("SENT") // SENT, DELIVERED, READ, FAILED
+  failReason    String?             // Meta error message if failed
+  templateName  String?             // which template was used
+  campaignId    String?             // if part of a campaign
+  cartId        String?             // if abandoned cart message
   timestamp     DateTime @default(now())
   
+  merchant      Merchant    @relation(fields: [merchantId], references: [id])
+  trackingLinks TrackingLink[]
+}
+
+// Click tracking — short URL that redirects and records click
+model TrackingLink {
+  id            String   @id @default(uuid())
+  merchantId    String
+  messageId     String?             // which message this link was in
+  customerPhone String
+  originalUrl   String   @db.Text  // actual Shopify cart/checkout URL
+  discountCode  String?             // discount code embedded in message
+
+  clicked       Boolean  @default(false)
+  clickedAt     DateTime?
+  converted     Boolean  @default(false)
+  convertedAt   DateTime?
+  convertedRevenue Float? @default(0)  // order value when converted
+
+  createdAt     DateTime @default(now())
+
   merchant      Merchant @relation(fields: [merchantId], references: [id])
+  message       Message? @relation(fields: [messageId], references: [id])
 }
 
 model Click {
@@ -151,6 +178,7 @@ model AutomationFlow {
   template          String   @db.Text   // display/preview text
   metaTemplateName  String?             // actual Meta approved template name e.g. "shop_now"
   metaTemplateLang  String?  @default("en_US")  // template language code e.g. "en", "en_US", "hi"
+  discountCode      String?             // discount code to embed in message e.g. "VIP10"
   
   updatedAt     DateTime @updatedAt
 

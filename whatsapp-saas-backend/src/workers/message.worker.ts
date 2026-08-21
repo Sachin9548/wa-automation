@@ -18,7 +18,7 @@ export const initMessageWorker = () => {
 
     // ── 1. ABANDONED CART ──────────────────────────────────────────────────
     if (job.name === 'send-automated-msg') {
-      const { cartId, merchantId, phone, templateName, templateLang, variables } = job.data;
+      const { cartId, merchantId, phone, templateName, templateLang, discountCode, trackingLinkId, variables } = job.data;
       console.log(`🤖 Job: ${job.id} | Cart: ${cartId} | Phone: ${phone} | Template: ${templateName} (${templateLang || 'en_US'})`);
 
       if (!phone || phone === 'NO_PHONE') {
@@ -52,6 +52,27 @@ export const initMessageWorker = () => {
       );
 
       if (result.success) {
+        // Save message with tracking link reference
+        const message = await prisma.message.create({
+          data: {
+            merchantId,
+            customerPhone: toPhone,
+            content: `Template: ${templateName}`,
+            direction: 'OUTGOING',
+            status: 'SENT',
+            templateName,
+            cartId: cartId || null,
+          }
+        });
+
+        // Link tracking URL to this message
+        if (trackingLinkId) {
+          await (prisma as any).trackingLink.update({
+            where: { id: trackingLinkId },
+            data: { messageId: message.id }
+          });
+        }
+
         await prisma.$transaction([
           prisma.merchant.update({
             where: { id: merchantId },
@@ -61,21 +82,25 @@ export const initMessageWorker = () => {
             where: { id: cartId },
             data: { status: 'SENT' }
           }),
-          prisma.message.create({
-            data: {
-              merchantId,
-              customerPhone: toPhone,
-              content: `Template: ${templateName}`,
-              direction: 'OUTGOING',
-              status: 'SENT'
-            }
-          })
         ]);
         console.log(`✅ Abandoned cart message sent → ${toPhone}`);
 
       } else if (!result.retryable) {
         console.error(`🚫 Non-retryable error (${result.errorCode}) for cart ${cartId}. No retry.`);
-        return; // no throw = no BullMQ retry
+        // Save failed message with reason
+        await prisma.message.create({
+          data: {
+            merchantId,
+            customerPhone: toPhone,
+            content: `Template: ${templateName}`,
+            direction: 'OUTGOING',
+            status: 'FAILED',
+            templateName,
+            failReason: result.errorMessage || `Error ${result.errorCode}`,
+            cartId: cartId || null,
+          }
+        });
+        return;
 
       } else {
         throw new Error(`Meta send failed (${result.errorCode}): ${result.errorMessage}`);

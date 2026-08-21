@@ -509,4 +509,112 @@ router.get('/customers-filtered/:merchantId', async (req: Request, res: Response
   }
 });
 
+// ── Analytics: Full message tracking for a merchant ──────────────────────────
+router.get('/analytics/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const days = parseInt(req.query.days as string) || 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [
+      totalSent,
+      totalDelivered,
+      totalRead,
+      totalFailed,
+      failedMessages,
+      trackingLinks,
+      discountConversions,
+      merchant
+    ] = await Promise.all([
+      // Total sent
+      prisma.message.count({ where: { merchantId, direction: 'OUTGOING', timestamp: { gte: since } } }),
+
+      // Delivered
+      prisma.message.count({ where: { merchantId, direction: 'OUTGOING', status: 'DELIVERED', timestamp: { gte: since } } }),
+
+      // Read (opened)
+      prisma.message.count({ where: { merchantId, direction: 'OUTGOING', status: 'READ', timestamp: { gte: since } } }),
+
+      // Failed
+      prisma.message.count({ where: { merchantId, direction: 'OUTGOING', status: 'FAILED', timestamp: { gte: since } } }),
+
+      // Failed messages with reasons
+      prisma.message.findMany({
+        where: { merchantId, direction: 'OUTGOING', status: 'FAILED', timestamp: { gte: since } },
+        select: { id: true, customerPhone: true, failReason: true, timestamp: true, templateName: true },
+        orderBy: { timestamp: 'desc' },
+        take: 50
+      }),
+
+      // Tracking links analytics
+      (prisma as any).trackingLink.findMany({
+        where: { merchantId, createdAt: { gte: since } },
+        orderBy: { createdAt: 'desc' }
+      }),
+
+      // Discount code conversions
+      (prisma as any).trackingLink.groupBy({
+        by: ['discountCode'],
+        where: { merchantId, converted: true, discountCode: { not: null }, createdAt: { gte: since } },
+        _count: { id: true },
+        _sum: { convertedRevenue: true }
+      }),
+
+      // Merchant overall stats
+      prisma.merchant.findUnique({
+        where: { id: merchantId },
+        select: { totalSent: true, totalRead: true, totalClicked: true, totalConverted: true, recoveredRevenue: true }
+      })
+    ]);
+
+    // Calculate click + conversion metrics from tracking links
+    const clicked = trackingLinks.filter((l: any) => l.clicked).length;
+    const converted = trackingLinks.filter((l: any) => l.converted).length;
+    const clickRevenue = trackingLinks
+      .filter((l: any) => l.clicked && l.convertedRevenue)
+      .reduce((s: number, l: any) => s + (l.convertedRevenue || 0), 0);
+    const totalRevenue = trackingLinks
+      .filter((l: any) => l.converted)
+      .reduce((s: number, l: any) => s + (l.convertedRevenue || 0), 0);
+
+    // Fail reason summary
+    const failReasons: Record<string, number> = {};
+    failedMessages.forEach((m: any) => {
+      const reason = m.failReason || 'Unknown';
+      failReasons[reason] = (failReasons[reason] || 0) + 1;
+    });
+
+    res.status(200).json({
+      period: `Last ${days} days`,
+      messages: {
+        sent: totalSent,
+        delivered: totalDelivered,
+        read: totalRead,
+        failed: totalFailed,
+        deliveryRate: totalSent > 0 ? ((totalDelivered / totalSent) * 100).toFixed(1) : '0',
+        openRate: totalSent > 0 ? ((totalRead / totalSent) * 100).toFixed(1) : '0',
+      },
+      clicks: {
+        total: clicked,
+        converted,
+        clickRate: totalSent > 0 ? ((clicked / totalSent) * 100).toFixed(1) : '0',
+        conversionRate: clicked > 0 ? ((converted / clicked) * 100).toFixed(1) : '0',
+        revenueFromClicks: clickRevenue,
+      },
+      revenue: {
+        total: totalRevenue,
+        byDiscountCode: discountConversions,
+      },
+      failedMessages: {
+        total: totalFailed,
+        reasons: failReasons,
+        recent: failedMessages
+      },
+      allTime: merchant
+    });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 export default router;

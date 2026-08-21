@@ -12,7 +12,6 @@ import { initMessageWorker } from './workers/message.worker';
 import flowRoutes from './routes/flow.routes';
 import trackingRoutes from './routes/tracking.routes';
 import webhookRoutes from './routes/webhook.routes';
-
 dotenv.config();
 
 const app = express();
@@ -53,7 +52,8 @@ app.use("/api/merchant", merchantRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/flows', flowRoutes);
-app.use('/api/tracking', trackingRoutes);
+app.use('/api/tracking', trackingRoutes);  // click tracking redirects
+app.use('/api/webhooks', webhookRoutes);
 app.use('/api/webhooks', webhookRoutes);
 
 // ── Start server ──────────────────────────────────────────────────────────────

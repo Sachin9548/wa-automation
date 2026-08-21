@@ -76,9 +76,8 @@ router.post('/meta', async (req: Request, res: Response) => {
         // ── Message status updates ────────────────────────────────────────
         if (value.statuses) {
           for (const status of value.statuses) {
-            console.log(`📊 Status update: ${status.id} → ${status.status} for ${status.recipient_id}`);
+            console.log(`📊 Status update: ${status.status} for ${status.recipient_id}`);
 
-            // Update message status in DB
             const statusMap: Record<string, string> = {
               sent: 'SENT',
               delivered: 'DELIVERED',
@@ -87,19 +86,49 @@ router.post('/meta', async (req: Request, res: Response) => {
             };
 
             const dbStatus = statusMap[status.status];
-            if (dbStatus) {
-              // Find merchant by phone number id
-              const phoneNumberId = value.metadata?.phone_number_id;
-              const merchant = await prisma.merchant.findFirst({
-                where: { metaPhoneNumberId: phoneNumberId }
-              });
+            if (!dbStatus) continue;
 
-              if (merchant && dbStatus === 'READ') {
-                await prisma.merchant.update({
-                  where: { id: merchant.id },
-                  data: { totalRead: { increment: 1 } }
-                });
-              }
+            const phoneNumberId = value.metadata?.phone_number_id;
+            const merchant = await prisma.merchant.findFirst({
+              where: { metaPhoneNumberId: phoneNumberId }
+            });
+
+            if (!merchant) continue;
+
+            // Update latest outgoing message status for this recipient
+            const recipientPhone = status.recipient_id;
+            const latestMsg = await prisma.message.findFirst({
+              where: {
+                merchantId: merchant.id,
+                customerPhone: { contains: recipientPhone.slice(-10) },
+                direction: 'OUTGOING',
+                status: { not: 'FAILED' }
+              },
+              orderBy: { timestamp: 'desc' }
+            });
+
+            if (latestMsg) {
+              await prisma.message.update({
+                where: { id: latestMsg.id },
+                data: { status: dbStatus }
+              });
+            }
+
+            // Update merchant read count
+            if (dbStatus === 'READ') {
+              await prisma.merchant.update({
+                where: { id: merchant.id },
+                data: { totalRead: { increment: 1 } }
+              });
+            }
+
+            // Save failed reason
+            if (dbStatus === 'FAILED' && latestMsg) {
+              const errorMsg = status.errors?.[0]?.title || `Meta error ${status.errors?.[0]?.code}`;
+              await prisma.message.update({
+                where: { id: latestMsg.id },
+                data: { status: 'FAILED', failReason: errorMsg }
+              });
             }
           }
         }
