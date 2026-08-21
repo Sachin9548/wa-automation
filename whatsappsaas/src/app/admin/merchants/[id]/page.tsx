@@ -1139,8 +1139,10 @@ export default function MerchantControlHub() {
                     {/* Toggle + Save button */}
                     <div className="flex items-center justify-between pt-3 border-t border-white/5">
                       <label className="flex items-center gap-3 cursor-pointer select-none">
-                        <div onClick={() => updateDraft({ active: !currentActive })}
-                          className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 cursor-pointer ${currentActive ? 'bg-green-500' : 'bg-slate-600'}`}>
+                        <div
+                          onClick={() => updateDraft({ active: !currentActive })}
+                          className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 cursor-pointer ${currentActive ? 'bg-green-500' : 'bg-slate-600'}`}
+                        >
                           <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${currentActive ? 'translate-x-6' : 'translate-x-0'}`} />
                         </div>
                         <span className={`text-sm font-bold ${currentActive ? 'text-green-400' : 'text-slate-400'}`}>
@@ -1148,10 +1150,37 @@ export default function MerchantControlHub() {
                         </span>
                       </label>
 
-                      <button onClick={handleSaveFlow} disabled={loading === `flow-${ft.type}`}
-                        className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white font-bold px-6 py-2.5 rounded-xl disabled:opacity-40 flex items-center gap-2 transition text-sm shadow-lg shadow-teal-900/30">
-                        {loading === `flow-${ft.type}` ? <><FaSpinner className="animate-spin" /> Saving...</> : <><FaCheckCircle /> Save &amp; Publish</>}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {/* Quick Pause/Resume — saves immediately without other changes */}
+                        {db && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await axios.post(`${API_URL}/admin/flows/toggle`, {
+                                  merchantId, type: ft.type, isActive: !db.isActive
+                                }, { headers: ah() });
+                                await fetchAll();
+                              } catch { alert('Toggle failed'); }
+                            }}
+                            className={`px-4 py-2.5 rounded-xl font-bold text-sm border transition flex items-center gap-2 ${
+                              db.isActive
+                                ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
+                                : 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20'
+                            }`}
+                          >
+                            {db.isActive ? '⏸ Pause' : '▶ Resume'}
+                          </button>
+                        )}
+
+                        <button
+                          onClick={handleSaveFlow}
+                          disabled={loading === `flow-${ft.type}`}
+                          className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white font-bold px-6 py-2.5 rounded-xl disabled:opacity-40 flex items-center gap-2 transition text-sm shadow-lg shadow-teal-900/30"
+                        >
+                          {loading === `flow-${ft.type}` ? <><FaSpinner className="animate-spin" /> Saving...</> : <><FaCheckCircle /> Save &amp; Publish</>}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

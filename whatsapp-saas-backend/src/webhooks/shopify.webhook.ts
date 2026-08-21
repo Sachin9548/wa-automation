@@ -140,6 +140,12 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
 
     // ── 7. Queue messages ───────────────────────────────────────────────────
     if (customerPhone !== 'NO_PHONE') {
+      // Mark customer as hasAbandonedCart
+      await prisma.customer.updateMany({
+        where: { merchantId: merchant.id, phone: customerPhone },
+        data: { hasAbandonedCart: true }
+      });
+
       const cartWithItems = {
         ...newCart,
         lineItems: shopifyData.line_items
@@ -247,6 +253,12 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
     console.log(`🛒 Order created | merchant: ${merchant.brandName} | phone: ${phone} | amount: ₹${orderTotal}`);
 
     if (!phone) return res.status(200).send('No phone, skipping');
+
+    // Mark customer as hasPlacedOrder
+    await prisma.customer.updateMany({
+      where: { merchantId, phone: { contains: phone.slice(-10) } },
+      data: { hasPlacedOrder: true }
+    });
 
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
     const recentMessage = await prisma.message.findFirst({
