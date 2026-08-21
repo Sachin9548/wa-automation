@@ -255,6 +255,12 @@ export default function MerchantControlHub() {
   const [customerFilter, setCustomerFilter] = useState("all");
   const [syncStatus, setSyncStatus] = useState<any>(null);
 
+  // Add single customer
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [addCustName, setAddCustName] = useState("");
+  const [addCustPhone, setAddCustPhone] = useState("");
+  const [addCustEmail, setAddCustEmail] = useState("");
+
   // Flow drafts — local state before save
   const [flowDrafts, setFlowDrafts] = useState<Record<string, { template: string; delay: number; active: boolean; lang: string }>>({});
 
@@ -365,7 +371,6 @@ export default function MerchantControlHub() {
     try {
       const r = await axios.post(`${API_URL}/admin/full-sync`, { merchantId }, { headers: ah() });
       alert(r.data.message);
-      // Poll sync status after 5 seconds
       setTimeout(async () => {
         const s = await axios.get(`${API_URL}/admin/sync-status/${merchantId}`, { headers: ah() });
         setSyncStatus(s.data);
@@ -373,6 +378,79 @@ export default function MerchantControlHub() {
       }, 5000);
     } catch (e: any) { alert(e.response?.data?.message || "Sync failed"); }
     finally { setLoading(null); }
+  };
+
+  const loadFilteredCustomers = async (filter: string) => {
+    try {
+      const r = await axios.get(
+        `${API_URL}/admin/customers-filtered/${merchantId}?filter=${filter}&limit=50`,
+        { headers: ah() }
+      );
+      setCustomers(r.data.customers || []);
+      setCustomerTotal(r.data.total || 0);
+    } catch { /* silently fail */ }
+  };
+
+  const handleAddSingleCustomer = async () => {
+    if (!addCustPhone) return;
+    setLoading('addcust');
+    try {
+      await axios.post(`${API_URL}/admin/customers/add`, {
+        merchantId, name: addCustName, phone: addCustPhone, email: addCustEmail
+      }, { headers: ah() });
+      alert('✅ Customer added!');
+      setAddCustName(''); setAddCustPhone(''); setAddCustEmail('');
+      setShowAddCustomer(false);
+      await loadFilteredCustomers(customerFilter);
+      await fetchAll();
+    } catch (e: any) { alert(e.response?.data?.message || 'Failed'); }
+    finally { setLoading(null); }
+  };
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading('import');
+    try {
+      const text = await file.text();
+      const lines = text.trim().split('\n');
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+      const nameIdx  = headers.indexOf('name');
+      const phoneIdx = headers.indexOf('phone');
+      const emailIdx = headers.indexOf('email');
+
+      if (phoneIdx === -1) {
+        alert('CSV must have a "phone" column');
+        return;
+      }
+
+      const customers = lines.slice(1).map(line => {
+        // Handle quoted CSV values
+        const cols = line.match(/(".*?"|[^,]+)(?=,|$)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || line.split(',').map(v => v.trim());
+        return {
+          name: nameIdx >= 0 ? cols[nameIdx] || '' : '',
+          phone: cols[phoneIdx] || '',
+          email: emailIdx >= 0 ? cols[emailIdx] || '' : '',
+        };
+      }).filter(c => c.phone);
+
+      if (customers.length === 0) {
+        alert('No valid customers found in CSV');
+        return;
+      }
+
+      const r = await axios.post(`${API_URL}/admin/customers/import`, {
+        merchantId, customers
+      }, { headers: ah() });
+
+      alert(r.data.message);
+      await loadFilteredCustomers(customerFilter);
+      await fetchAll();
+    } catch (e: any) { alert(e.response?.data?.message || 'Import failed'); }
+    finally {
+      setLoading(null);
+      e.target.value = ''; // reset file input
+    }
   };
 
   const handleLaunchCampaign = async (e: React.FormEvent) => {
@@ -1113,25 +1191,117 @@ export default function MerchantControlHub() {
               loading={loading}
             />
 
-            {/* Customer type filter */}
-            <div className="flex gap-3 flex-wrap">
-              {[
-                { key: 'all', label: `All (${customerTotal})` },
-                { key: 'abandoned', label: '🛒 Abandoned Cart' },
-                { key: 'ordered', label: '✅ Placed Order' },
-              ].map(f => (
-                <button
-                  key={f.key}
-                  onClick={() => setCustomerFilter(f.key)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
-                    customerFilter === f.key
-                      ? 'bg-teal-500/20 border-teal-500/30 text-teal-300'
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                  }`}
+            {/* Actions row */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Filter buttons */}
+              <div className="flex gap-2">
+                {[
+                  { key: 'all', label: `All (${customerTotal})` },
+                  { key: 'abandoned', label: '🛒 Abandoned Cart' },
+                  { key: 'ordered', label: '✅ Placed Order' },
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => { setCustomerFilter(f.key); loadFilteredCustomers(f.key); }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
+                      customerFilter === f.key
+                        ? 'bg-teal-500/20 border-teal-500/30 text-teal-300'
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="ml-auto flex gap-2 flex-wrap">
+                {/* Export CSV */}
+                <a
+                  href={`${API_URL}/admin/customers/export/${merchantId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-slate-700 hover:bg-slate-600 border border-white/10 text-slate-300 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition"
+                  onClick={e => {
+                    // Add auth header via fetch instead
+                    e.preventDefault();
+                    fetch(`${API_URL}/admin/customers/export/${merchantId}`, { headers: ah() })
+                      .then(r => r.blob())
+                      .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `customers-${merchantId}.csv`;
+                        a.click();
+                      });
+                  }}
                 >
-                  {f.label}
+                  ⬇️ Export CSV
+                </a>
+
+                {/* Import CSV */}
+                <label className="bg-teal-500/20 hover:bg-teal-500 border border-teal-500/30 text-teal-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer">
+                  ⬆️ Import CSV
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={handleImportCSV}
+                  />
+                </label>
+
+                {/* Add single */}
+                <button
+                  onClick={() => setShowAddCustomer(!showAddCustomer)}
+                  className="bg-indigo-500/20 hover:bg-indigo-500 border border-indigo-500/30 text-indigo-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition"
+                >
+                  + Add Customer
                 </button>
-              ))}
+              </div>
+            </div>
+
+            {/* Add single customer form */}
+            {showAddCustomer && (
+              <div className="bg-slate-800 border border-indigo-500/20 rounded-2xl p-5">
+                <p className="text-white font-bold mb-3 text-sm">Add Customer Manually</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Name"
+                    value={addCustName}
+                    onChange={e => setAddCustName(e.target.value)}
+                    className="p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone (e.g. 9876543210)"
+                    value={addCustPhone}
+                    onChange={e => setAddCustPhone(e.target.value)}
+                    className="p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email (optional)"
+                    value={addCustEmail}
+                    onChange={e => setAddCustEmail(e.target.value)}
+                    className="p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                </div>
+                <div className="flex gap-3 mt-3">
+                  <button
+                    onClick={handleAddSingleCustomer}
+                    disabled={loading === 'addcust' || !addCustPhone}
+                    className="bg-indigo-500 hover:bg-indigo-400 text-white font-bold px-5 py-2.5 rounded-xl text-sm disabled:opacity-40 flex items-center gap-2 transition"
+                  >
+                    {loading === 'addcust' ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />} Save Customer
+                  </button>
+                  <button onClick={() => setShowAddCustomer(false)} className="text-slate-400 hover:text-white text-sm transition">Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* CSV format hint */}
+            <div className="bg-slate-900 border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-500">
+              📋 CSV format: <code className="text-teal-400">name,phone,email</code> — one customer per row. Phone required.
             </div>
 
             {/* Customers table */}
@@ -1146,13 +1316,13 @@ export default function MerchantControlHub() {
               {customers.length === 0 ? (
                 <div className="px-6 py-12 text-center">
                   <FaUsers className="text-slate-600 text-3xl mx-auto mb-2" />
-                  <p className="text-slate-500 text-sm">No customers yet. Run Full Sync to import from Shopify.</p>
+                  <p className="text-slate-500 text-sm">No customers found. Sync from Shopify or import CSV.</p>
                 </div>
               ) : customers.map((c: any) => (
                 <div key={c.id} className="px-6 py-3 grid grid-cols-12 border-b border-white/5 hover:bg-white/3 transition items-center">
                   <div className="col-span-3">
                     <p className="text-white text-sm font-medium">{c.name || '—'}</p>
-                    {c.city && <p className="text-slate-500 text-xs">{c.city}, {c.province}</p>}
+                    {c.city && <p className="text-slate-500 text-xs">{c.city}</p>}
                   </div>
                   <span className="col-span-3 text-slate-400 text-sm font-mono">{c.phone}</span>
                   <span className="col-span-2 text-slate-300 text-sm">{c.totalOrders || 0}</span>
@@ -1164,9 +1334,9 @@ export default function MerchantControlHub() {
                   </div>
                 </div>
               ))}
-              {customerTotal > 10 && (
+              {customerTotal > customers.length && (
                 <div className="px-6 py-3 text-center text-slate-500 text-xs">
-                  Showing 10 of {customerTotal} customers
+                  Showing {customers.length} of {customerTotal} customers
                 </div>
               )}
             </div>

@@ -378,4 +378,135 @@ router.get('/list-webhooks/:merchantId', async (req: Request, res: Response): Pr
   }
 });
 
+// ── Add single customer manually ─────────────────────────────────────────────
+router.post('/customers/add', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId, name, phone, email } = req.body;
+    if (!merchantId || !phone) return res.status(400).json({ message: 'merchantId and phone required' });
+
+    const cleanPhone = String(phone).replace(/[\s\-()]/g, '');
+    const customer = await prisma.customer.upsert({
+      where: { merchantId_phone: { merchantId, phone: cleanPhone } },
+      update: { name: name || undefined, email: email || undefined },
+      create: { merchantId, phone: cleanPhone, name: name || 'Customer', email: email || null }
+    });
+    res.status(200).json({ message: '✅ Customer added!', customer });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Export customers as CSV ───────────────────────────────────────────────────
+router.get('/customers/export/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const customers = await prisma.customer.findMany({
+      where: { merchantId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const header = 'name,phone,email,totalOrders,totalSpent,hasAbandonedCart,hasPlacedOrder';
+    const rows = customers.map((c: any) =>
+      [
+        `"${(c.name || '').replace(/"/g, '""')}"`,
+        `"${c.phone}"`,
+        `"${(c.email || '').replace(/"/g, '""')}"`,
+        c.totalOrders || 0,
+        c.totalSpent || 0,
+        c.hasAbandonedCart ? 'yes' : 'no',
+        c.hasPlacedOrder ? 'yes' : 'no',
+      ].join(',')
+    );
+
+    const csv = [header, ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="customers-${merchantId}.csv"`);
+    res.status(200).send(csv);
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Import customers from CSV (bulk) ─────────────────────────────────────────
+router.post('/customers/import', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId, customers } = req.body;
+    // customers = [{ name, phone, email }]
+    if (!merchantId || !Array.isArray(customers) || customers.length === 0) {
+      return res.status(400).json({ message: 'merchantId and customers array required' });
+    }
+
+    let added = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const c of customers) {
+      if (!c.phone) { skipped++; continue; }
+      const cleanPhone = String(c.phone).replace(/[\s\-()]/g, '');
+      if (!cleanPhone) { skipped++; continue; }
+
+      try {
+        await prisma.customer.upsert({
+          where: { merchantId_phone: { merchantId, phone: cleanPhone } },
+          update: {
+            name: c.name || undefined,
+            email: c.email || undefined,
+          },
+          create: {
+            merchantId,
+            phone: cleanPhone,
+            name: c.name || 'Customer',
+            email: c.email || null,
+          }
+        });
+        added++;
+      } catch (err: any) {
+        errors.push(`${cleanPhone}: ${err.message}`);
+        skipped++;
+      }
+    }
+
+    res.status(200).json({
+      message: `✅ Imported ${added} customers, skipped ${skipped}`,
+      added, skipped,
+      errors: errors.slice(0, 10) // first 10 errors only
+    });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Get customers with filter ─────────────────────────────────────────────────
+router.get('/customers-filtered/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const filter = req.query.filter as string || 'all'; // all | abandoned | ordered
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const search = (req.query.search as string) || '';
+    const skip = (page - 1) * limit;
+
+    const where: any = { merchantId };
+
+    if (filter === 'abandoned') where.hasAbandonedCart = true;
+    else if (filter === 'ordered') where.hasPlacedOrder = true;
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } }
+      ];
+    }
+
+    const [customers, total] = await Promise.all([
+      prisma.customer.findMany({ where, skip, take: limit, orderBy: { updatedAt: 'desc' } }),
+      prisma.customer.count({ where })
+    ]);
+
+    res.status(200).json({ customers, total, page, pages: Math.ceil(total / limit) });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 export default router;
