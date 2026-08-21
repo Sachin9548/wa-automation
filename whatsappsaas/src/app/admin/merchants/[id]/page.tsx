@@ -229,7 +229,7 @@ export default function MerchantControlHub() {
   const [customerTotal, setCustomerTotal] = useState(0);
   const [fetching, setFetching] = useState(true);
   const [loading, setLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "flows" | "campaign" | "customers" | "credentials" | "templates">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "flows" | "campaign" | "customers" | "analytics" | "credentials" | "templates">("overview");
 
   // Activation
   const [category, setCategory] = useState("ECOMMERCE");
