@@ -12,6 +12,7 @@ import { initMessageWorker } from './workers/message.worker';
 import flowRoutes from './routes/flow.routes';
 import trackingRoutes from './routes/tracking.routes';
 import webhookRoutes from './routes/webhook.routes';
+import inboxRoutes from './routes/inbox.routes';
 dotenv.config();
 
 const app = express();
@@ -54,6 +55,7 @@ app.use("/api/admin", adminRoutes);
 app.use('/api/flows', flowRoutes);
 app.use('/api/tracking', trackingRoutes);  // click tracking redirects
 app.use('/api/webhooks', webhookRoutes);   // ← only once
+app.use('/api/inbox', inboxRoutes);        // customer inbox — 2-way chat
 
 // ── Start server ──────────────────────────────────────────────────────────────
 app.listen(PORT, async () => {

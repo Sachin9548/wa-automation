@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import {
@@ -229,7 +229,7 @@ export default function MerchantControlHub() {
   const [customerTotal, setCustomerTotal] = useState(0);
   const [fetching, setFetching] = useState(true);
   const [loading, setLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "flows" | "campaign" | "customers" | "analytics" | "credentials" | "templates">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "flows" | "campaign" | "customers" | "analytics" | "credentials" | "templates" | "inbox">("overview");
 
   // Activation
   const [category, setCategory] = useState("ECOMMERCE");
@@ -275,6 +275,85 @@ export default function MerchantControlHub() {
   const [campaignTemplate, setCampaignTemplate] = useState(
     `🎉 *Hey {{name}}!*\n\nWe have something special for you. ✨\n\nShop our latest collection:\n{{link}}\n\n_Reply STOP to unsubscribe_ 🙏`
   );
+
+  // ── Inbox state ────────────────────────────────────────────────────────────
+  const [inboxConversations, setInboxConversations]     = useState<any[]>([]);
+  const [inboxLoading, setInboxLoading]                 = useState(false);
+  const [selectedConvo, setSelectedConvo]               = useState<any>(null);
+  const [inboxMessages, setInboxMessages]               = useState<any[]>([]);
+  const [inboxMessagesLoading, setInboxMessagesLoading] = useState(false);
+  const [replyText, setReplyText]                       = useState("");
+  const [replySending, setReplySending]                 = useState(false);
+  const [inboxSearch, setInboxSearch]                   = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 24hr countdown
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+
+  const loadInboxConversations = async (search = "") => {
+    setInboxLoading(true);
+    try {
+      const r = await axios.get(
+        `${API_URL}/inbox/conversations/${merchantId}?search=${encodeURIComponent(search)}&limit=40`,
+        { headers: ah() }
+      );
+      setInboxConversations(r.data.conversations || []);
+    } catch { /* silent */ }
+    finally { setInboxLoading(false); }
+  };
+
+  const loadInboxMessages = async (convo: any) => {
+    setSelectedConvo(convo);
+    setInboxMessagesLoading(true);
+    setInboxMessages([]);
+    try {
+      const r = await axios.get(
+        `${API_URL}/inbox/messages/${merchantId}/${convo.customerPhone}?limit=100`,
+        { headers: ah() }
+      );
+      setInboxMessages(r.data.messages || []);
+      // Update 24hr window from fresh response
+      const w = r.data.window;
+      if (w?.windowExpiresAt && w?.canSendFreeText) {
+        const ms = new Date(w.windowExpiresAt).getTime() - Date.now();
+        const hrs  = Math.floor(ms / 3600000);
+        const mins = Math.floor((ms % 3600000) / 60000);
+        setTimeLeft(`${hrs}h ${mins}m`);
+      } else {
+        setTimeLeft(null);
+      }
+      // mark read
+      await axios.post(`${API_URL}/inbox/mark-read/${merchantId}`, { customerPhone: convo.customerPhone }, { headers: ah() });
+      // refresh unread count
+      setInboxConversations(prev => prev.map(c =>
+        c.customerPhone === convo.customerPhone ? { ...c, unreadCount: 0 } : c
+      ));
+    } catch { /* silent */ }
+    finally { setInboxMessagesLoading(false); }
+  };
+
+  const sendInboxReply = async () => {
+    if (!replyText.trim() || !selectedConvo) return;
+    setReplySending(true);
+    try {
+      const r = await axios.post(
+        `${API_URL}/inbox/send/${merchantId}`,
+        { customerPhone: selectedConvo.customerPhone, message: replyText },
+        { headers: ah() }
+      );
+      setInboxMessages(prev => [...prev, r.data.message]);
+      setReplyText("");
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch (e: any) {
+      const code = e.response?.data?.code;
+      if (code === 'WINDOW_EXPIRED' || code === 'NO_24HR_WINDOW') {
+        alert('⏰ 24hr window closed — please send a template instead.');
+      } else {
+        alert(e.response?.data?.message || "Failed to send");
+      }
+    }
+    finally { setReplySending(false); }
+  };
 
   // Flow editing
   const [editingFlow, setEditingFlow] = useState<any>(null);
@@ -351,6 +430,10 @@ export default function MerchantControlHub() {
     // Load customer stats when customers tab opens
     if (activeTab === 'customers') {
       loadFilteredCustomers(customerFilter);
+    }
+    // Load inbox conversations when inbox tab opens
+    if (activeTab === 'inbox') {
+      loadInboxConversations();
     }
   }, [activeTab]);
 
@@ -648,13 +731,14 @@ export default function MerchantControlHub() {
   const isActive = merchant?.status === "ACTIVE";
   const waConnected = merchant?.whatsappConnected;
   const TABS = [
-    { key: "overview", label: "Overview" },
-    { key: "flows", label: "Flows" },
-    { key: "campaign", label: "Campaign" },
-    { key: "customers", label: `Customers (${customerTotal})` },
-    { key: "analytics", label: "📊 Analytics" },
+    { key: "overview",    label: "Overview" },
+    { key: "inbox",       label: "💬 Inbox" },
+    { key: "flows",       label: "Flows" },
+    { key: "campaign",    label: "Campaign" },
+    { key: "customers",   label: `Customers (${customerTotal})` },
+    { key: "analytics",   label: "📊 Analytics" },
     { key: "credentials", label: "⚙️ Credentials" },
-    { key: "templates", label: "📋 Templates" },
+    { key: "templates",   label: "📋 Templates" },
   ];
   return (
     <div className="min-h-screen bg-slate-950">
@@ -1876,6 +1960,209 @@ export default function MerchantControlHub() {
                 <p className="text-blue-300 font-bold mb-1">After Approval</p>
                 <p>Once template status shows APPROVED, go to Flows tab and set the <code className="bg-slate-800 text-teal-300 px-1 rounded">metaTemplateName</code> field to use it for abandoned cart automation.</p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── INBOX TAB ── */}
+        {activeTab === "inbox" && (
+          <div className="flex gap-4 h-[75vh]">
+
+            {/* ── Left: Conversation List ── */}
+            <div className="w-80 flex-shrink-0 bg-slate-800 border border-white/5 rounded-2xl flex flex-col overflow-hidden">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-white/5">
+                <p className="text-white font-extrabold text-sm mb-2">💬 Conversations</p>
+                <input
+                  type="text"
+                  placeholder="Search by phone..."
+                  value={inboxSearch}
+                  onChange={e => { setInboxSearch(e.target.value); loadInboxConversations(e.target.value); }}
+                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+
+              {/* List */}
+              <div className="flex-1 overflow-y-auto">
+                {inboxLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <FaSpinner className="animate-spin text-teal-400 text-xl" />
+                  </div>
+                ) : inboxConversations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                    <p className="text-4xl mb-3">💬</p>
+                    <p className="text-slate-400 text-xs">No conversations yet.</p>
+                    <p className="text-slate-600 text-[10px] mt-1">When customers reply to your messages, they'll appear here.</p>
+                  </div>
+                ) : (
+                  inboxConversations.map(convo => (
+                    <button
+                      key={convo.customerPhone}
+                      onClick={() => loadInboxMessages(convo)}
+                      className={`w-full text-left px-4 py-3 border-b border-white/5 hover:bg-white/5 transition ${selectedConvo?.customerPhone === convo.customerPhone ? 'bg-teal-500/10 border-l-2 border-l-teal-400' : ''}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-white text-xs font-bold truncate">
+                              {convo.customerName || convo.customerPhone}
+                            </p>
+                            {convo.isOptedOut && <span className="text-[8px] bg-red-500/20 text-red-400 px-1 rounded font-bold">OPT-OUT</span>}
+                            {!convo.canSendFreeText && !convo.isOptedOut && <span className="text-[8px] bg-yellow-500/20 text-yellow-400 px-1 rounded font-bold">TMPL</span>}
+                          </div>
+                          <p className="text-slate-500 text-[10px] truncate mt-0.5">
+                            {convo.lastDirection === 'INCOMING' ? '← ' : '→ '}
+                            {convo.lastMessage || '...'}
+                          </p>
+                          <p className="text-slate-600 text-[9px] mt-0.5">{convo.customerPhone}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <p className="text-slate-600 text-[9px]">
+                            {convo.lastTimestamp ? new Date(convo.lastTimestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </p>
+                          {convo.unreadCount > 0 && (
+                            <span className="bg-teal-500 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">
+                              {convo.unreadCount > 9 ? '9+' : convo.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* Refresh button */}
+              <div className="px-4 py-2 border-t border-white/5">
+                <button
+                  onClick={() => loadInboxConversations(inboxSearch)}
+                  className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2"
+                >
+                  <FaSync className={inboxLoading ? 'animate-spin' : ''} /> Refresh
+                </button>
+              </div>
+            </div>
+
+            {/* ── Right: Chat Window ── */}
+            <div className="flex-1 bg-slate-800 border border-white/5 rounded-2xl flex flex-col overflow-hidden">
+              {!selectedConvo ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
+                  <p className="text-5xl mb-4">👈</p>
+                  <p className="text-slate-300 font-bold">Select a conversation</p>
+                  <p className="text-slate-500 text-sm mt-1">Click a contact on the left to view their messages</p>
+                </div>
+              ) : (
+                <>
+                  {/* Chat header */}
+                  <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-extrabold text-sm">
+                        {selectedConvo.customerName || selectedConvo.customerPhone}
+                      </p>
+                      <p className="text-slate-500 text-[10px]">{selectedConvo.customerPhone}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* 24hr window indicator */}
+                      {selectedConvo.canSendFreeText && timeLeft && (
+                        <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
+                          <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                          <span className="text-green-400 text-[10px] font-bold">Window open: {timeLeft} left</span>
+                        </div>
+                      )}
+                      {!selectedConvo.canSendFreeText && (
+                        <div className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-1.5">
+                          <span className="text-yellow-400 text-[10px] font-bold">⏰ 24hr window closed — template only</span>
+                        </div>
+                      )}
+                      {selectedConvo.isOptedOut && (
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-1.5">
+                          <span className="text-red-400 text-[10px] font-bold">🚫 Opted Out</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                    {inboxMessagesLoading ? (
+                      <div className="flex items-center justify-center h-full">
+                        <FaSpinner className="animate-spin text-teal-400 text-xl" />
+                      </div>
+                    ) : inboxMessages.length === 0 ? (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-slate-500 text-sm">No messages yet</p>
+                      </div>
+                    ) : (
+                      inboxMessages.map((msg: any) => (
+                        <div key={msg.id} className={`flex ${msg.direction === 'OUTGOING' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-xs lg:max-w-sm rounded-2xl px-4 py-2.5 ${
+                            msg.direction === 'OUTGOING'
+                              ? 'bg-teal-600 text-white rounded-br-sm'
+                              : 'bg-slate-700 text-slate-100 rounded-bl-sm'
+                          }`}>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                            <div className={`flex items-center gap-1.5 mt-1 ${msg.direction === 'OUTGOING' ? 'justify-end' : 'justify-start'}`}>
+                              <span className="text-[9px] opacity-60">
+                                {new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {msg.direction === 'OUTGOING' && (
+                                <span className={`text-[9px] font-bold ${
+                                  msg.status === 'READ'      ? 'text-blue-300' :
+                                  msg.status === 'DELIVERED' ? 'text-teal-200' :
+                                  msg.status === 'FAILED'    ? 'text-red-300'  : 'opacity-50'
+                                }`}>
+                                  {msg.status === 'READ' ? '✓✓' : msg.status === 'DELIVERED' ? '✓✓' : msg.status === 'FAILED' ? '✗' : '✓'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Reply box */}
+                  <div className="px-5 py-4 border-t border-white/5">
+                    {selectedConvo.isOptedOut ? (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center">
+                        <p className="text-red-400 text-xs font-bold">🚫 Customer has opted out — no messages can be sent</p>
+                      </div>
+                    ) : !selectedConvo.canSendFreeText ? (
+                      <div className="space-y-2">
+                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 text-center">
+                          <p className="text-yellow-400 text-xs font-bold">⏰ 24hr window closed</p>
+                          <p className="text-yellow-300 text-[10px] mt-0.5">Customer must message first, or send a pre-approved template</p>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('templates')}
+                          className="w-full py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-xs font-bold rounded-xl transition"
+                        >
+                          📋 Go to Templates
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <textarea
+                          value={replyText}
+                          onChange={e => setReplyText(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendInboxReply(); } }}
+                          placeholder="Type a reply... (Enter to send, Shift+Enter for new line)"
+                          rows={2}
+                          className="flex-1 bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                        />
+                        <button
+                          onClick={sendInboxReply}
+                          disabled={replySending || !replyText.trim()}
+                          className="px-5 bg-teal-500 hover:bg-teal-400 disabled:opacity-40 text-white font-bold rounded-xl transition flex items-center gap-2 text-sm"
+                        >
+                          {replySending ? <FaSpinner className="animate-spin" /> : '➤'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

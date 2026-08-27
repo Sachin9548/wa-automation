@@ -45,30 +45,88 @@ router.post('/meta', async (req: Request, res: Response) => {
         // ── Incoming message from customer ──────────────────────────────
         if (value.messages) {
           for (const message of value.messages) {
-            const from = message.from; // customer phone
+            const from          = message.from; // customer phone
             const phoneNumberId = value.metadata?.phone_number_id;
+            const msgType       = message.type || 'text';
 
-            console.log(`📨 Incoming WhatsApp from ${from}: ${message.text?.body || '[non-text]'}`);
+            // Extract content based on message type
+            let content = '';
+            let isMedia = false;
+            if (msgType === 'text') {
+              content = message.text?.body || '';
+            } else if (msgType === 'image') {
+              content = `[Image${message.image?.caption ? `: ${message.image.caption}` : ''}]`;
+              isMedia = true;
+            } else if (msgType === 'video') {
+              content = `[Video${message.video?.caption ? `: ${message.video.caption}` : ''}]`;
+              isMedia = true;
+            } else if (msgType === 'audio') {
+              content = '[Voice Message]';
+              isMedia = true;
+            } else if (msgType === 'document') {
+              content = `[Document: ${message.document?.filename || 'file'}]`;
+              isMedia = true;
+            } else if (msgType === 'location') {
+              content = `[Location: ${message.location?.name || `${message.location?.latitude},${message.location?.longitude}`}]`;
+            } else if (msgType === 'sticker') {
+              content = '[Sticker]';
+            } else if (msgType === 'reaction') {
+              content = `[Reaction: ${message.reaction?.emoji || '👍'}]`;
+            } else {
+              content = `[${msgType}]`;
+            }
+
+            console.log(`📨 Incoming WA from ${from} [${msgType}]: ${content}`);
 
             // Find merchant by phoneNumberId
             const merchant = await prisma.merchant.findFirst({
               where: { metaPhoneNumberId: phoneNumberId }
             });
 
-            if (merchant) {
-              // Save incoming message
+            if (!merchant) {
+              console.warn(`⚠️ No merchant found for phoneNumberId: ${phoneNumberId}`);
+              continue;
+            }
+
+            // ── STOP keyword — auto opt-out ─────────────────────────────
+            const STOP_KEYWORDS = ['stop', 'unsubscribe', 'no', 'quit', 'cancel', 'optout', 'opt out', 'opt-out'];
+            if (msgType === 'text' && STOP_KEYWORDS.includes(content.trim().toLowerCase())) {
+              console.log(`🚫 STOP keyword from ${from} — opting out`);
+              await prisma.customer.updateMany({
+                where: { merchantId: merchant.id, phone: from },
+                data: { tags: 'wa_invalid|auto_optout' }
+              });
+              // Save the incoming stop message
               await prisma.message.create({
                 data: {
                   merchantId: merchant.id,
                   customerPhone: from,
-                  content: message.text?.body || `[${message.type}]`,
+                  content,
                   direction: 'INCOMING',
-                  status: 'DELIVERED'
+                  status: 'READ',
                 }
               });
+              // Mark as read on Meta side
+              if (merchant.metaAccessToken) {
+                await markMessageRead(phoneNumberId!, merchant.metaAccessToken, message.id);
+              }
+              continue; // Skip normal save — already saved above
+            }
 
-              // Mark as read
-              await markMessageRead(phoneNumberId!, merchant.metaAccessToken!, message.id);
+            // ── Save incoming message ───────────────────────────────────
+            await prisma.message.create({
+              data: {
+                merchantId: merchant.id,
+                customerPhone: from,
+                content,
+                direction: 'INCOMING',
+                status: 'DELIVERED',
+              }
+            });
+
+            // Mark as read on Meta side
+            if (merchant.metaAccessToken) {
+              await markMessageRead(phoneNumberId!, merchant.metaAccessToken, message.id);
             }
           }
         }
@@ -76,13 +134,11 @@ router.post('/meta', async (req: Request, res: Response) => {
         // ── Message status updates ────────────────────────────────────────
         if (value.statuses) {
           for (const status of value.statuses) {
-            console.log(`📊 Status update: ${status.status} for ${status.recipient_id}`);
-
             const statusMap: Record<string, string> = {
-              sent: 'SENT',
+              sent:      'SENT',
               delivered: 'DELIVERED',
-              read: 'READ',
-              failed: 'FAILED'
+              read:      'READ',
+              failed:    'FAILED',
             };
 
             const dbStatus = statusMap[status.status];
@@ -92,44 +148,41 @@ router.post('/meta', async (req: Request, res: Response) => {
             const merchant = await prisma.merchant.findFirst({
               where: { metaPhoneNumberId: phoneNumberId }
             });
-
             if (!merchant) continue;
 
-            // Update latest outgoing message status for this recipient
             const recipientPhone = status.recipient_id;
+
+            // Update latest outgoing message for this recipient
             const latestMsg = await prisma.message.findFirst({
               where: {
                 merchantId: merchant.id,
                 customerPhone: { contains: recipientPhone.slice(-10) },
                 direction: 'OUTGOING',
-                status: { not: 'FAILED' }
+                status: { not: 'FAILED' },
               },
-              orderBy: { timestamp: 'desc' }
+              orderBy: { timestamp: 'desc' },
             });
 
             if (latestMsg) {
+              const updateData: any = { status: dbStatus };
+              if (dbStatus === 'FAILED') {
+                updateData.failReason = status.errors?.[0]?.title || `Meta error ${status.errors?.[0]?.code}`;
+              }
               await prisma.message.update({
                 where: { id: latestMsg.id },
-                data: { status: dbStatus }
+                data: updateData,
               });
             }
 
-            // Update merchant read count
+            // Increment merchant read count
             if (dbStatus === 'READ') {
               await prisma.merchant.update({
                 where: { id: merchant.id },
-                data: { totalRead: { increment: 1 } }
+                data: { totalRead: { increment: 1 } },
               });
             }
 
-            // Save failed reason
-            if (dbStatus === 'FAILED' && latestMsg) {
-              const errorMsg = status.errors?.[0]?.title || `Meta error ${status.errors?.[0]?.code}`;
-              await prisma.message.update({
-                where: { id: latestMsg.id },
-                data: { status: 'FAILED', failReason: errorMsg }
-              });
-            }
+            console.log(`📊 Status [${dbStatus}] for ${recipientPhone}`);
           }
         }
       }
