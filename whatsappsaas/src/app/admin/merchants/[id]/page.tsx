@@ -254,6 +254,7 @@ export default function MerchantControlHub() {
   // Customers
   const [customerFilter, setCustomerFilter] = useState("all");
   const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [customerStats, setCustomerStats] = useState<{ noPhoneCount: number; waInvalidCount: number; abandonedCount: number; orderedCount: number } | null>(null);
 
   // Add single customer
   const [showAddCustomer, setShowAddCustomer] = useState(false);
@@ -347,6 +348,10 @@ export default function MerchantControlHub() {
     if (activeTab === 'flows' && metaTemplates.length === 0) {
       fetchMetaTemplates();
     }
+    // Load customer stats when customers tab opens
+    if (activeTab === 'customers') {
+      loadFilteredCustomers(customerFilter);
+    }
   }, [activeTab]);
 
   const action = async (endpoint: string, data: any, label: string) => {
@@ -393,6 +398,7 @@ export default function MerchantControlHub() {
       );
       setCustomers(r.data.customers || []);
       setCustomerTotal(r.data.total || 0);
+      if (r.data.stats) setCustomerStats(r.data.stats);
     } catch { /* silently fail */ }
   };
 
@@ -1259,29 +1265,48 @@ export default function MerchantControlHub() {
               loading={loading}
             />
 
+            {/* ── Customer Stats Cards ── */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                { label: 'Total', value: customerTotal, color: 'text-white', bg: 'bg-slate-700', border: 'border-white/10', filter: 'all' },
+                { label: '🛒 Abandoned', value: customerStats?.abandonedCount ?? '—', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', filter: 'abandoned' },
+                { label: '✅ Ordered', value: customerStats?.orderedCount ?? '—', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', filter: 'ordered' },
+                { label: '📵 No Phone', value: customerStats?.noPhoneCount ?? '—', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', filter: 'no_phone' },
+                { label: '🚫 WA Invalid', value: customerStats?.waInvalidCount ?? '—', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', filter: 'wa_invalid' },
+              ].map(s => (
+                <button
+                  key={s.filter}
+                  onClick={() => { setCustomerFilter(s.filter); loadFilteredCustomers(s.filter); }}
+                  className={`${s.bg} border ${s.border} rounded-xl p-3 text-left transition hover:opacity-80 ${customerFilter === s.filter ? 'ring-2 ring-teal-400' : ''}`}
+                >
+                  <p className={`text-xl font-extrabold ${s.color}`}>{s.value}</p>
+                  <p className="text-slate-400 text-xs mt-0.5 font-bold">{s.label}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* ── Alert if no_phone / wa_invalid selected ── */}
+            {customerFilter === 'no_phone' && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-xs text-red-300 flex items-start gap-3">
+                <span className="text-lg">📵</span>
+                <div>
+                  <p className="font-bold text-red-400 mb-1">Customers without WhatsApp phone number</p>
+                  <p>These customers have no phone or only an email. WhatsApp messages <strong>cannot be sent</strong> to them. You can manually add their phone number using the Edit option.</p>
+                </div>
+              </div>
+            )}
+            {customerFilter === 'wa_invalid' && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 text-xs text-yellow-300 flex items-start gap-3">
+                <span className="text-lg">🚫</span>
+                <div>
+                  <p className="font-bold text-yellow-400 mb-1">Numbers not registered on WhatsApp</p>
+                  <p>These numbers were tried but Meta returned an error — the number is not on WhatsApp. Future messages to these numbers will be <strong>automatically skipped</strong> to save API quota.</p>
+                </div>
+              </div>
+            )}
+
             {/* Actions row */}
             <div className="flex flex-wrap items-center gap-3">
-              {/* Filter buttons */}
-              <div className="flex gap-2">
-                {[
-                  { key: 'all', label: `All (${customerTotal})` },
-                  { key: 'abandoned', label: '🛒 Abandoned Cart' },
-                  { key: 'ordered', label: '✅ Placed Order' },
-                ].map(f => (
-                  <button
-                    key={f.key}
-                    onClick={() => { setCustomerFilter(f.key); loadFilteredCustomers(f.key); }}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
-                      customerFilter === f.key
-                        ? 'bg-teal-500/20 border-teal-500/30 text-teal-300'
-                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
               <div className="ml-auto flex gap-2 flex-wrap">
                 {/* Export CSV */}
                 <a
@@ -1290,7 +1315,6 @@ export default function MerchantControlHub() {
                   rel="noopener noreferrer"
                   className="bg-slate-700 hover:bg-slate-600 border border-white/10 text-slate-300 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition"
                   onClick={e => {
-                    // Add auth header via fetch instead
                     e.preventDefault();
                     fetch(`${API_URL}/admin/customers/export/${merchantId}`, { headers: ah() })
                       .then(r => r.blob())
@@ -1398,7 +1422,9 @@ export default function MerchantControlHub() {
                   <div className="col-span-2 flex gap-1 flex-wrap">
                     {c.hasAbandonedCart && <span className="bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[9px] font-bold px-1.5 py-0.5 rounded">Cart</span>}
                     {c.hasPlacedOrder && <span className="bg-green-500/10 border border-green-500/20 text-green-400 text-[9px] font-bold px-1.5 py-0.5 rounded">Order</span>}
-                    {!c.hasAbandonedCart && !c.hasPlacedOrder && <span className="text-slate-600 text-[9px]">—</span>}
+                    {(c.phone === 'NO_PHONE' || c.phone === '' || c.phone?.startsWith('email:')) && <span className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-bold px-1.5 py-0.5 rounded">No Phone</span>}
+                    {c.tags?.includes('wa_invalid') && <span className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[9px] font-bold px-1.5 py-0.5 rounded">WA ✗</span>}
+                    {!c.hasAbandonedCart && !c.hasPlacedOrder && c.phone !== 'NO_PHONE' && !c.phone?.startsWith('email:') && !c.tags?.includes('wa_invalid') && <span className="text-slate-600 text-[9px]">—</span>}
                   </div>
                 </div>
               ))}

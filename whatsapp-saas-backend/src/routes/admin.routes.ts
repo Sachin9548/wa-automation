@@ -480,7 +480,8 @@ router.post('/customers/import', async (req: Request, res: Response): Promise<an
 router.get('/customers-filtered/:merchantId', async (req: Request, res: Response): Promise<any> => {
   try {
     const merchantId = req.params.merchantId as string;
-    const filter = req.query.filter as string || 'all'; // all | abandoned | ordered
+    const filter = req.query.filter as string || 'all';
+    // Filters: all | abandoned | ordered | no_phone | email_only | wa_invalid
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
     const search = (req.query.search as string) || '';
@@ -488,22 +489,65 @@ router.get('/customers-filtered/:merchantId', async (req: Request, res: Response
 
     const where: any = { merchantId };
 
-    if (filter === 'abandoned') where.hasAbandonedCart = true;
+    if (filter === 'abandoned')   where.hasAbandonedCart = true;
     else if (filter === 'ordered') where.hasPlacedOrder = true;
-
-    if (search) {
+    else if (filter === 'no_phone') {
+      // Phone is missing, placeholder, or starts with "email:"
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } }
+        { phone: 'NO_PHONE' },
+        { phone: '' },
+        { phone: { startsWith: 'email:' } },
+        { phone: null },
       ];
     }
+    else if (filter === 'email_only') {
+      // Has email but phone is missing/placeholder
+      where.email = { not: null };
+      where.OR = [
+        { phone: 'NO_PHONE' },
+        { phone: '' },
+        { phone: { startsWith: 'email:' } },
+      ];
+    }
+    else if (filter === 'wa_invalid') {
+      // Phone was tried but Meta said not on WhatsApp
+      where.tags = { contains: 'wa_invalid' };
+    }
 
-    const [customers, total] = await Promise.all([
+    if (search) {
+      // Wrap existing where in AND if we already have an OR
+      const searchOr = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: searchOr }];
+        delete where.OR;
+      } else {
+        where.OR = searchOr;
+      }
+    }
+
+    // Also get counts for each category (for stats cards)
+    const [customers, total, noPhoneCount, waInvalidCount, abandonedCount, orderedCount] = await Promise.all([
       prisma.customer.findMany({ where, skip, take: limit, orderBy: { updatedAt: 'desc' } }),
-      prisma.customer.count({ where })
+      prisma.customer.count({ where }),
+      prisma.customer.count({
+        where: {
+          merchantId,
+          OR: [{ phone: 'NO_PHONE' }, { phone: '' }, { phone: { startsWith: 'email:' } }]
+        }
+      }),
+      prisma.customer.count({ where: { merchantId, tags: { contains: 'wa_invalid' } } }),
+      prisma.customer.count({ where: { merchantId, hasAbandonedCart: true } }),
+      prisma.customer.count({ where: { merchantId, hasPlacedOrder: true } }),
     ]);
 
-    res.status(200).json({ customers, total, page, pages: Math.ceil(total / limit) });
+    res.status(200).json({
+      customers, total, page, pages: Math.ceil(total / limit),
+      stats: { noPhoneCount, waInvalidCount, abandonedCount, orderedCount }
+    });
   } catch (e: any) {
     res.status(500).json({ message: e.message });
   }
