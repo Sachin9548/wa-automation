@@ -270,6 +270,20 @@ export default function MerchantControlHub() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsDays, setAnalyticsDays] = useState(30);
 
+  // WABA Info
+  const [wabaInfo, setWabaInfo]       = useState<any>(null);
+  const [wabaLoading, setWabaLoading] = useState(false);
+
+  const fetchWabaInfo = async () => {
+    setWabaLoading(true);
+    try {
+      const r = await axios.get(`${API_URL}/admin/waba-info/${merchantId}`, { headers: ah() });
+      setWabaInfo(r.data);
+    } catch (e: any) {
+      setWabaInfo({ error: e.response?.data?.message || 'Failed to load WABA info' });
+    } finally { setWabaLoading(false); }
+  };
+
   // Campaign
   const [campaignName, setCampaignName] = useState("");
   const [campaignTemplate, setCampaignTemplate] = useState(
@@ -1061,6 +1075,151 @@ export default function MerchantControlHub() {
                 </div>
               </div>
             )}
+
+            {/* ── WhatsApp Business Account Info ── */}
+            <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FaWhatsapp className="text-green-400" />
+                  <span className="text-white font-bold">WhatsApp Business Account</span>
+                </div>
+                <button
+                  onClick={fetchWabaInfo}
+                  disabled={wabaLoading}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition disabled:opacity-40"
+                >
+                  <FaSync className={wabaLoading ? 'animate-spin' : ''} /> {wabaInfo ? 'Refresh' : 'Load Info'}
+                </button>
+              </div>
+
+              {!wabaInfo && !wabaLoading && (
+                <div className="px-6 py-8 text-center">
+                  <p className="text-slate-500 text-sm">Click "Load Info" to fetch live data from Meta</p>
+                </div>
+              )}
+
+              {wabaLoading && (
+                <div className="px-6 py-8 flex items-center justify-center gap-3">
+                  <FaSpinner className="animate-spin text-teal-400" />
+                  <span className="text-slate-400 text-sm">Fetching from Meta API...</span>
+                </div>
+              )}
+
+              {wabaInfo?.error && (
+                <div className="px-6 py-4">
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs">
+                    ❌ {wabaInfo.error}
+                  </div>
+                </div>
+              )}
+
+              {wabaInfo && !wabaInfo.error && (
+                <div className="p-6 space-y-5">
+                  {/* Quality Rating Alert */}
+                  {wabaInfo.qualityColor === 'red' && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+                      <span className="text-2xl">🚨</span>
+                      <div>
+                        <p className="text-red-400 font-bold text-sm">Quality Rating is RED — Action Required!</p>
+                        <p className="text-red-300 text-xs mt-1">Meta may restrict or block your number. Pause campaigns immediately and review message quality.</p>
+                      </div>
+                    </div>
+                  )}
+                  {wabaInfo.qualityColor === 'yellow' && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 flex items-start gap-3">
+                      <span className="text-xl">⚠️</span>
+                      <div>
+                        <p className="text-yellow-400 font-bold text-sm">Quality Rating is YELLOW — Monitor Closely</p>
+                        <p className="text-yellow-300 text-xs mt-1">Reduce campaign frequency and avoid spammy messages to recover rating.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Main info grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {[
+                      { label: 'Phone Number',    value: wabaInfo.phoneNumber,   icon: '📞' },
+                      { label: 'Display Name',    value: wabaInfo.displayName,   icon: '🏷️' },
+                      { label: 'WABA Name',        value: wabaInfo.wabaName,      icon: '🏢' },
+                      { label: 'Account Mode',    value: wabaInfo.accountMode,   icon: wabaInfo.accountMode === 'LIVE' ? '🟢' : '🔵' },
+                      { label: 'Verification',    value: wabaInfo.verificationStatus, icon: '✅' },
+                      { label: 'Review Status',   value: wabaInfo.reviewStatus,  icon: '📋' },
+                    ].map(item => (
+                      <div key={item.label} className="bg-slate-900/50 rounded-xl p-3">
+                        <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">{item.icon} {item.label}</p>
+                        <p className="text-white text-sm font-bold truncate">{item.value || '—'}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Quality Rating + Messaging Tier — prominent display */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Quality Rating */}
+                    <div className={`rounded-xl p-4 border ${
+                      wabaInfo.qualityColor === 'green'  ? 'bg-green-500/10 border-green-500/20' :
+                      wabaInfo.qualityColor === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' :
+                      wabaInfo.qualityColor === 'red'    ? 'bg-red-500/10 border-red-500/20' :
+                                                           'bg-slate-700 border-white/10'
+                    }`}>
+                      <p className="text-slate-400 text-[10px] font-bold uppercase mb-2">Quality Rating</p>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-3 h-3 rounded-full ${
+                          wabaInfo.qualityColor === 'green'  ? 'bg-green-400' :
+                          wabaInfo.qualityColor === 'yellow' ? 'bg-yellow-400' :
+                          wabaInfo.qualityColor === 'red'    ? 'bg-red-400 animate-pulse' :
+                                                               'bg-slate-500'
+                        }`} />
+                        <span className={`text-xl font-extrabold ${
+                          wabaInfo.qualityColor === 'green'  ? 'text-green-400' :
+                          wabaInfo.qualityColor === 'yellow' ? 'text-yellow-400' :
+                          wabaInfo.qualityColor === 'red'    ? 'text-red-400' :
+                                                               'text-slate-400'
+                        }`}>{wabaInfo.qualityRating}</span>
+                      </div>
+                    </div>
+
+                    {/* Messaging Tier */}
+                    <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-4">
+                      <p className="text-slate-400 text-[10px] font-bold uppercase mb-2">Messaging Limit</p>
+                      <p className="text-teal-400 text-xl font-extrabold">{wabaInfo.messagingTier}</p>
+                      <div className="mt-2 flex gap-1 flex-wrap">
+                        {['TIER_50','TIER_250','TIER_1K','TIER_10K','TIER_100K','UNLIMITED'].map((t, i) => {
+                          const tiers  = ['TIER_50','TIER_250','TIER_1K','TIER_10K','TIER_100K','UNLIMITED'];
+                          const curIdx = tiers.indexOf(wabaInfo.tierRaw);
+                          const active = i === curIdx;
+                          const passed = i < curIdx;
+                          return (
+                            <span key={t} className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                              active ? 'bg-teal-500 text-white' :
+                              passed ? 'bg-teal-500/20 text-teal-400' :
+                                       'bg-white/5 text-slate-600'
+                            }`}>
+                              {t.replace('TIER_','').replace('K','k')}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      <p className="text-slate-500 text-[10px] mt-2">Upgrade by maintaining high quality + volume</p>
+                    </div>
+                  </div>
+
+                  {/* IDs for reference */}
+                  <div className="bg-slate-900/50 rounded-xl p-3 space-y-1.5">
+                    <p className="text-slate-500 text-[10px] font-bold uppercase mb-2">Reference IDs</p>
+                    {[
+                      { label: 'Phone Number ID', value: wabaInfo.phoneNumberId },
+                      { label: 'WABA ID',          value: wabaInfo.wabaId },
+                    ].map(item => (
+                      <div key={item.label} className="flex items-center justify-between gap-4">
+                        <span className="text-slate-500 text-xs">{item.label}</span>
+                        <span className="text-slate-300 text-xs font-mono truncate">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 

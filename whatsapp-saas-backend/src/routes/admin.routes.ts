@@ -692,4 +692,81 @@ router.get('/analytics/:merchantId', async (req: Request, res: Response): Promis
   }
 });
 
+// ── WABA Info — fetch live data from Meta Graph API ──────────────────────────
+// Returns: phone number, display name, quality rating, messaging tier, WABA name
+router.get('/waba-info/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+
+    if (!merchant?.metaPhoneNumberId || !merchant?.metaAccessToken || !merchant?.metaWabaId) {
+      return res.status(400).json({ message: 'Meta credentials not fully configured (need PhoneNumberId, AccessToken, WabaId)' });
+    }
+
+    const axios = await import('axios');
+    const headers = { Authorization: `Bearer ${merchant.metaAccessToken}` };
+    const base = 'https://graph.facebook.com/v23.0';
+
+    // Run both calls in parallel
+    const [phoneResp, wabaResp] = await Promise.allSettled([
+      // Phone number details: display name, quality rating, messaging limits
+      axios.default.get(
+        `${base}/${merchant.metaPhoneNumberId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,platform_type,code_verification_status,account_mode`,
+        { headers }
+      ),
+      // WABA details: name, currency, timezone, ownership
+      axios.default.get(
+        `${base}/${merchant.metaWabaId}?fields=name,currency,timezone_id,message_template_namespace,account_review_status,on_behalf_of_business_info`,
+        { headers }
+      ),
+    ]);
+
+    const phone = phoneResp.status === 'fulfilled' ? phoneResp.value.data : null;
+    const waba  = wabaResp.status  === 'fulfilled' ? wabaResp.value.data  : null;
+
+    // ── Normalize quality rating ──────────────────────────────────────────
+    // Meta returns: GREEN | YELLOW | RED | UNKNOWN
+    const qualityRating = phone?.quality_rating || 'UNKNOWN';
+    const qualityColor  = qualityRating === 'GREEN'  ? 'green'  :
+                          qualityRating === 'YELLOW' ? 'yellow' :
+                          qualityRating === 'RED'    ? 'red'    : 'slate';
+
+    // ── Normalize messaging tier ──────────────────────────────────────────
+    // Meta returns: TIER_50 | TIER_250 | TIER_1K | TIER_10K | TIER_100K | UNLIMITED
+    const tierRaw  = phone?.messaging_limit_tier || 'TIER_250';
+    const tierMap: Record<string, { label: string; limit: number }> = {
+      TIER_50:     { label: '50 / day',        limit: 50      },
+      TIER_250:    { label: '250 / day',        limit: 250     },
+      TIER_1K:     { label: '1,000 / day',      limit: 1000    },
+      TIER_10K:    { label: '10,000 / day',     limit: 10000   },
+      TIER_100K:   { label: '100,000 / day',    limit: 100000  },
+      UNLIMITED:   { label: 'Unlimited',        limit: -1      },
+    };
+    const tier = tierMap[tierRaw] || { label: tierRaw, limit: 250 };
+
+    res.json({
+      phoneNumber:        phone?.display_phone_number  || merchant.metaPhoneNumberId,
+      displayName:        phone?.verified_name         || merchant.brandName,
+      qualityRating,
+      qualityColor,
+      accountMode:        phone?.account_mode          || 'LIVE',
+      verificationStatus: phone?.code_verification_status || 'VERIFIED',
+      messagingTier:      tier.label,
+      messagingLimit:     tier.limit,
+      tierRaw,
+      wabaName:           waba?.name                   || '—',
+      currency:           waba?.currency               || '—',
+      timezoneId:         waba?.timezone_id            || '—',
+      reviewStatus:       waba?.account_review_status  || '—',
+      phoneNumberId:      merchant.metaPhoneNumberId,
+      wabaId:             merchant.metaWabaId,
+      // Raw for debugging
+      _raw: { phone, waba },
+    });
+  } catch (e: any) {
+    console.error('WABA info error:', e.response?.data || e.message);
+    res.status(500).json({ message: e.response?.data?.error?.message || e.message });
+  }
+});
+
 export default router;
