@@ -128,7 +128,7 @@ model AbandonedCart {
   cartUrl         String
   totalPrice      Float
   lineItems       String?  @db.Text  // JSON: [{name, quantity, price, image}]
-  status          String   @default("PENDING") // PENDING, SENT, RECOVERED, EXPIRED
+  status          String   @default("PENDING") // PENDING, SENT, RECOVERED, EXPIRED, FAILED
   createdAt       DateTime @default(now())
   
   merchant        Merchant @relation(fields: [merchantId], references: [id])

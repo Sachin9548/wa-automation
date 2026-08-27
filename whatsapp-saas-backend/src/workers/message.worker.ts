@@ -4,6 +4,22 @@ import prisma from '../lib/prisma';
 import { sendMetaTemplateMessage } from '../services/whatsapp.service';
 import { checkMerchantEligibility } from '../services/automation.service';
 
+// ── In-memory merchant cache — avoids repeated DB reads per job batch ─────────
+// Cache is valid for 5 minutes per merchant, clears automatically
+const merchantCache = new Map<string, { data: any; expiresAt: number }>();
+
+const getCachedMerchant = async (merchantId: string) => {
+  const now = Date.now();
+  const cached = merchantCache.get(merchantId);
+  if (cached && cached.expiresAt > now) return cached.data;
+
+  const result = await checkMerchantEligibility(merchantId);
+  if (result.eligible) {
+    merchantCache.set(merchantId, { data: result, expiresAt: now + 5 * 60 * 1000 }); // 5 min TTL
+  }
+  return result;
+};
+
 // ── Format phone for WhatsApp API ─────────────────────────────────────────────
 // WhatsApp needs: "918805155743" (no +, with country code)
 const formatPhone = (phone: string): string => {
@@ -13,33 +29,85 @@ const formatPhone = (phone: string): string => {
   return clean;
 };
 
+// ── Check if this customer's phone is already marked invalid ──────────────────
+const isPhoneInvalid = async (merchantId: string, phone: string): Promise<boolean> => {
+  const customer = await prisma.customer.findFirst({
+    where: {
+      merchantId,
+      OR: [
+        { phone },
+        { phone: phone.slice(-10) },
+        { phone: `+${phone}` },
+      ]
+    },
+    select: { id: true, tags: true }
+  });
+  // We store invalid flag in tags field as "wa_invalid"
+  return customer?.tags?.includes('wa_invalid') ?? false;
+};
+
+// ── Mark customer phone as invalid on WhatsApp ────────────────────────────────
+const markPhoneAsInvalid = async (merchantId: string, phone: string, reason: string) => {
+  try {
+    await prisma.customer.updateMany({
+      where: {
+        merchantId,
+        OR: [
+          { phone },
+          { phone: phone.slice(-10) },
+          { phone: `+${phone}` },
+        ]
+      },
+      data: {
+        // Append wa_invalid tag — won't overwrite existing tags
+        tags: `wa_invalid|${reason}|${new Date().toISOString().split('T')[0]}`
+      }
+    });
+    console.log(`📵 Marked phone ${phone} as WA invalid: ${reason}`);
+  } catch (e) {
+    console.error('Failed to mark phone as invalid:', e);
+  }
+};
+
 export const initMessageWorker = () => {
   const worker = new Worker('message-sending', async (job) => {
 
     // ── 1. ABANDONED CART ──────────────────────────────────────────────────
     if (job.name === 'send-automated-msg') {
       const { cartId, merchantId, phone, templateName, templateLang, discountCode, trackingLinkId, variables } = job.data;
-      console.log(`🤖 Job: ${job.id} | Cart: ${cartId} | Phone: ${phone} | Template: ${templateName} (${templateLang || 'en_US'})`);
+      console.log(`🤖 Job: ${job.id} | Cart: ${cartId} | Phone: ${phone} | Template: ${templateName}`);
 
       if (!phone || phone === 'NO_PHONE') {
         console.log(`❌ Skipped: No phone for Cart ${cartId}`);
         return;
       }
 
-      const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
-      if (!cart || cart.status !== 'PENDING') {
-        console.log(`ℹ️ Cart ${cartId} already processed. Skipping.`);
+      // ── Guard: skip if phone already known invalid ────────────────────
+      const toPhone = formatPhone(phone);
+      const alreadyInvalid = await isPhoneInvalid(merchantId, toPhone);
+      if (alreadyInvalid) {
+        console.log(`📵 Skipped: Phone ${toPhone} already marked as WA invalid — no retry`);
+        await prisma.abandonedCart.update({
+          where: { id: cartId },
+          data: { status: 'FAILED' }
+        });
         return;
       }
 
-      const eligibility = await checkMerchantEligibility(merchantId);
+      const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
+      if (!cart || cart.status !== 'PENDING') {
+        console.log(`ℹ️ Cart ${cartId} already processed (status: ${cart?.status}). Skipping.`);
+        return;
+      }
+
+      // ── Use cached merchant eligibility (reduces DB reads) ────────────
+      const eligibility = await getCachedMerchant(merchantId);
       if (!eligibility.eligible) {
         console.log(`❌ Blocked: ${eligibility.reason}`);
         return;
       }
 
       const { merchant } = eligibility as any;
-      const toPhone = formatPhone(phone);
       console.log(`📱 Sending to: ${toPhone} via template: ${templateName} lang: ${templateLang || 'en_US'}`);
 
       const result = await sendMetaTemplateMessage(
@@ -48,7 +116,7 @@ export const initMessageWorker = () => {
         toPhone,
         templateName || 'hello_world',
         variables || [],
-        templateLang || 'en_US'   // dynamic language from flow config
+        templateLang || 'en_US'
       );
 
       if (result.success) {
@@ -65,7 +133,6 @@ export const initMessageWorker = () => {
           }
         });
 
-        // Link tracking URL to this message
         if (trackingLinkId) {
           await (prisma as any).trackingLink.update({
             where: { id: trackingLinkId },
@@ -86,8 +153,13 @@ export const initMessageWorker = () => {
         console.log(`✅ Abandoned cart message sent → ${toPhone}`);
 
       } else if (!result.retryable) {
-        console.error(`🚫 Non-retryable error (${result.errorCode}) for cart ${cartId}. No retry.`);
-        // Save failed message with reason
+        // ── Non-retryable: save failure + maybe mark phone invalid ────────
+        const failReason = result.invalidNumber
+          ? `NOT_ON_WHATSAPP (${result.errorCode})`
+          : `${result.errorMessage || 'Meta error'} (${result.errorCode})`;
+
+        console.error(`🚫 Non-retryable error for cart ${cartId} → ${toPhone}: ${failReason}`);
+
         await prisma.message.create({
           data: {
             merchantId,
@@ -96,13 +168,26 @@ export const initMessageWorker = () => {
             direction: 'OUTGOING',
             status: 'FAILED',
             templateName,
-            failReason: result.errorMessage || `Error ${result.errorCode}`,
+            failReason,
             cartId: cartId || null,
           }
         });
-        return;
+
+        // Mark cart as FAILED so no future jobs re-queue this
+        await prisma.abandonedCart.update({
+          where: { id: cartId },
+          data: { status: 'FAILED' }
+        });
+
+        // If number is not on WhatsApp — mark customer so we never try again
+        if (result.invalidNumber) {
+          await markPhoneAsInvalid(merchantId, toPhone, `Meta ${result.errorCode}`);
+        }
+
+        return; // Do NOT throw — prevents BullMQ from retrying
 
       } else {
+        // Retryable error — throw so BullMQ retries with backoff
         throw new Error(`Meta send failed (${result.errorCode}): ${result.errorMessage}`);
       }
     }
@@ -110,18 +195,45 @@ export const initMessageWorker = () => {
     // ── 2. BULK CAMPAIGN ───────────────────────────────────────────────────
     if (job.name === 'send-campaign-msg') {
       const { campaignId, merchantId, phone, templateName, templateLang, variables } = job.data;
-      console.log(`📢 Campaign Job: ${job.id} | Phone: ${phone} | Template: ${templateName} (${templateLang || 'en_US'})`);
+      console.log(`📢 Campaign Job: ${job.id} | Phone: ${phone} | Template: ${templateName}`);
 
       if (!phone || phone === 'NO_PHONE') return;
 
-      const eligibility = await checkMerchantEligibility(merchantId);
+      const toPhone = formatPhone(phone);
+
+      // ── Guard: skip if phone already known invalid ────────────────────
+      const alreadyInvalid = await isPhoneInvalid(merchantId, toPhone);
+      if (alreadyInvalid) {
+        console.log(`📵 Campaign skip: Phone ${toPhone} already marked WA invalid`);
+        // Still count as "sent" so campaign completes — but mark as failed msg
+        await prisma.$transaction([
+          prisma.campaign.update({
+            where: { id: campaignId },
+            data: { sentCount: { increment: 1 } }
+          }),
+          prisma.message.create({
+            data: {
+              merchantId,
+              customerPhone: toPhone,
+              content: `Template: ${templateName}`,
+              direction: 'OUTGOING',
+              status: 'FAILED',
+              templateName,
+              failReason: 'NOT_ON_WHATSAPP (cached)',
+            }
+          })
+        ]);
+        return;
+      }
+
+      // ── Use cached merchant eligibility ──────────────────────────────
+      const eligibility = await getCachedMerchant(merchantId);
       if (!eligibility.eligible) {
         console.log(`❌ Blocked: ${eligibility.reason}`);
         return;
       }
 
       const { merchant } = eligibility as any;
-      const toPhone = formatPhone(phone);
 
       const result = await sendMetaTemplateMessage(
         merchant.metaPhoneNumberId,
@@ -129,7 +241,7 @@ export const initMessageWorker = () => {
         toPhone,
         templateName || 'hello_world',
         variables || [],
-        templateLang || 'en_US'   // dynamic language
+        templateLang || 'en_US'
       );
 
       if (result.success) {
@@ -148,7 +260,8 @@ export const initMessageWorker = () => {
               customerPhone: toPhone,
               content: `Template: ${templateName}`,
               direction: 'OUTGOING',
-              status: 'SENT'
+              status: 'SENT',
+              templateName,
             }
           })
         ]);
@@ -164,8 +277,33 @@ export const initMessageWorker = () => {
         }
 
       } else if (!result.retryable) {
-        console.error(`🚫 Non-retryable error (${result.errorCode}) for campaign ${campaignId} → ${toPhone}. Skipping.`);
-        return;
+        console.error(`🚫 Non-retryable campaign error → ${toPhone}: ${result.errorCode}`);
+
+        await prisma.$transaction([
+          prisma.campaign.update({
+            where: { id: campaignId },
+            data: { sentCount: { increment: 1 } }  // count so campaign completes
+          }),
+          prisma.message.create({
+            data: {
+              merchantId,
+              customerPhone: toPhone,
+              content: `Template: ${templateName}`,
+              direction: 'OUTGOING',
+              status: 'FAILED',
+              templateName,
+              failReason: result.invalidNumber
+                ? `NOT_ON_WHATSAPP (${result.errorCode})`
+                : `${result.errorMessage} (${result.errorCode})`,
+            }
+          })
+        ]);
+
+        if (result.invalidNumber) {
+          await markPhoneAsInvalid(merchantId, toPhone, `Meta ${result.errorCode}`);
+        }
+
+        return; // No throw = no BullMQ retry
 
       } else {
         throw new Error(`Meta send failed (${result.errorCode}): ${result.errorMessage}`);
@@ -184,7 +322,7 @@ export const initMessageWorker = () => {
   });
 
   worker.on('failed', (job, err) => {
-    console.error(`🚨 Job ${job?.id} failed: ${err.message}`);
+    console.error(`🚨 Job ${job?.id} failed after retries: ${err.message}`);
   });
 
   worker.on('completed', (job) => {

@@ -53,8 +53,7 @@ app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/flows', flowRoutes);
 app.use('/api/tracking', trackingRoutes);  // click tracking redirects
-app.use('/api/webhooks', webhookRoutes);
-app.use('/api/webhooks', webhookRoutes);
+app.use('/api/webhooks', webhookRoutes);   // ← only once
 
 // ── Start server ──────────────────────────────────────────────────────────────
 app.listen(PORT, async () => {
