@@ -61,15 +61,21 @@ export const syncAllShopifyCustomers = async (merchantId: string) => {
           continue;
         }
 
-        // WhatsApp ke liye phone zaroori hai — email wale skip
+        // Phone nahi hai — email se unique key banao, save karo "no_phone" group mein
+        let cleanPhone: string;
         if (!phone) {
-          console.log(`  ℹ️ No phone, skipping (email only: ${email})`);
-          continue;
+          if (!email) {
+            console.log(`  ⚠️ Skipped — no phone AND no email`);
+            continue;
+          }
+          // email-only customer — store with email: prefix as unique key
+          cleanPhone = `email:${email}`;
+          console.log(`  📧 No phone — saving as email-only: ${cleanPhone}`);
+        } else {
+          cleanPhone = String(phone).replace(/\s+/g, "");
         }
 
-        const cleanPhone = String(phone).replace(/\s+/g, "");
-
-        // Duplicate phone skip karo
+        // Duplicate skip
         if (seenPhones.has(cleanPhone)) continue;
         seenPhones.add(cleanPhone);
 
@@ -77,15 +83,19 @@ export const syncAllShopifyCustomers = async (merchantId: string) => {
           where: { merchantId_phone: { merchantId, phone: cleanPhone } },
           update: {
             name: fullName,
+            email: email,
             totalOrders: order.customer?.orders_count || 1,
             totalSpent: parseFloat(order.customer?.total_spent || "0"),
+            hasPlacedOrder: true,
           },
           create: {
             merchantId,
             phone: cleanPhone,
             name: fullName,
+            email: email,
             totalOrders: order.customer?.orders_count || 1,
             totalSpent: parseFloat(order.customer?.total_spent || "0"),
+            hasPlacedOrder: true,
           },
         });
         totalSynced++;

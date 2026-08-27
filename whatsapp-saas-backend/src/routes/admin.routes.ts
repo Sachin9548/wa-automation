@@ -476,6 +476,21 @@ router.post('/customers/import', async (req: Request, res: Response): Promise<an
   }
 });
 
+// ── Reusable: "no_phone" condition — covers all cases we store ────────────────
+// A customer has NO usable WhatsApp number if:
+//   1. phone starts with "email:" (email-only, synced from Shopify)
+//   2. phone === 'NO_PHONE' (legacy cart placeholder)
+//   3. phone is null or empty string
+const NO_PHONE_CONDITION = (merchantId: string) => ({
+  merchantId,
+  OR: [
+    { phone: { startsWith: 'email:' } },   // email-only customers
+    { phone: 'NO_PHONE' },                  // old abandoned cart placeholder
+    { phone: '' },                          // blank
+    { phone: null },                        // truly null
+  ]
+});
+
 // ── Get customers with filter ─────────────────────────────────────────────────
 router.get('/customers-filtered/:merchantId', async (req: Request, res: Response): Promise<any> => {
   try {
@@ -487,66 +502,82 @@ router.get('/customers-filtered/:merchantId', async (req: Request, res: Response
     const search = (req.query.search as string) || '';
     const skip = (page - 1) * limit;
 
-    const where: any = { merchantId };
+    // ── Build base where clause ───────────────────────────────────────────
+    let where: any = { merchantId };
 
-    if (filter === 'abandoned')   where.hasAbandonedCart = true;
-    else if (filter === 'ordered') where.hasPlacedOrder = true;
+    if (filter === 'abandoned') {
+      // Count from real AbandonedCart table — not the flag which may be stale
+      // Get distinct phones that have an abandoned cart
+      const cartPhones = await prisma.abandonedCart.findMany({
+        where: { merchantId, customerPhone: { not: 'NO_PHONE' } },
+        select: { customerPhone: true },
+        distinct: ['customerPhone'],
+      });
+      const phones = cartPhones.map((c: any) => c.customerPhone);
+      where = { merchantId, phone: { in: phones } };
+    }
+    else if (filter === 'ordered') {
+      where.hasPlacedOrder = true;
+    }
     else if (filter === 'no_phone') {
-      // Phone is missing, placeholder, or starts with "email:"
-      where.OR = [
-        { phone: 'NO_PHONE' },
-        { phone: '' },
-        { phone: { startsWith: 'email:' } },
-        { phone: null },
-      ];
+      where = NO_PHONE_CONDITION(merchantId);
     }
     else if (filter === 'email_only') {
-      // Has email but phone is missing/placeholder
-      where.email = { not: null };
-      where.OR = [
-        { phone: 'NO_PHONE' },
-        { phone: '' },
-        { phone: { startsWith: 'email:' } },
-      ];
+      // Has real email AND no phone
+      where = {
+        merchantId,
+        email: { not: null },
+        OR: [
+          { phone: { startsWith: 'email:' } },
+          { phone: 'NO_PHONE' },
+          { phone: '' },
+          { phone: null },
+        ]
+      };
     }
     else if (filter === 'wa_invalid') {
-      // Phone was tried but Meta said not on WhatsApp
       where.tags = { contains: 'wa_invalid' };
     }
 
+    // ── Search — safely merge with existing where ─────────────────────────
     if (search) {
-      // Wrap existing where in AND if we already have an OR
       const searchOr = [
-        { name: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' as const } },
         { phone: { contains: search } },
-        { email: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' as const } },
       ];
       if (where.OR) {
-        where.AND = [{ OR: where.OR }, { OR: searchOr }];
-        delete where.OR;
+        // Already has OR — wrap both in AND
+        where = { AND: [{ ...where }, { OR: searchOr }] };
       } else {
         where.OR = searchOr;
       }
     }
 
-    // Also get counts for each category (for stats cards)
-    const [customers, total, noPhoneCount, waInvalidCount, abandonedCount, orderedCount] = await Promise.all([
+    // ── Counts for stats cards ────────────────────────────────────────────
+    // Abandoned: count distinct phones in AbandonedCart (real source of truth)
+    const abandonedPhones = await prisma.abandonedCart.findMany({
+      where: { merchantId, customerPhone: { not: 'NO_PHONE' } },
+      select: { customerPhone: true },
+      distinct: ['customerPhone'],
+    });
+
+    const [customers, total, noPhoneCount, waInvalidCount, orderedCount] = await Promise.all([
       prisma.customer.findMany({ where, skip, take: limit, orderBy: { updatedAt: 'desc' } }),
       prisma.customer.count({ where }),
-      prisma.customer.count({
-        where: {
-          merchantId,
-          OR: [{ phone: 'NO_PHONE' }, { phone: '' }, { phone: { startsWith: 'email:' } }]
-        }
-      }),
+      prisma.customer.count({ where: NO_PHONE_CONDITION(merchantId) }),
       prisma.customer.count({ where: { merchantId, tags: { contains: 'wa_invalid' } } }),
-      prisma.customer.count({ where: { merchantId, hasAbandonedCart: true } }),
       prisma.customer.count({ where: { merchantId, hasPlacedOrder: true } }),
     ]);
 
     res.status(200).json({
       customers, total, page, pages: Math.ceil(total / limit),
-      stats: { noPhoneCount, waInvalidCount, abandonedCount, orderedCount }
+      stats: {
+        noPhoneCount,
+        waInvalidCount,
+        abandonedCount: abandonedPhones.length,  // real count from AbandonedCart table
+        orderedCount,
+      }
     });
   } catch (e: any) {
     res.status(500).json({ message: e.message });
