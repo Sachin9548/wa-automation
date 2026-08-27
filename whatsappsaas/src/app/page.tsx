@@ -204,7 +204,7 @@ export default function Homepage() {
             <div className="bg-slate-900 border border-slate-700 hover:border-teal-500/50 rounded-3xl p-10 transition duration-300">
               <p className="text-sm font-bold text-teal-400 uppercase tracking-widest mb-3">Growth</p>
               <div className="flex items-end gap-2 mb-2">
-                <span className="text-5xl font-extrabold text-white">₹3,999</span>
+                <span className="text-5xl font-extrabold text-white">₹4,999</span>
                 <span className="text-slate-400 mb-2">/ month</span>
               </div>
               <p className="text-slate-400 text-sm mb-8">Best for stores doing ₹1L–₹5L/month revenue</p>
@@ -237,7 +237,7 @@ export default function Homepage() {
               </div>
               <p className="text-sm font-bold text-yellow-400 uppercase tracking-widest mb-3">Pro</p>
               <div className="flex items-end gap-2 mb-2">
-                <span className="text-5xl font-extrabold text-white">₹5,999</span>
+                <span className="text-5xl font-extrabold text-white">₹6,999</span>
                 <span className="text-teal-300 mb-2">/ month</span>
               </div>
               <p className="text-teal-300 text-sm mb-8">Best for stores doing ₹5L+ revenue per month</p>

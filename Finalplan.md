@@ -1,61 +1,106 @@
-✅ PHASE 0: The Completed Foundation (What we already have)
-Humne yahan tak 100% test kar liya hai.
-Frontend: Landing Page, Signup, Login.
-Database: PostgreSQL (Prisma) setup with Merchant, Wallet, and Status models.
-WhatsApp Engine: Baileys integration with Auto-Reconnect, 405 error handling, and Staggered Boot.
-Onboarding: QR Code scanning directly in UI.
-Security: Blurred Dashboard (Waiting Room) until Admin physically approves using Shopify Token and Secret.
-⚙️ PHASE 1: The E-Commerce Automation Engine
-Yahan hum Shopify aur WhatsApp ko aapas mein jodenge (Without crashing the server).
-Shopify Security (HMAC Validation): Shopify se aane wale har Webhook ko Secret Key se verify karna (Taaki koi hacker fake data bhej kar wallet empty na kar de).
-BullMQ & Redis Architecture: Ek "Message Queue" banana. Koi bhi message directly nahi jayega, sab queue mein lagenge. (15-20 seconds delay per message to prevent WhatsApp Ban).
-The 2-Step Abandoned Cart Flow:
-Step 1 (Webhook Received): Cart update hua. Database mein save karo (Status: PENDING).
-Job A (30 Mins): Queue mein 30-min delay ka job daalo ("Hi {{name}}, cart is waiting!").
-Job B (24 Hours): Queue mein 24-hour delay ka job daalo ("Hi {{name}}, take 10% off!").
-Order Confirmation Flow:
-Jaise hi Shopify se orders/create aayega, sabse pehle Queue mein jao aur check karo: Kya is customer ka koi 24-Hour Abandoned Cart message pending hai? Agar haan, toh us job ko DELETE kar do! (Taaki kharidne ke baad usko discount message na chala jaye).
-Uske baad turant "Thank you for your order" ka message bhej do.
-🧪 Testing Milestone 1: Asli Shopify par Add to Cart karna, tab close karna, aur barabar 30 minute baad phone par message aana.
-Sirf 1 Choti Cheez jo add kar leni chahiye (Ban Protection):
-Phase 1 mein "Opt-Out" (STOP) logic:
-WhatsApp ki policy hai ki agar koi STOP likhe, toh use message nahi jaana chahiye.
-Baileys mein ek listener lagana hoga: Agar koi message "STOP" aaye -> Merchant ki AutomationFlow se us customer ka phone Block-list mein daal do. Isse merchant ka number ban hone se bachega.
-💰 PHASE 2: Financials & Admin Controls
-Paisa track karna aur SaaS ko profitable rakhna.
-Wallet Deduction Logic: BullMQ worker message bhejne se pehle check karega: If Balance < ₹0.80 -> Pause Queue & Alert Merchant. Message success hote hi Database se paisa deduct (Prisma $transaction use karke).
-Subscription Timer: Merchant ka 30-Day timer check karna. Agar expire ho gaya, toh flows automatic pause ho jayenge.
-Super Admin Wallet Control: Admin Panel mein button jisse aap kisi bhi merchant ke account mein ₹1000 credit add kar sakein ya 30 Days extend kar sakein (Aap client se UPI/Bank me direct payment lenge).
-🧪 Testing Milestone 2: Wallet 0 hone par message ka fail hona aur Admin panel se recharge karte hi message ka chale jana.
-🧠 PHASE 3: Data Sync & Bulk Campaigns (Retargeting)
-Purane customers se sales nikalne ka system.
-Shopify Smart Customer Sync: Backend service jo Shopify API se 10,000+ customers ko pagination ke sath fetch karke Database mein save karegi.
-Auto-Update Mechanism: Naye orders aate hi customer database khud-ba-khud update hota rahega (Zero manual work).
-Campaign Builder (Admin/Merchant UI):
-Message Editor with variables: Hi {{name}}, Diwali Sale is live...
-"Start Campaign" button jo 10,000 customers ko Bulk Queue mein daal dega.
-Worker aaram se 15-20 second ke gap mein 2 din tak background mein message bhejta rahega bina server ko heavy kiye.
-🧪 Testing Milestone 3: 500 logo ka campaign launch karna aur terminal mein dekhna ki har 20 second mein 1 message peacefully jaa raha hai.
-🎯 PHASE 4: Tracking, ROI & Shopify Discount API
-Merchant ko proof dena ki hamara SaaS unhe paise kamakar de raha hai.
-Message Delivery & Read Ticks: Baileys library ka messages.update event use karke track karna ki message "Delivered (Double Tick)" hua ya "Read (Blue Tick)" hua, aur Database update karna.
-Link Click Tracking: yoursaas.com/click/cart123 jaisa route banana. Customer click karega -> DB me Click Count badhega -> Original Shopify link par redirect ho jayega.
-Shopify Auto-Discount Generator API: Jab 24-hour wala Abandoned Cart message bhejna ho, toh hamara backend chupchaap Shopify API ko call karega, ek naya 10% discount code (e.g., WA-8A9X) generate karega, aur message mein daal kar bhej dega!
-Revenue Attribution: Order aane par check karna ki kya is customer ne pichle 48 hours mein humara link click kiya tha? Agar haan, toh order amount ko "Recovered Revenue" mein add kar dena.
-🧪 Testing Milestone 4: Link par click karke order place karna, aur Dashboard mein Revenue ₹0 se badh kar ₹1500 ho jana.
-🖥️ PHASE 5: The "Done-For-You" UI Architecture
-Clean, Simple aur Agency-Model (DFY) ke liye best UI.
-Merchant View (Clean Dashboard):
-Sirf 4 bade cards: Messages Sent, Total Read (Blue Ticks), Clicks, aur Revenue Recovered.
-Flows Tab: Abandoned Cart / Order Confirm ko ON/OFF karne ka toggle switch.
-Super Admin View (The Master Hub):
-Impersonation Logic: Admin panel mein "Manage Client" ka button hoga. Jise dabate hi aap us client ke dashboard ke andar ghus jayenge, unki taraf se Custom Campaigns set karenge, aur waapas Admin view mein aa jayenge.
-Live Log View: Ek simple table (logs) jahan dikhega ki kaunsa message kis number par gaya aur uska status kya hai (Sent/Read/Failed). Chats padhne ka koi system nahi banayenge (saves massive server cost).
-☁️ PHASE 6: AWS Production Deployment (Going Live)
-Localhost se nikal kar dunya bhar ke liye live karna.
-Server Setup: AWS EC2 t3.medium (4GB RAM) rent par lena.
-The Anti-Crash Rule: EC2 par 8GB ka Swap File (Virtual RAM) create karna (Ye sabse zaroori hai 50 WhatsApp browsers chalane ke liye).
-Database: PostgreSQL (Supabase) ko production mode mein lock karna.
-Process Management: PM2 setup karna. Agar server pe koi error aaye, toh PM2 application ko 1 second mein auto-restart kar dega.
-Reverse Proxy & SSL: Nginx setup karna aur Certbot se HTTPS lagana. Shopify webhooks HTTP par kaam nahi karte, SSL zaroori hai.
-Final Live Testing: Live server par ek order place karke dekhna.
+Project Improvement List
+🔴 Priority 1 — Critical / Revenue Impact
+1. Customers without phone number
+
+Admin panel mein customers filter: Phone hai / Email only / Name only
+Ye log WhatsApp message nahi paa sakte — clearly dikhao
+Abandoned carts bhi jo NO_PHONE hain — separate view
+2. WhatsApp Business Account Info in Admin Panel
+
+Merchant ka WhatsApp number, display name, account status
+Meta se live data pull karo (WABA details API)
+3. Customer Inbox — Incoming Messages
+
+Customer ne reply kiya toh admin mein dikhao
+Normal text message send karo customer ko (2-way chat)
+Messages tab per merchant
+4. Admin Panel Mobile Responsive
+
+Sidebar collapse on mobile
+Tables horizontal scroll
+Forms stack on small screens
+🟡 Priority 2 — Important Features
+5. Template Creation — Meta WhatsApp Manager Style
+
+Template name, language selector
+Header: Text / Image / Video / Document / Location
+Body with variables {{1}}, {{2}}
+Footer (optional)
+Buttons: Visit Website / Call Phone / Copy Code / Share Contact
+6. Template Library
+
+All templates list with status (APPROVED/PENDING/REJECTED)
+Preview with actual formatted message
+Delete option
+Edit (delete + recreate)
+7. WhatsApp Business Limits
+
+Current tier: 250 / 1000 / 10000 / Unlimited conversations per day
+Show in admin panel
+8. Activity Log
+
+Who did what — template created, flow activated, campaign launched
+Timestamp + action + user
+🟢 Priority 3 — Enhancement
+9. AI Auto-Reply
+
+Customer replies → AI generates response
+Admin can monitor + override
+10. Flows Enhancement
+
+WhatsApp Flows (interactive forms) integration
+Better form UI
+Recommended Order to Build
+
+1 → Customers without phone (quick fix)
+2 → WhatsApp Business Account info 
+3 → Customer Inbox (incoming messages + reply)
+4 → Admin mobile responsive
+5 → Template creation improved
+6 → Template library
+7 → Messaging limits display
+8 → Activity log
+9 → AI reply
+10 → WhatsApp Flows
+
+
+Extra points
+
+The 24-Hour Rule Guard (Inbox UI)
+Kyun zaroori hai: Meta ka rule hai ki customer ka aakhiri message aane ke 24 ghante ke andar hi aap normal text reply kar sakte ho.
+Feature: Inbox UI mein ek "Countdown Timer" chalega. Agar 24 ghante cross ho gaye, toh Text Box lock ho jayega aur Admin ko "Send Template" ka option dikhega.
+12. Auto Opt-Out ("STOP" Keyword Handling)
+Kyun zaroori hai: Agar log pareshan hokar "Spam/Block" dabayenge, toh Meta aapka WABA block kar dega.
+Feature: Agar customer "STOP", "UNSUBSCRIBE" ya "NO" bhejta hai, toh hamara system usko automatically DB mein isOptedOut = true kar dega aur usko future campaigns ya cart messages nahi jayenge.
+13. Meta Quality Rating Display
+Kyun zaroori hai: Limits ke saath-saath Meta ek "Quality Rating" deta hai (Green, Yellow, Red).
+Feature: WABA Info section mein hum ye rang (color) dikhayenge. Agar rating Red hui, toh alert denge ki "Campaigns ko thoda roko, warna number block ho jayega."
+14. Webhook Failure Alerts (The Safety Net)
+Kyun zaroori hai: Agar kabhi Shopify ka webhook fail ho gaya ya Redis atak gaya, toh aapko pata hona chahiye.
+Feature: Admin panel mein ek "System Health" chota sa widget, jahan dikhega ki koi job fail toh nahi hui hai.
+15. Incoming Media Handling
+Kyun zaroori hai: Customer text ke sath screenshot, photo ya audio bhi bhej sakta hai.
+Feature: Inbox mein incoming images ko Supabase storage ya direct AWS bucket mein save karke UI par dikhana.
+
+Dynamic Product Variables (Highly Converting)
+Abhi: Hum message mein bhej rahe hain Hi {{name}}, your cart is waiting.
+Feature: Humein cart data se product ka naam nikalna hoga. Message aisa jayega: "Hi Sachin, aapke cart mein Nike Air Max wait kar raha hai!" (Product ka naam likhne se sales 3x badh jati hai).
+17. Campaign Scheduling (Time-based Sending)
+Abhi: Admin "Send" dabata hai aur message turant queue mein chala jata hai.
+Feature: Merchant bolna chahega "Bhai, ye Diwali ka message kal subah 10 baje bhejna." Humein Date/Time picker lagana hoga taaki BullMQ usko kal subah tak Queue me hold karke rakhe.
+
+18. WhatsApp Native Product Messages (MPM)
+Kyun Zaroori Hai: Link par click karke website par jaana thoda lamba process hai.
+Feature: Meta API humein "Interactive Product Cards" bhejne ki power deta hai. Customer seedha WhatsApp ke andar hi product ki photo dekhega, price dekhega, aur wahi se "Add to Cart" daba dega! Friction zero, Sales max.
+
+19. The "Proof of ROI" Automated Report (For Your ₹5k Renewal)
+Kyun Zaroori Hai: Har mahine ke end mein merchant ko yaad dilana padega ki aapne unhe ₹50k kamakar diye hain, taaki wo khushi-khushi aapko aapke ₹5,000 de de.
+Feature: Admin panel mein ek "Generate Invoice & Report" button hoga. Wo ek sunder sa PDF ya message banayega: "This month, WA-Automations recovered 35 carts and generated ₹52,400 in sales for [Brand]. Click here to pay your ₹5,000 monthly fee." Aap seedha merchant ko bhej doge!
+
+20. Post-Purchase Upsell (The Hidden Revenue):
+Idea: Order confirm ka message mat bhejo, par jab koi kharid le toh usko Upsell karo.
+Execution: Customer ne Shoes kharide. 2 ghante baad message jayega: "Thanks for buying Shoes! Kya aapko iske matching Socks chahiye? Yahan click karein aur isi order mein 20% off par add karein."
+
+21. The "Red Flag" notification tab required:
+Idea: Aapko check nahi karna padega ki kiska system ruk gaya.
+Execution: Admin home screen par ek "Alerts" section hoga. Jaise: "Merchant A ka Meta Token expire ho gaya", "Merchant B ka Shopify webhook fail ho gaya". Aapko turant pata chal jayega aur aap client ko pata chalne se pehle theek kar lenge.
