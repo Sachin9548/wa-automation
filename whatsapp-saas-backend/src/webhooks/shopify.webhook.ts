@@ -79,7 +79,18 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
 
     console.log(`📦 Cart: ${cartUniqueId} | Customer: ${customerName} | Phone: ${customerPhone}`);
 
-    // ── 4. Duplicate check ──────────────────────────────────────────────────
+    // ── 4. Parse line items from payload ───────────────────────────────────
+    const lineItemsJson = shopifyData.line_items && shopifyData.line_items.length > 0
+      ? JSON.stringify(shopifyData.line_items.map((li: any) => ({
+          name: li.title || li.name || li.product_title || 'Product',
+          quantity: li.quantity || 1,
+          price: li.price || '0',
+          image: li.featured_image?.url || li.image_url || null,
+          variantTitle: li.variant_title || null,
+        })))
+      : null;
+
+    // ── 5. Duplicate check ──────────────────────────────────────────────────
     const existingCart = await prisma.abandonedCart.findUnique({
       where: { shopifyCartId: cartUniqueId }
     });
@@ -89,18 +100,27 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
         console.log(`🔄 Updating cart ${cartUniqueId} with phone: ${customerPhone}`);
         const updatedCart = await prisma.abandonedCart.update({
           where: { shopifyCartId: cartUniqueId },
-          data: { customerPhone, customerName, status: 'PENDING' }
+          data: {
+            customerPhone,
+            customerName,
+            status: 'PENDING',
+            // Also update lineItems if we now have them
+            ...(lineItemsJson && { lineItems: lineItemsJson }),
+          }
         });
-        // Pass line items from current payload
-        const cartWithItems = {
-          ...updatedCart,
-          lineItems: shopifyData.line_items
-            ? JSON.stringify(shopifyData.line_items.map((li: any) => ({ name: li.title || li.name })))
-            : null
-        };
-        await queueAbandonedCartJobs(merchant, cartWithItems, customerPhone);
+        await queueAbandonedCartJobs(merchant, updatedCart, customerPhone);
         return res.status(200).send('Updated & queued');
       }
+
+      // If lineItems were missing before, update them now
+      if (!existingCart.lineItems && lineItemsJson) {
+        await prisma.abandonedCart.update({
+          where: { shopifyCartId: cartUniqueId },
+          data: { lineItems: lineItemsJson }
+        });
+        console.log(`ℹ️ Updated lineItems for existing cart: ${cartUniqueId}`);
+      }
+
       console.log(`ℹ️ Cart already exists: ${cartUniqueId}`);
       return res.status(200).send('Already processed');
     }
@@ -115,7 +135,7 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
       return res.status(200).send('No active flows');
     }
 
-    // ── 6. Save cart ────────────────────────────────────────────────────────
+    // ── 7. Save cart ────────────────────────────────────────────────────────
     let newCart;
     try {
       newCart = await prisma.abandonedCart.create({
@@ -126,9 +146,10 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
           customerName,
           cartUrl,
           totalPrice: parseFloat(shopifyData.total_price || '0'),
+          lineItems: lineItemsJson,   // ← save product details
         }
       });
-      console.log(`✅ Cart saved: ${newCart.id}`);
+      console.log(`✅ Cart saved: ${newCart.id} | Products: ${lineItemsJson ? JSON.parse(lineItemsJson).map((li: any) => li.name).join(', ') : 'none'}`);
     } catch (e: any) {
       if (e.code === 'P2002') {
         // Race condition — another request already saved this cart
@@ -138,7 +159,7 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
       throw e;
     }
 
-    // ── 7. Queue messages ───────────────────────────────────────────────────
+    // ── 8. Queue messages ───────────────────────────────────────────────────
     if (customerPhone !== 'NO_PHONE') {
       // Mark customer as hasAbandonedCart
       await prisma.customer.updateMany({
@@ -146,13 +167,8 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
         data: { hasAbandonedCart: true }
       });
 
-      const cartWithItems = {
-        ...newCart,
-        lineItems: shopifyData.line_items
-          ? JSON.stringify(shopifyData.line_items.map((li: any) => ({ name: li.title || li.name })))
-          : null
-      };
-      await queueAbandonedCartJobs(merchant, cartWithItems, customerPhone);
+      // newCart already has lineItems saved in DB — pass directly
+      await queueAbandonedCartJobs(merchant, newCart, customerPhone);
     } else {
       console.log(`ℹ️ No phone yet — cart saved, will process on next webhook update`);
     }
@@ -171,21 +187,41 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
     where: { merchantId: merchant.id, isActive: true, type: { startsWith: 'ABANDONED_CART' } }
   });
 
+  // ── Build products string from lineItems ─────────────────────────────────
+  let productsList = 'your items';  // fallback
+  let firstProductName = 'your item';
+  let totalItems = 0;
+
+  if (cart.lineItems) {
+    try {
+      const items: Array<{ name: string; quantity?: number; price?: string; variantTitle?: string }> = JSON.parse(cart.lineItems);
+      if (Array.isArray(items) && items.length > 0) {
+        totalItems = items.reduce((sum, li) => sum + (li.quantity || 1), 0);
+        firstProductName = items[0].name || 'your item';
+
+        // Rich format: "Nike Air Max (x2), Adidas Socks (x1)"
+        productsList = items
+          .filter(li => li.name)
+          .map(li => {
+            const qty = li.quantity && li.quantity > 1 ? ` (x${li.quantity})` : '';
+            const variant = li.variantTitle ? ` - ${li.variantTitle}` : '';
+            return `${li.name}${variant}${qty}`;
+          })
+          .join(', ');
+
+        if (!productsList) productsList = 'your items';
+
+        console.log(`🛍️ Products in cart: ${productsList}`);
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not parse lineItems JSON:', e);
+    }
+  }
+
   for (const flow of activeFlows) {
     const templateName = (flow as any).metaTemplateName || 'hello_world';
     const templateLang = (flow as any).metaTemplateLang || 'en_US';
     const discountCode = (flow as any).discountCode || null;
-
-    // Extract product names from line items
-    let productsList = 'items in your cart';
-    if (cart.lineItems) {
-      try {
-        const items = JSON.parse(cart.lineItems);
-        if (Array.isArray(items) && items.length > 0) {
-          productsList = items.map((li: any) => li.name).filter(Boolean).join(', ');
-        }
-      } catch { /* keep default */ }
-    }
 
     // Create tracking link — customer clicks this, we record it, then redirect
     const backendUrl = process.env.BACKEND_URL || 'https://api.wautomation.shop';
@@ -204,12 +240,24 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
 
     const trackingUrl = trackingLink
       ? `${backendUrl}/api/tracking/click/${trackingLink.id}`
-      : cart.cartUrl;
+      : (cart.cartUrl || '');
 
-    // Template variables: {{1}}=name, {{2}}=products, {{3}}=tracking_url
+    // ── Build template variables ─────────────────────────────────────────
+    // Standard mapping (matches most approved templates):
+    // {{1}} = customer name
+    // {{2}} = product name / products list
+    // {{3}} = tracking URL (for button or inline)
+    // {{4}} = discount code (optional)
     const variables = templateName === 'hello_world'
       ? []
-      : [cart.customerName || 'there', productsList, trackingUrl];
+      : [
+          cart.customerName || 'there',          // {{1}} name
+          productsList,                           // {{2}} products
+          trackingUrl,                            // {{3}} link
+          ...(discountCode ? [discountCode] : []) // {{4}} discount (only if set)
+        ];
+
+    console.log(`📤 Template variables: [${variables.join(' | ')}]`);
 
     await messageQueue.add('send-automated-msg', {
       cartId: cart.id,
@@ -225,7 +273,8 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
       attempts: 3,
       backoff: { type: 'exponential', delay: 60000 }
     });
-    console.log(`✅ Queued: flow=${flow.type} delay=${flow.delayMinutes}min phone=${phone} template=${templateName} discount=${discountCode || 'none'}`);
+
+    console.log(`✅ Queued: flow=${flow.type} delay=${flow.delayMinutes}min phone=${phone} template=${templateName} products="${productsList}" discount=${discountCode || 'none'}`);
   }
 }
 

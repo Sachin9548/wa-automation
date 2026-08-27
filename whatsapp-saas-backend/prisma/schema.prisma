@@ -127,6 +127,7 @@ model AbandonedCart {
   customerName    String
   cartUrl         String
   totalPrice      Float
+  lineItems       String?  @db.Text  // JSON: [{name, quantity, price, image}]
   status          String   @default("PENDING") // PENDING, SENT, RECOVERED, EXPIRED
   createdAt       DateTime @default(now())
   
