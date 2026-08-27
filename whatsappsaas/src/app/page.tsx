@@ -245,6 +245,8 @@ export default function Homepage() {
               <ul className="space-y-3 mb-10">
                 {[
                   "Everything in Growth",
+                  "Custom AI Sales Agent",
+                  "AI-Powered Customer Support & Sales Conversion",
                   "Unlimited messages",
                   "Multi-flow automation (2hr, 24hr, 48hr)",
                   "Festival campaign templates",
