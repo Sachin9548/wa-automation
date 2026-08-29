@@ -285,10 +285,15 @@ export default function MerchantControlHub() {
   };
 
   // Campaign
-  const [campaignName, setCampaignName] = useState("");
-  const [campaignTemplate, setCampaignTemplate] = useState(
-    `🎉 *Hey {{name}}!*\n\nWe have something special for you. ✨\n\nShop our latest collection:\n{{link}}\n\n_Reply STOP to unsubscribe_ 🙏`
-  );
+  const [campaignName, setCampaignName]               = useState("");
+  const [campaignTemplate, setCampaignTemplate]       = useState("");
+  const [campMetaTemplate, setCampMetaTemplate]       = useState("");
+  const [campMetaLang, setCampMetaLang]               = useState("en_US");
+  const [campDiscountCode, setCampDiscountCode]       = useState("");
+  const [campScheduleMode, setCampScheduleMode]       = useState<"now" | "later">("now");
+  const [campScheduledAt, setCampScheduledAt]         = useState("");   // datetime-local string
+  const [campCustomerFilter, setCampCustomerFilter]   = useState("all");
+  const [campCancelId, setCampCancelId]               = useState<string | null>(null);
 
   // ── Inbox state ────────────────────────────────────────────────────────────
   const [inboxConversations, setInboxConversations]     = useState<any[]>([]);
@@ -436,16 +441,14 @@ export default function MerchantControlHub() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Auto-load Meta templates when flows tab opens
+  // Auto-load Meta templates when flows or campaign tab opens
   useEffect(() => {
-    if (activeTab === 'flows' && metaTemplates.length === 0) {
+    if ((activeTab === 'flows' || activeTab === 'campaign') && metaTemplates.length === 0) {
       fetchMetaTemplates();
     }
-    // Load customer stats when customers tab opens
     if (activeTab === 'customers') {
       loadFilteredCustomers(customerFilter);
     }
-    // Load inbox conversations when inbox tab opens
     if (activeTab === 'inbox') {
       loadInboxConversations();
     }
@@ -563,16 +566,37 @@ export default function MerchantControlHub() {
 
   const handleLaunchCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!campMetaTemplate) { alert('Please select a Meta template first'); return; }
+    if (campScheduleMode === 'later' && !campScheduledAt) { alert('Please pick a date/time to schedule'); return; }
+
     setLoading("campaign");
     try {
-      const r = await axios.post(`${API_URL}/admin/launch-campaign`,
-        { merchantId, campaignName, template: campaignTemplate }, { headers: ah() });
-      alert(`🚀 ${r.data.message} — Queued: ${r.data.totalQueued}`);
-      setCampaignName("");
-      setActiveTab("overview");
+      const payload: any = {
+        merchantId,
+        campaignName,
+        metaTemplateName: campMetaTemplate,
+        metaTemplateLang: campMetaLang,
+        discountCode:     campDiscountCode || undefined,
+        customerFilter:   campCustomerFilter,
+        scheduledAt:      campScheduleMode === 'later' ? new Date(campScheduledAt).toISOString() : undefined,
+      };
+      const r = await axios.post(`${API_URL}/admin/launch-campaign`, payload, { headers: ah() });
+      alert(`${r.data.message}\nQueued: ${r.data.totalQueued} customers\nETA: ~${r.data.etaMinutes} min`);
+      // Reset form
+      setCampaignName(""); setCampMetaTemplate(""); setCampDiscountCode("");
+      setCampScheduledAt(""); setCampScheduleMode("now"); setCampCustomerFilter("all");
       await fetchAll();
     } catch (e: any) { alert(e.response?.data?.message || "Failed"); }
     finally { setLoading(null); }
+  };
+
+  const handleCancelCampaign = async (campaignId: string) => {
+    if (!confirm('Cancel this scheduled campaign? This cannot be undone.')) return;
+    try {
+      await axios.post(`${API_URL}/admin/campaigns/cancel`, { campaignId }, { headers: ah() });
+      alert('✅ Campaign cancelled');
+      await fetchAll();
+    } catch (e: any) { alert(e.response?.data?.message || 'Failed to cancel'); }
   };
 
   const toggleFlow = async (flowType: string, currentState: boolean) => {
@@ -1447,51 +1471,228 @@ export default function MerchantControlHub() {
 
         {/* ── CAMPAIGN TAB ── */}
         {activeTab === "campaign" && (
-          <div className="max-w-2xl">
+          <div className="space-y-6 max-w-3xl">
+
+            {/* ── Launch Form ── */}
             <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-white/5">
-                <h3 className="text-white font-extrabold">Launch Bulk Campaign</h3>
-                <p className="text-slate-400 text-xs mt-0.5">Send to all {customerTotal} synced customers · 15s delay per message</p>
+                <h3 className="text-white font-extrabold">📢 Launch Bulk Campaign</h3>
+                <p className="text-slate-400 text-xs mt-0.5">Send Meta-approved template to your customers · 15s per message</p>
               </div>
+
               <form onSubmit={handleLaunchCampaign} className="p-6 space-y-5">
+
+                {/* Campaign Name */}
                 <div>
-                  <label className="text-sm font-bold text-slate-300 mb-2 block">Campaign Name</label>
-                  <input type="text" required placeholder="e.g. Diwali Sale 2025" value={campaignName} onChange={e => setCampaignName(e.target.value)}
-                    className="w-full p-3.5 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <label className="text-xs font-bold text-slate-400 mb-2 block">Campaign Name <span className="text-red-400">*</span></label>
+                  <input
+                    type="text" required
+                    placeholder="e.g. Diwali Sale 2025, Akshaya Tritiya Offer"
+                    value={campaignName}
+                    onChange={e => setCampaignName(e.target.value)}
+                    className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
                 </div>
+
+                {/* Meta Template Selector */}
                 <div>
-                  <label className="text-sm font-bold text-slate-300 mb-2 block">Message Template</label>
-                  <textarea rows={10} required value={campaignTemplate} onChange={e => setCampaignTemplate(e.target.value)}
-                    className="w-full p-3.5 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 resize-none font-mono text-sm leading-relaxed" />
-                  <div className="mt-2 bg-indigo-900/30 border border-indigo-500/20 rounded-xl p-3 text-xs text-slate-400">
-                    <span className="text-indigo-300 font-bold">Variables: </span>
-                    <code className="bg-slate-800 text-teal-300 px-1 rounded mx-1">{"{{name}}"}</code> Customer name ·
-                    <code className="bg-slate-800 text-teal-300 px-1 rounded mx-1">{"{{link}}"}</code> Store link ·
-                    <code className="bg-slate-800 text-teal-300 px-1 rounded mx-1">{"{{discount_code}}"}</code> Discount code
-                    <br /><span className="text-indigo-300 font-bold mt-1 block">WhatsApp: </span>
-                    <code className="bg-slate-800 text-white px-1 rounded">*bold*</code> ·
-                    <code className="bg-slate-800 text-white px-1 rounded mx-1">_italic_</code>
+                  <label className="text-xs font-bold text-slate-400 mb-2 block">WhatsApp Template <span className="text-red-400">*</span></label>
+                  {metaTemplates.filter((t: any) => t.status === 'APPROVED').length === 0 ? (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-center gap-2">
+                      ⚠️ No approved templates found.
+                      <button type="button" onClick={() => setActiveTab('templates')} className="underline font-bold">Create one →</button>
+                    </div>
+                  ) : (
+                    <select
+                      required
+                      value={campMetaTemplate}
+                      onChange={e => {
+                        const name = e.target.value;
+                        setCampMetaTemplate(name);
+                        const tmpl = metaTemplates.find((t: any) => t.name === name);
+                        if (tmpl?.language) setCampMetaLang(tmpl.language);
+                      }}
+                      className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    >
+                      <option value="">— Select an approved template —</option>
+                      {metaTemplates.filter((t: any) => t.status === 'APPROVED').map((t: any) => (
+                        <option key={t.name} value={t.name}>{t.name} ({t.language})</option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* Template preview */}
+                  {campMetaTemplate && (() => {
+                    const tmpl = metaTemplates.find((t: any) => t.name === campMetaTemplate);
+                    const body = tmpl?.components?.find((c: any) => c.type === 'BODY');
+                    return body ? (
+                      <div className="mt-2 bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
+                        <span className="text-slate-500 text-[10px] font-bold uppercase block mb-1">Preview</span>
+                        {body.text.substring(0, 200)}{body.text.length > 200 ? '...' : ''}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+
+                {/* Discount Code + Customer Filter */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 mb-2 block">Discount Code <span className="text-slate-600">(optional)</span></label>
+                    <input
+                      type="text"
+                      placeholder="e.g. DIWALI20"
+                      value={campDiscountCode}
+                      onChange={e => setCampDiscountCode(e.target.value.toUpperCase())}
+                      className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 mb-2 block">Send To</label>
+                    <select
+                      value={campCustomerFilter}
+                      onChange={e => setCampCustomerFilter(e.target.value)}
+                      className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    >
+                      <option value="all">All Customers ({customerTotal})</option>
+                      <option value="abandoned">Abandoned Cart only</option>
+                      <option value="ordered">Placed Order only</option>
+                    </select>
                   </div>
                 </div>
+
+                {/* Schedule Toggle */}
+                <div className="border border-white/10 rounded-xl overflow-hidden">
+                  <div className="flex">
+                    <button
+                      type="button"
+                      onClick={() => setCampScheduleMode('now')}
+                      className={`flex-1 py-3 text-sm font-bold transition flex items-center justify-center gap-2 ${
+                        campScheduleMode === 'now'
+                          ? 'bg-indigo-500/20 text-indigo-300 border-b-2 border-indigo-400'
+                          : 'bg-slate-900 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <FaPlay className="text-xs" /> Send Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCampScheduleMode('later')}
+                      className={`flex-1 py-3 text-sm font-bold transition flex items-center justify-center gap-2 ${
+                        campScheduleMode === 'later'
+                          ? 'bg-teal-500/20 text-teal-300 border-b-2 border-teal-400'
+                          : 'bg-slate-900 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <FaClock className="text-xs" /> Schedule
+                    </button>
+                  </div>
+
+                  {campScheduleMode === 'later' && (
+                    <div className="p-4 bg-slate-900/50">
+                      <label className="text-xs font-bold text-slate-400 mb-2 block">Pick Date & Time</label>
+                      <input
+                        type="datetime-local"
+                        required={campScheduleMode === 'later'}
+                        value={campScheduledAt}
+                        min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
+                        onChange={e => setCampScheduledAt(e.target.value)}
+                        className="w-full p-3 bg-slate-800 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                      />
+                      {campScheduledAt && (
+                        <p className="text-teal-400 text-xs mt-2 font-bold">
+                          📅 Will send on: {new Date(campScheduledAt).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* ETA Info */}
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-300 flex items-start gap-2">
                   <FaClock className="mt-0.5 shrink-0" />
-                  {customerTotal} customers × 15s = ~{Math.ceil((customerTotal * 15) / 60)} minutes total. WhatsApp session must stay connected.
+                  <div>
+                    <span className="font-bold">{customerTotal} customers × 15s = ~{Math.ceil((customerTotal * 15) / 60)} min total</span>
+                    <span className="text-amber-400/70 ml-2">· Customers without phone & opted-out are auto-skipped</span>
+                  </div>
                 </div>
-                {(!isActive || !waConnected) && (
+
+                {!isActive && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-xs text-red-400 flex items-center gap-2">
-                    <FaWhatsapp /> {!isActive ? "Merchant must be ACTIVE" : "WhatsApp must be connected"} before launching
+                    ❌ Merchant must be ACTIVE to launch campaigns
                   </div>
                 )}
-                <div className="flex gap-3">
-                  <button type="button" onClick={() => setCampaignTemplate(`🎉 *Hey {{name}}!*\n\nWe have something special for you. ✨\n\nShop our latest collection:\n{{link}}\n\n_Reply STOP to unsubscribe_ 🙏`)}
-                    className="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 text-xs font-bold rounded-xl transition">Reset Template</button>
-                  <button type="submit" disabled={loading === "campaign" || !isActive || !waConnected || customerTotal === 0}
-                    className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white font-bold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
-                    {loading === "campaign" ? <><FaSpinner className="animate-spin" /> Launching...</> : <><FaPlay /> Launch Now ({customerTotal} msgs)</>}
-                  </button>
-                </div>
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  disabled={loading === "campaign" || !isActive || !campMetaTemplate || customerTotal === 0}
+                  className="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white font-bold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 text-sm transition"
+                >
+                  {loading === "campaign"
+                    ? <><FaSpinner className="animate-spin" /> {campScheduleMode === 'later' ? 'Scheduling...' : 'Launching...'}</>
+                    : campScheduleMode === 'later'
+                      ? <><FaClock /> Schedule Campaign</>
+                      : <><FaPlay /> Launch Now</>
+                  }
+                </button>
               </form>
             </div>
+
+            {/* ── Campaign History ── */}
+            {campaigns.length > 0 && (
+              <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                  <span className="text-white font-bold text-sm">Campaign History</span>
+                  <span className="text-slate-500 text-xs">{campaigns.length} campaigns</span>
+                </div>
+                <div className="divide-y divide-white/5">
+                  {campaigns.map((c: any) => (
+                    <div key={c.id} className="px-5 py-3.5 flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-white font-bold text-sm">{c.name}</p>
+                          {c.metaTemplateName && (
+                            <span className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-mono">{c.metaTemplateName}</span>
+                          )}
+                          {c.discountCode && (
+                            <span className="text-[10px] bg-green-500/10 border border-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-mono">{c.discountCode}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <p className="text-slate-500 text-xs">{new Date(c.createdAt).toLocaleDateString('en-IN')}</p>
+                          {c.scheduledAt && (
+                            <p className="text-teal-400 text-xs font-bold">
+                              📅 {new Date(c.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                            </p>
+                          )}
+                          <p className="text-slate-400 text-xs">{c.sentCount}/{c.totalRecipients} sent</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={`text-[10px] font-extrabold px-2 py-1 rounded-full border ${
+                          c.status === 'COMPLETED'  ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                          c.status === 'SENDING'    ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
+                          c.status === 'SCHEDULED'  ? 'bg-teal-500/10 border-teal-500/20 text-teal-400' :
+                          c.status === 'CANCELLED'  ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                                                      'bg-slate-700 border-white/10 text-slate-400'
+                        }`}>
+                          {c.status === 'SCHEDULED' ? '📅 ' : ''}{c.status}
+                        </span>
+                        {c.status === 'SCHEDULED' && (
+                          <button
+                            onClick={() => handleCancelCampaign(c.id)}
+                            className="text-[10px] px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg font-bold transition"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 

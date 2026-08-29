@@ -194,8 +194,16 @@ model Campaign {
   
   name            String   
   template        String   @db.Text 
+
+  // Meta template fields
+  metaTemplateName  String?           // approved Meta template name
+  metaTemplateLang  String?           // e.g. "en_US", "hi"
+  discountCode      String?           // optional discount code
+
+  // Scheduling
+  scheduledAt     DateTime?           // null = send immediately, set = scheduled
   
-  status          String   @default("DRAFT") // DRAFT, SENDING, COMPLETED
+  status          String   @default("DRAFT") // DRAFT, SCHEDULED, SENDING, COMPLETED, CANCELLED
   totalRecipients Int      @default(0)
   sentCount       Int      @default(0)
   

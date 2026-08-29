@@ -23,6 +23,32 @@ router.get("/stats", getAdminStats);
 router.post('/extend-subscription', extendSubscription);
 router.post('/launch-campaign', launchCampaign);
 router.get('/campaigns/:merchantId', getMerchantCampaigns);
+
+// ── Cancel a scheduled campaign ───────────────────────────────────────────────
+router.post('/campaigns/cancel', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { campaignId } = req.body;
+    if (!campaignId) return res.status(400).json({ message: 'campaignId required' });
+
+    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
+    if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
+    if (campaign.status !== 'SCHEDULED') {
+      return res.status(400).json({ message: `Cannot cancel — campaign is ${campaign.status}` });
+    }
+
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { status: 'CANCELLED' }
+    });
+
+    // Note: BullMQ jobs already queued cannot be easily bulk-removed
+    // They will fail gracefully since campaign status = CANCELLED
+    // Worker checks campaign status before sending
+    res.json({ success: true, message: 'Campaign cancelled. Queued jobs will be skipped.' });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
 router.post('/sync-customers', syncMerchantCustomers);
 router.get('/flows/:merchantId', getMerchantFlows);
 router.post('/flows/save', saveMerchantFlow);

@@ -146,61 +146,112 @@ export const getAllMerchants = async (req: Request, res: Response): Promise<any>
 
 export const launchCampaign = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { merchantId, campaignName, template } = req.body;
+    const {
+      merchantId,
+      campaignName,
+      template,
+      metaTemplateName,
+      metaTemplateLang,
+      discountCode,
+      scheduledAt,
+      customerFilter,
+    } = req.body;
 
-    if (!merchantId || !campaignName || !template) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    if (!merchantId || !campaignName || !metaTemplateName) {
+      return res.status(400).json({ message: 'merchantId, campaignName, metaTemplateName are required' });
     }
 
-    // 1. Merchant aur uske saare customers ko nikaalo
+    // ── 1. Merchant check ─────────────────────────────────────────────────
     const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
     if (!merchant || merchant.status !== 'ACTIVE') {
       return res.status(400).json({ message: 'Merchant is not active' });
     }
+    if (!merchant.metaPhoneNumberId || !merchant.metaAccessToken) {
+      return res.status(400).json({ message: 'Meta credentials not configured' });
+    }
+
+    // ── 2. Fetch eligible customers — skip NO_PHONE + wa_invalid ─────────
+    const whereClause: any = {
+      merchantId,
+      NOT: [
+        { phone: 'NO_PHONE' },
+        { phone: '' },
+        { phone: { startsWith: 'email:' } },
+        { tags: { contains: 'wa_invalid' } },
+      ]
+    };
+    if (customerFilter === 'abandoned') whereClause.hasAbandonedCart = true;
+    if (customerFilter === 'ordered')   whereClause.hasPlacedOrder   = true;
 
     const customers = await prisma.customer.findMany({
-      where: { merchantId }
+      where: whereClause,
+      select: { id: true, phone: true, name: true }
     });
 
     if (customers.length === 0) {
-      return res.status(400).json({ message: 'No customers found. Sync them first!' });
+      return res.status(400).json({ message: 'No eligible customers (all may have no phone or opted out).' });
     }
 
-    // 2. Database mein Campaign record banayein
+    // ── 3. Calculate scheduling delay ─────────────────────────────────────
+    const isScheduled   = !!scheduledAt;
+    const scheduledDate = scheduledAt ? new Date(scheduledAt) : null;
+    const now           = Date.now();
+    const scheduleDelay = scheduledDate ? Math.max(0, scheduledDate.getTime() - now) : 0;
+
+    if (scheduledDate && scheduledDate.getTime() <= now) {
+      return res.status(400).json({ message: 'Scheduled time must be in the future' });
+    }
+
+    // ── 4. Create campaign record ─────────────────────────────────────────
     const campaign = await prisma.campaign.create({
       data: {
         merchantId,
-        name: campaignName,
-        template,
-        status: 'SENDING',
-        totalRecipients: customers.length
+        name:             campaignName,
+        template:         template || `[Template: ${metaTemplateName}]`,
+        metaTemplateName,
+        metaTemplateLang: metaTemplateLang || 'en_US',
+        discountCode:     discountCode || null,
+        scheduledAt:      scheduledDate,
+        status:           isScheduled ? 'SCHEDULED' : 'SENDING',
+        totalRecipients:  customers.length,
       }
     });
 
-    // 3. Queue mein saare messages daal dein (BullMQ 15-15 sec ke gap me khud bhejega)
-    const rawStoreUrl = merchant.storeUrl || '';
-    const realStoreUrl = rawStoreUrl.startsWith('http')
-      ? rawStoreUrl
-      : rawStoreUrl ? `https://${rawStoreUrl}` : 'https://your-store.myshopify.com';
+    // ── 5. Queue all jobs (staggered 15s + schedule delay) ────────────────
+    for (let i = 0; i < customers.length; i++) {
+      const customer   = customers[i];
+      const totalDelay = scheduleDelay + (i * 15000);
 
-    for (const customer of customers) {
       await messageQueue.add('send-campaign-msg', {
-        campaignId: campaign.id,
-        merchantId: merchantId,
-        phone: customer.phone,
-        templateName: 'bulk_campaign',
-        variables: [customer.name || 'there', realStoreUrl]
+        campaignId:   campaign.id,
+        merchantId,
+        phone:        customer.phone,
+        templateName: metaTemplateName,
+        templateLang: metaTemplateLang || 'en_US',
+        variables:    [customer.name || 'there'],
+        discountCode: discountCode || null,
+      }, {
+        delay:    totalDelay,
+        attempts: 2,
+        backoff:  { type: 'exponential', delay: 30000 },
       });
     }
 
+    const etaMinutes = Math.ceil((customers.length * 15) / 60);
+
     res.status(200).json({
-      message: `🚀 Campaign '${campaignName}' launched!`,
-      totalQueued: customers.length
+      message: isScheduled
+        ? `📅 Campaign '${campaignName}' scheduled for ${scheduledDate!.toLocaleString('en-IN')}!`
+        : `🚀 Campaign '${campaignName}' launched!`,
+      totalQueued: customers.length,
+      campaignId:  campaign.id,
+      scheduledAt: scheduledDate,
+      etaMinutes,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Campaign Launch Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: error.message || 'Internal server error' });
   }
 };
 

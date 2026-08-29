@@ -194,7 +194,7 @@ export const initMessageWorker = () => {
 
     // ── 2. BULK CAMPAIGN ───────────────────────────────────────────────────
     if (job.name === 'send-campaign-msg') {
-      const { campaignId, merchantId, phone, templateName, templateLang, variables } = job.data;
+      const { campaignId, merchantId, phone, templateName, templateLang, variables, discountCode } = job.data;
       console.log(`📢 Campaign Job: ${job.id} | Phone: ${phone} | Template: ${templateName}`);
 
       if (!phone || phone === 'NO_PHONE') return;
@@ -205,7 +205,6 @@ export const initMessageWorker = () => {
       const alreadyInvalid = await isPhoneInvalid(merchantId, toPhone);
       if (alreadyInvalid) {
         console.log(`📵 Campaign skip: Phone ${toPhone} already marked WA invalid`);
-        // Still count as "sent" so campaign completes — but mark as failed msg
         await prisma.$transaction([
           prisma.campaign.update({
             where: { id: campaignId },
@@ -226,6 +225,16 @@ export const initMessageWorker = () => {
         return;
       }
 
+      // ── Guard: check if campaign was cancelled ────────────────────────
+      const campaign = await prisma.campaign.findUnique({
+        where: { id: campaignId },
+        select: { status: true }
+      });
+      if (!campaign || campaign.status === 'CANCELLED') {
+        console.log(`⛔ Campaign ${campaignId} is CANCELLED — skipping job for ${toPhone}`);
+        return;
+      }
+
       // ── Use cached merchant eligibility ──────────────────────────────
       const eligibility = await getCachedMerchant(merchantId);
       if (!eligibility.eligible) {
@@ -234,6 +243,14 @@ export const initMessageWorker = () => {
       }
 
       const { merchant } = eligibility as any;
+
+      // Mark campaign as SENDING if it was SCHEDULED (first job firing)
+      if (campaign.status === 'SCHEDULED') {
+        await prisma.campaign.update({
+          where: { id: campaignId },
+          data: { status: 'SENDING' }
+        });
+      }
 
       const result = await sendMetaTemplateMessage(
         merchant.metaPhoneNumberId,
