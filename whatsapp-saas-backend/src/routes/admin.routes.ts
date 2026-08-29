@@ -6,6 +6,7 @@ import {
   getMerchantDetail, getMerchantCampaigns, syncMerchantCustomers,
   getMerchantFlows, saveMerchantFlow, toggleMerchantFlow, getMerchantCustomers,
   toggleMerchantService, setMerchantFree, addPayment, getPaymentHistory,
+  logActivity,
 } from "../controllers/admin.controller";
 import { adminProtect } from "../middleware/admin.middleware";
 import { sendMetaTextMessage, sendMetaTemplateMessage } from "../services/whatsapp.service";
@@ -41,9 +42,11 @@ router.post('/campaigns/cancel', async (req: Request, res: Response): Promise<an
       data: { status: 'CANCELLED' }
     });
 
-    // Note: BullMQ jobs already queued cannot be easily bulk-removed
-    // They will fail gracefully since campaign status = CANCELLED
-    // Worker checks campaign status before sending
+    logActivity(campaign.merchantId, 'CAMPAIGN_CANCELLED',
+      `Scheduled campaign '${campaign.name}' cancelled`,
+      { campaignId }
+    );
+
     res.json({ success: true, message: 'Campaign cancelled. Queued jobs will be skipped.' });
   } catch (e: any) {
     res.status(500).json({ message: e.message });
@@ -68,10 +71,12 @@ router.post('/full-sync', async (req: Request, res: Response): Promise<any> => {
     const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
     if (!merchant?.shopifyToken) return res.status(400).json({ message: 'Shopify token not set' });
 
-    // Return immediately — sync runs in background
     res.status(200).json({ message: '🔄 Full sync started in background. Check sync status for progress.' });
 
-    // Run async after response sent
+    logActivity(merchantId, 'FULL_SYNC',
+      `Full Shopify sync triggered for '${merchant.brandName}'`
+    );
+
     const { runFullShopifySync } = await import('../services/shopify/full-sync.service');
     runFullShopifySync(merchantId).catch((err: any) => {
       console.error(`❌ Full sync failed for ${merchantId}:`, err.message);
@@ -120,7 +125,7 @@ router.get('/orders/:merchantId', async (req: Request, res: Response): Promise<a
 // ── Meta: Delete a template ───────────────────────────────────────────────────
 router.delete('/meta-templates/:merchantId/:templateName', async (req: Request, res: Response): Promise<any> => {
   try {
-    const merchantId = req.params.merchantId as string;
+    const merchantId   = req.params.merchantId   as string;
     const templateName = req.params.templateName as string;
     const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
     if (!merchant?.metaWabaId || !merchant?.metaAccessToken) {
@@ -131,6 +136,12 @@ router.delete('/meta-templates/:merchantId/:templateName', async (req: Request, 
       `https://graph.facebook.com/v23.0/${merchant.metaWabaId}/message_templates?name=${templateName}`,
       { headers: { Authorization: `Bearer ${merchant.metaAccessToken}` } }
     );
+
+    logActivity(merchantId, 'TEMPLATE_DELETED',
+      `Template '${templateName}' deleted from Meta`,
+      { templateName }
+    );
+
     res.status(200).json({ message: `✅ Template "${templateName}" deleted!` });
   } catch (e: any) {
     console.error('❌ Template delete error:', JSON.stringify(e.response?.data || e.message));
@@ -207,6 +218,13 @@ router.post('/update-credentials', async (req: Request, res: Response): Promise<
     if (shopifyClientSecret !== undefined) data.shopifyClientSecret = shopifyClientSecret;
 
     await prisma.merchant.update({ where: { id: merchantId }, data });
+
+    const updatedFields = Object.keys(data).join(', ');
+    logActivity(merchantId, 'CREDENTIALS_UPDATED',
+      `Credentials updated — fields changed: ${updatedFields}`,
+      { updatedFields }
+    );
+
     res.status(200).json({ message: '✅ Credentials updated!' });
   } catch (e: any) {
     res.status(500).json({ message: e.message });
@@ -238,6 +256,12 @@ router.post('/refresh-shopify-token', async (req: Request, res: Response): Promi
     );
     const newToken = resp.data.access_token;
     await prisma.merchant.update({ where: { id: merchantId }, data: { shopifyToken: newToken } });
+
+    logActivity(merchantId, 'CREDENTIALS_UPDATED',
+      `Shopify access token refreshed via OAuth`,
+      { storeUrl: merchant.storeUrl }
+    );
+
     res.status(200).json({ message: '✅ Shopify token refreshed!', token: newToken.slice(0, 10) + '...' });
   } catch (e: any) {
     res.status(500).json({ message: e.response?.data?.error_description || e.message });
@@ -286,6 +310,12 @@ router.post('/meta-templates', async (req: Request, res: Response): Promise<any>
       { name, language: language || 'en_US', category: category || 'MARKETING', components },
       { headers: { Authorization: `Bearer ${merchant.metaAccessToken}`, 'Content-Type': 'application/json' } }
     );
+
+    logActivity(merchantId, 'TEMPLATE_CREATED',
+      `Template '${name}' submitted for Meta review (${language || 'en_US'}, ${category || 'MARKETING'})`,
+      { name, language, category }
+    );
+
     res.status(200).json({ message: '✅ Template submitted for review!', data: resp.data });
   } catch (e: any) {
     res.status(500).json({ message: e.response?.data?.error?.message || e.message });
@@ -380,6 +410,12 @@ router.post('/register-webhooks', async (req: Request, res: Response): Promise<a
     }
 
     res.status(200).json({ message: '✅ Webhook registration complete!', results });
+
+    logActivity(merchantId, 'WEBHOOKS_REGISTERED',
+      `Shopify webhooks registered — ${results.filter((r:any) => r.status === 'registered').length} new, ${results.filter((r:any) => r.status === 'already_registered').length} already existed`,
+      { results }
+    );
+
   } catch (e: any) {
     res.status(500).json({ message: e.message });
   }
@@ -792,6 +828,41 @@ router.get('/waba-info/:merchantId', async (req: Request, res: Response): Promis
   } catch (e: any) {
     console.error('WABA info error:', e.response?.data || e.message);
     res.status(500).json({ message: e.response?.data?.error?.message || e.message });
+  }
+});
+
+// ── Activity Log — get logs for a merchant ────────────────────────────────────
+// GET /api/admin/activity-log/:merchantId?page=1&limit=50&action=CAMPAIGN_LAUNCHED
+router.get('/activity-log/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const page       = parseInt(req.query.page   as string) || 1;
+    const limit      = parseInt(req.query.limit  as string) || 50;
+    const action     = (req.query.action as string) || '';   // optional filter by action type
+    const skip       = (page - 1) * limit;
+
+    const where: any = { merchantId };
+    if (action) where.action = action;
+
+    const [logs, total] = await Promise.all([
+      prisma.activityLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.activityLog.count({ where }),
+    ]);
+
+    // Parse metadata JSON for each log
+    const parsedLogs = logs.map((log: any) => ({
+      ...log,
+      metadata: log.metadata ? (() => { try { return JSON.parse(log.metadata); } catch { return null; } })() : null,
+    }));
+
+    res.json({ logs: parsedLogs, total, page, pages: Math.ceil(total / limit) });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
   }
 });
 

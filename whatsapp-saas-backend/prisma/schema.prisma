@@ -69,6 +69,7 @@ model Merchant {
   orders            Order[]
   syncLog           SyncLog?
   trackingLinks     TrackingLink[]
+  activityLogs      ActivityLog[]
 }
 
 model Message {
@@ -259,6 +260,26 @@ model SyncLog {
   totalSynced Int      @default(0)
   status      String   @default("completed") // running, completed, failed
   note        String?
+
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+}
+
+// Activity Log — who did what, when (Point 8)
+model ActivityLog {
+  id          String   @id @default(uuid())
+  merchantId  String
+
+  action      String   // MERCHANT_ACTIVATED | SUBSCRIPTION_EXTENDED | PAYMENT_ADDED |
+                       // CAMPAIGN_LAUNCHED | CAMPAIGN_SCHEDULED | CAMPAIGN_CANCELLED |
+                       // FLOW_SAVED | FLOW_TOGGLED | SERVICE_TOGGLED | MERCHANT_FREE_SET |
+                       // CUSTOMER_SYNCED | FULL_SYNC | CREDENTIALS_UPDATED |
+                       // TEMPLATE_CREATED | TEMPLATE_DELETED | INBOX_REPLY_SENT
+
+  description String   @db.Text  // Human-readable: "Campaign 'Diwali 2025' launched — 342 recipients"
+  metadata    String?  @db.Text  // JSON: extra structured data
+  actor       String   @default("Admin")
+
+  createdAt   DateTime @default(now())
 
   merchant    Merchant @relation(fields: [merchantId], references: [id])
 }

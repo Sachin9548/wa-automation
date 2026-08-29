@@ -4,13 +4,36 @@ import prisma from '../lib/prisma';
 import { verifyShopifyToken } from '../services/shopify.service';
 import { messageQueue } from '../lib/queue';
 
+// ── Activity Log helper ────────────────────────────────────────────────────────
+// Fire-and-forget — never blocks the main response
+export const logActivity = async (
+  merchantId: string,
+  action: string,
+  description: string,
+  metadata?: Record<string, any>
+) => {
+  try {
+    await prisma.activityLog.create({
+      data: {
+        merchantId,
+        action,
+        description,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+        actor: 'Admin',
+      }
+    });
+  } catch (e) {
+    // Non-critical — log to console but never throw
+    console.error('ActivityLog write failed:', e);
+  }
+};
+
 // 1. Merchant ko Activate karna
 export const activateMerchant = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, category, shopifyToken, storeUrl, shopifySecret,
             metaPhoneNumberId, metaAccessToken, metaWabaId } = req.body;
 
-    // Verify Shopify token
     const isValid = await verifyShopifyToken(storeUrl, shopifyToken);
     if (!isValid) {
       return res.status(400).json({ message: "❌ Invalid Shopify Token or Store URL." });
@@ -28,14 +51,17 @@ export const activateMerchant = async (req: Request, res: Response): Promise<any
         shopifySecret,
         storeUrl,
         subscriptionExpiry: expiryDate,
-        // Meta Cloud API credentials
         ...(metaPhoneNumberId && { metaPhoneNumberId }),
         ...(metaAccessToken && { metaAccessToken }),
         ...(metaWabaId && { metaWabaId }),
-        // Mark WhatsApp as connected if Meta credentials provided
         whatsappConnected: !!(metaPhoneNumberId && metaAccessToken),
       }
     });
+
+    logActivity(merchantId, 'MERCHANT_ACTIVATED',
+      `Merchant '${updatedMerchant.brandName}' activated. Store: ${storeUrl}. WhatsApp: ${!!(metaPhoneNumberId && metaAccessToken) ? 'Connected' : 'Not configured'}`,
+      { storeUrl, category, waConnected: !!(metaPhoneNumberId && metaAccessToken) }
+    );
 
     res.status(200).json({ message: "✅ Activated!", brand: updatedMerchant.brandName });
   } catch (error) {
@@ -44,7 +70,7 @@ export const activateMerchant = async (req: Request, res: Response): Promise<any
   }
 };
 
-// 2. Extend Subscription (Manually days badhana)
+// 2. Extend Subscription
 export const extendSubscription = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, days } = req.body;
@@ -52,18 +78,21 @@ export const extendSubscription = async (req: Request, res: Response): Promise<a
     const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
     if (!merchant) return res.status(404).json({ message: "Merchant not found" });
 
-    // Agar pehle se active hai toh aage badhao, nahi toh aaj se start karo
     const currentExpiry = merchant.subscriptionExpiry && merchant.subscriptionExpiry > new Date()
-      ? merchant.subscriptionExpiry
-      : new Date();
+      ? merchant.subscriptionExpiry : new Date();
 
     const newExpiry = new Date(currentExpiry);
     newExpiry.setDate(newExpiry.getDate() + parseInt(days));
 
-    const updated = await prisma.merchant.update({
+    await prisma.merchant.update({
       where: { id: merchantId },
       data: { subscriptionExpiry: newExpiry, status: 'ACTIVE' }
     });
+
+    logActivity(merchantId, 'SUBSCRIPTION_EXTENDED',
+      `Subscription extended by ${days} days. New expiry: ${newExpiry.toDateString()}`,
+      { days: parseInt(days), newExpiry }
+    );
 
     res.status(200).json({ message: `✅ Subscription extended until ${newExpiry.toDateString()}`, expiry: newExpiry });
   } catch (error) {
@@ -72,17 +101,20 @@ export const extendSubscription = async (req: Request, res: Response): Promise<a
   }
 };
 
-// 3. Record Payment (subscription amount note karna — sirf record ke liye)
+// 3. Record Payment (legacy — sirf totalPaidAmount increment)
 export const recordPayment = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, amount } = req.body;
 
     const updatedMerchant = await prisma.merchant.update({
       where: { id: merchantId },
-      data: {
-        totalPaidAmount: { increment: parseFloat(amount) }
-      }
+      data: { totalPaidAmount: { increment: parseFloat(amount) } }
     });
+
+    logActivity(merchantId, 'PAYMENT_RECORDED',
+      `Payment of ₹${amount} recorded. Total paid: ₹${updatedMerchant.totalPaidAmount}`,
+      { amount: parseFloat(amount) }
+    );
 
     res.status(200).json({
       message: `✅ Payment of ₹${amount} recorded for ${updatedMerchant.brandName}.`,
@@ -94,14 +126,12 @@ export const recordPayment = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-// 4. Admin Dashboard Stats (Overall Earnings & Counts)
+// 4. Admin Dashboard Stats
 export const getAdminStats = async (req: Request, res: Response): Promise<any> => {
   try {
     const merchants = await prisma.merchant.findMany();
-
     const totalRevenue = merchants.reduce((acc, m) => acc + (m.totalPaidAmount || 0), 0);
     const activeMerchants = merchants.filter(m => m.status === 'ACTIVE').length;
-
     res.status(200).json({
       totalEarnings: totalRevenue,
       totalActiveClients: activeMerchants,
@@ -113,30 +143,18 @@ export const getAdminStats = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-// 5. Get All Merchants List (For Admin Panel Table)
+// 5. Get All Merchants List
 export const getAllMerchants = async (req: Request, res: Response): Promise<any> => {
   try {
     const merchants = await prisma.merchant.findMany({
       select: {
-        id: true,
-        brandName: true,
-        email: true,
-        phone: true,
-        status: true,
-        plan: true,
-        totalPaidAmount: true,
-        isFree: true,
-        serviceActive: true,
-        whatsappConnected: true,
-        storeUrl: true,
-        subscriptionExpiry: true,
-        createdAt: true,
+        id: true, brandName: true, email: true, phone: true,
+        status: true, plan: true, totalPaidAmount: true,
+        isFree: true, serviceActive: true, whatsappConnected: true,
+        storeUrl: true, subscriptionExpiry: true, createdAt: true,
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: { createdAt: 'desc' }
     });
-
     res.status(200).json({ merchants });
   } catch (error) {
     console.error('Fetch All Merchants Error:', error);
@@ -144,24 +162,19 @@ export const getAllMerchants = async (req: Request, res: Response): Promise<any>
   }
 };
 
+// 6. Launch Campaign
 export const launchCampaign = async (req: Request, res: Response): Promise<any> => {
   try {
     const {
-      merchantId,
-      campaignName,
-      template,
-      metaTemplateName,
-      metaTemplateLang,
-      discountCode,
-      scheduledAt,
-      customerFilter,
+      merchantId, campaignName, template,
+      metaTemplateName, metaTemplateLang,
+      discountCode, scheduledAt, customerFilter,
     } = req.body;
 
     if (!merchantId || !campaignName || !metaTemplateName) {
       return res.status(400).json({ message: 'merchantId, campaignName, metaTemplateName are required' });
     }
 
-    // ── 1. Merchant check ─────────────────────────────────────────────────
     const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
     if (!merchant || merchant.status !== 'ACTIVE') {
       return res.status(400).json({ message: 'Merchant is not active' });
@@ -170,12 +183,10 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ message: 'Meta credentials not configured' });
     }
 
-    // ── 2. Fetch eligible customers — skip NO_PHONE + wa_invalid ─────────
     const whereClause: any = {
       merchantId,
       NOT: [
-        { phone: 'NO_PHONE' },
-        { phone: '' },
+        { phone: 'NO_PHONE' }, { phone: '' },
         { phone: { startsWith: 'email:' } },
         { tags: { contains: 'wa_invalid' } },
       ]
@@ -192,7 +203,6 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ message: 'No eligible customers (all may have no phone or opted out).' });
     }
 
-    // ── 3. Calculate scheduling delay ─────────────────────────────────────
     const isScheduled   = !!scheduledAt;
     const scheduledDate = scheduledAt ? new Date(scheduledAt) : null;
     const now           = Date.now();
@@ -202,7 +212,6 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ message: 'Scheduled time must be in the future' });
     }
 
-    // ── 4. Create campaign record ─────────────────────────────────────────
     const campaign = await prisma.campaign.create({
       data: {
         merchantId,
@@ -217,27 +226,31 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
       }
     });
 
-    // ── 5. Queue all jobs (staggered 15s + schedule delay) ────────────────
     for (let i = 0; i < customers.length; i++) {
-      const customer   = customers[i];
-      const totalDelay = scheduleDelay + (i * 15000);
-
       await messageQueue.add('send-campaign-msg', {
         campaignId:   campaign.id,
         merchantId,
-        phone:        customer.phone,
+        phone:        customers[i].phone,
         templateName: metaTemplateName,
         templateLang: metaTemplateLang || 'en_US',
-        variables:    [customer.name || 'there'],
+        variables:    [customers[i].name || 'there'],
         discountCode: discountCode || null,
       }, {
-        delay:    totalDelay,
+        delay:    scheduleDelay + (i * 15000),
         attempts: 2,
         backoff:  { type: 'exponential', delay: 30000 },
       });
     }
 
     const etaMinutes = Math.ceil((customers.length * 15) / 60);
+
+    logActivity(merchantId,
+      isScheduled ? 'CAMPAIGN_SCHEDULED' : 'CAMPAIGN_LAUNCHED',
+      isScheduled
+        ? `Campaign '${campaignName}' scheduled for ${scheduledDate!.toLocaleString('en-IN')} — ${customers.length} recipients, template: ${metaTemplateName}`
+        : `Campaign '${campaignName}' launched — ${customers.length} recipients, template: ${metaTemplateName}${discountCode ? `, discount: ${discountCode}` : ''}`,
+      { campaignId: campaign.id, recipients: customers.length, metaTemplateName, discountCode, scheduledAt }
+    );
 
     res.status(200).json({
       message: isScheduled
@@ -255,7 +268,7 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
   }
 };
 
-// 6. Get single merchant detail (for merchant hub page)
+// 7. Get single merchant detail
 export const getMerchantDetail = async (req: Request, res: Response): Promise<any> => {
   try {
     const merchantId = req.params.merchantId as string;
@@ -263,19 +276,13 @@ export const getMerchantDetail = async (req: Request, res: Response): Promise<an
       where: { id: merchantId },
       select: {
         id: true, brandName: true, email: true, phone: true,
-        status: true, plan: true,
-        whatsappConnected: true, storeUrl: true,
+        status: true, plan: true, whatsappConnected: true, storeUrl: true,
         subscriptionExpiry: true, category: true,
         totalSent: true, totalRead: true, totalClicked: true,
         totalConverted: true, recoveredRevenue: true, totalPaidAmount: true, createdAt: true,
-        metaPhoneNumberId: true, metaWabaId: true,
-        metaAccessToken: true,
-        shopifyToken: true,
-        shopifySecret: true,
-        shopifyClientId: true,
-        shopifyClientSecret: true,
-        serviceActive: true,
-        isFree: true,
+        metaPhoneNumberId: true, metaWabaId: true, metaAccessToken: true,
+        shopifyToken: true, shopifySecret: true, shopifyClientId: true, shopifyClientSecret: true,
+        serviceActive: true, isFree: true,
         _count: { select: { customers: true, campaigns: true, abandonedCarts: true } }
       }
     });
@@ -286,7 +293,7 @@ export const getMerchantDetail = async (req: Request, res: Response): Promise<an
   }
 };
 
-// 7. Get campaigns for a merchant
+// 8. Get campaigns for a merchant
 export const getMerchantCampaigns = async (req: Request, res: Response): Promise<any> => {
   try {
     const merchantId = req.params.merchantId as string;
@@ -301,12 +308,18 @@ export const getMerchantCampaigns = async (req: Request, res: Response): Promise
   }
 };
 
-// 8. Sync Shopify customers (admin triggered)
+// 9. Sync Shopify customers (quick sync)
 export const syncMerchantCustomers = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId } = req.body;
     const { syncAllShopifyCustomers } = await import('../services/shopify/customer.service');
     const count = await syncAllShopifyCustomers(merchantId);
+
+    logActivity(merchantId, 'CUSTOMER_SYNCED',
+      `Quick sync completed — ${count} customers synced from Shopify`,
+      { count }
+    );
+
     res.status(200).json({ message: `✅ Synced ${count} customers!`, total: count });
   } catch (error: any) {
     console.error('Sync Error:', error);
@@ -314,7 +327,7 @@ export const syncMerchantCustomers = async (req: Request, res: Response): Promis
   }
 };
 
-// 9. Admin: Get flows for a specific merchant
+// 10. Get flows for a merchant
 export const getMerchantFlows = async (req: Request, res: Response): Promise<any> => {
   try {
     const merchantId = req.params.merchantId as string;
@@ -328,7 +341,7 @@ export const getMerchantFlows = async (req: Request, res: Response): Promise<any
   }
 };
 
-// 10. Admin: Save/update a flow for a merchant
+// 11. Save/update a flow
 export const saveMerchantFlow = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, type, delayMinutes, template, isActive, metaTemplateName, metaTemplateLang, discountCode } = req.body;
@@ -338,24 +351,22 @@ export const saveMerchantFlow = async (req: Request, res: Response): Promise<any
     const flow = await prisma.automationFlow.upsert({
       where: { merchantId_type: { merchantId, type } },
       update: {
-        delayMinutes: parseInt(delayMinutes),
-        template: template || '',
-        metaTemplateName: metaTemplateName || null,
-        metaTemplateLang: metaTemplateLang || 'en_US',
-        discountCode: discountCode || null,
-        isActive
+        delayMinutes: parseInt(delayMinutes), template: template || '',
+        metaTemplateName: metaTemplateName || null, metaTemplateLang: metaTemplateLang || 'en_US',
+        discountCode: discountCode || null, isActive
       },
       create: {
-        merchantId,
-        type,
-        delayMinutes: parseInt(delayMinutes),
-        template: template || '',
-        metaTemplateName: metaTemplateName || null,
-        metaTemplateLang: metaTemplateLang || 'en_US',
-        discountCode: discountCode || null,
-        isActive
+        merchantId, type, delayMinutes: parseInt(delayMinutes), template: template || '',
+        metaTemplateName: metaTemplateName || null, metaTemplateLang: metaTemplateLang || 'en_US',
+        discountCode: discountCode || null, isActive
       }
     });
+
+    logActivity(merchantId, 'FLOW_SAVED',
+      `Flow '${type}' saved — template: ${metaTemplateName || 'none'}, delay: ${delayMinutes} min, status: ${isActive ? 'ACTIVE' : 'INACTIVE'}${discountCode ? `, discount: ${discountCode}` : ''}`,
+      { type, delayMinutes: parseInt(delayMinutes), metaTemplateName, isActive, discountCode }
+    );
+
     res.status(200).json({ message: 'Flow saved!', flow });
   } catch (error) {
     console.error('Save Flow Error:', error);
@@ -363,7 +374,7 @@ export const saveMerchantFlow = async (req: Request, res: Response): Promise<any
   }
 };
 
-// 11. Admin: Toggle a flow on/off for a merchant
+// 12. Toggle flow on/off
 export const toggleMerchantFlow = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, type, isActive } = req.body;
@@ -372,41 +383,45 @@ export const toggleMerchantFlow = async (req: Request, res: Response): Promise<a
       data: { isActive }
     });
     if (result.count === 0) return res.status(404).json({ message: 'Flow not found' });
+
+    logActivity(merchantId, 'FLOW_TOGGLED',
+      `Flow '${type}' ${isActive ? 'ENABLED ✅' : 'DISABLED ⏸️'}`,
+      { type, isActive }
+    );
+
     res.status(200).json({ message: `Flow ${isActive ? 'enabled' : 'disabled'}!` });
   } catch (error) {
     res.status(500).json({ message: 'Error toggling flow' });
   }
 };
 
-// 12. Admin: Get customers list for a merchant (with pagination)
+// 13. Get customers list
 export const getMerchantCustomers = async (req: Request, res: Response): Promise<any> => {
   try {
     const merchantId = req.params.merchantId as string;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
+    const page   = parseInt(req.query.page   as string) || 1;
+    const limit  = parseInt(req.query.limit  as string) || 50;
     const search = (req.query.search as string) || '';
-    const skip = (page - 1) * limit;
+    const skip   = (page - 1) * limit;
 
     const where: any = { merchantId };
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
+        { name:  { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } }
       ];
     }
-
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({ where, skip, take: limit, orderBy: { lastOrderDate: 'desc' } }),
       prisma.customer.count({ where })
     ]);
-
     res.status(200).json({ customers, total, page, pages: Math.ceil(total / limit) });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching customers' });
   }
 };
 
-// 13. Toggle service ON/OFF for a merchant (manual admin control)
+// 14. Toggle service ON/OFF
 export const toggleMerchantService = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, serviceActive } = req.body;
@@ -417,6 +432,12 @@ export const toggleMerchantService = async (req: Request, res: Response): Promis
       where: { id: merchantId },
       data: { serviceActive } as any
     });
+
+    logActivity(merchantId, 'SERVICE_TOGGLED',
+      `Service ${serviceActive ? 'RESUMED ▶️' : 'PAUSED ⏸️'} for '${merchant.brandName}'`,
+      { serviceActive }
+    );
+
     res.status(200).json({
       message: `✅ Service ${serviceActive ? 'enabled' : 'paused'} for ${merchant.brandName}`,
       serviceActive
@@ -426,7 +447,7 @@ export const toggleMerchantService = async (req: Request, res: Response): Promis
   }
 };
 
-// 14. Set merchant as free
+// 15. Set merchant as free/paid
 export const setMerchantFree = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, isFree } = req.body;
@@ -437,6 +458,12 @@ export const setMerchantFree = async (req: Request, res: Response): Promise<any>
       where: { id: merchantId },
       data: { isFree } as any
     });
+
+    logActivity(merchantId, 'MERCHANT_FREE_SET',
+      `Merchant '${merchant.brandName}' marked as ${isFree ? 'FREE 🎁' : 'PAID 💳'}`,
+      { isFree }
+    );
+
     res.status(200).json({
       message: `✅ Merchant ${merchant.brandName} marked as ${isFree ? 'FREE' : 'PAID'}`,
     });
@@ -445,7 +472,7 @@ export const setMerchantFree = async (req: Request, res: Response): Promise<any>
   }
 };
 
-// 15. Add payment record for a merchant
+// 16. Add payment record
 export const addPayment = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, amount, planDays, note } = req.body;
@@ -453,21 +480,18 @@ export const addPayment = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ message: 'merchantId, amount, planDays required' });
     }
 
-    // Save payment record
     const payment = await (prisma as any).payment.create({
       data: {
         merchantId,
-        amount: parseFloat(amount),
+        amount:   parseFloat(amount),
         planDays: parseInt(planDays),
-        note: note || null,
+        note:     note || null,
       }
     });
 
-    // Update totalPaidAmount + extend subscription
     const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
     const currentExpiry = merchant?.subscriptionExpiry && merchant.subscriptionExpiry > new Date()
-      ? merchant.subscriptionExpiry
-      : new Date();
+      ? merchant.subscriptionExpiry : new Date();
 
     const newExpiry = new Date(currentExpiry);
     newExpiry.setDate(newExpiry.getDate() + parseInt(planDays));
@@ -477,9 +501,14 @@ export const addPayment = async (req: Request, res: Response): Promise<any> => {
       data: {
         totalPaidAmount: { increment: parseFloat(amount) },
         subscriptionExpiry: newExpiry,
-        serviceActive: true as any, // auto-enable service on payment
+        serviceActive: true as any,
       } as any
     });
+
+    logActivity(merchantId, 'PAYMENT_ADDED',
+      `Payment of ₹${amount} received — ${planDays} days plan. Service active until ${newExpiry.toDateString()}${note ? `. Note: ${note}` : ''}`,
+      { amount: parseFloat(amount), planDays: parseInt(planDays), newExpiry, note }
+    );
 
     res.status(200).json({
       message: `✅ Payment of ₹${amount} recorded. Service active until ${newExpiry.toDateString()}.`,
@@ -492,16 +521,17 @@ export const addPayment = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-// 16. Get payment history for a merchant
+// 17. Get payment history
 export const getPaymentHistory = async (req: Request, res: Response): Promise<any> => {
   try {
     const merchantId = req.params.merchantId as string;
     const payments = await (prisma as any).payment.findMany({
       where: { merchantId },
-      orderBy: { paidAt: 'desc' }
+      orderBy: { paidAt: 'desc' },
+      take: 20,
     });
     res.status(200).json({ payments });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching payments' });
+    res.status(500).json({ message: 'Error fetching payment history' });
   }
 };
