@@ -13,6 +13,8 @@ import flowRoutes from './routes/flow.routes';
 import trackingRoutes from './routes/tracking.routes';
 import webhookRoutes from './routes/webhook.routes';
 import inboxRoutes from './routes/inbox.routes';
+import { messageQueue } from './lib/queue';
+import redis from './lib/redis';
 dotenv.config();
 
 const app = express();
@@ -42,9 +44,60 @@ app.use('/api/webhooks/shopify', (req: any, _res: Response, next: NextFunction) 
 // ── All other routes: standard JSON middleware ────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 
-// ── Health check ──────────────────────────────────────────────────────────────
+// ── Health check (basic) ──────────────────────────────────────────────────────
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "OK", message: "WA-Automation Backend running!" });
+});
+
+// ── System Health (detailed — admin only) ─────────────────────────────────────
+app.get("/api/admin/system-health", async (_req: Request, res: Response) => {
+  const checks: Record<string, any> = {};
+
+  // 1. Database ping
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = { status: 'ok', label: 'Database', message: 'Connected' };
+  } catch (e: any) {
+    checks.database = { status: 'error', label: 'Database', message: e.message };
+  }
+
+  // 2. Redis ping
+  try {
+    const pong = await redis.ping();
+    checks.redis = { status: pong === 'PONG' ? 'ok' : 'error', label: 'Redis', message: pong === 'PONG' ? 'Connected' : 'Unexpected response' };
+  } catch (e: any) {
+    checks.redis = { status: 'error', label: 'Redis', message: e.message };
+  }
+
+  // 3. BullMQ queue stats
+  try {
+    const [waiting, active, failed, completed, delayed] = await Promise.all([
+      messageQueue.getWaitingCount(),
+      messageQueue.getActiveCount(),
+      messageQueue.getFailedCount(),
+      messageQueue.getCompletedCount(),
+      messageQueue.getDelayedCount(),
+    ]);
+
+    const queueStatus = failed > 50 ? 'error' : failed > 10 ? 'warning' : 'ok';
+    checks.queue = {
+      status: queueStatus,
+      label: 'Message Queue',
+      message: queueStatus === 'ok'
+        ? `${waiting} waiting, ${active} active, ${delayed} scheduled`
+        : `⚠️ ${failed} failed jobs — check worker logs`,
+      stats: { waiting, active, failed, completed, delayed },
+    };
+  } catch (e: any) {
+    checks.queue = { status: 'error', label: 'Message Queue', message: e.message };
+  }
+
+  // 4. Overall status — worst of all checks
+  const statuses = Object.values(checks).map((c: any) => c.status);
+  const overall  = statuses.includes('error') ? 'error'
+                 : statuses.includes('warning') ? 'warning' : 'ok';
+
+  res.json({ overall, checks, checkedAt: new Date().toISOString() });
 });
 
 // ── Routes ────────────────────────────────────────────────────────────────────

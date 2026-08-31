@@ -866,4 +866,207 @@ router.get('/activity-log/:merchantId', async (req: Request, res: Response): Pro
   }
 });
 
+// ── Red Flags — per-merchant health alerts ────────────────────────────────────
+// GET /api/admin/red-flags/:merchantId
+// Returns array of alerts: { level: 'error'|'warning'|'info', code, message, action }
+router.get('/red-flags/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const merchant   = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    if (!merchant) return res.status(404).json({ message: 'Merchant not found' });
+
+    const flags: Array<{
+      level: 'error' | 'warning' | 'info';
+      code: string;
+      message: string;
+      action: string;
+    }> = [];
+
+    // ── 1. Meta Access Token check ────────────────────────────────────────
+    if (!merchant.metaAccessToken || !merchant.metaPhoneNumberId) {
+      flags.push({
+        level:   'error',
+        code:    'META_CREDS_MISSING',
+        message: 'Meta credentials not configured — WhatsApp messages cannot be sent',
+        action:  'Go to Credentials tab and set Meta Phone Number ID + Access Token',
+      });
+    } else {
+      // Validate token with a lightweight Meta API call
+      try {
+        const axios = await import('axios');
+        await axios.default.get(
+          `https://graph.facebook.com/v23.0/${merchant.metaPhoneNumberId}?fields=id`,
+          { headers: { Authorization: `Bearer ${merchant.metaAccessToken}` }, timeout: 5000 }
+        );
+        // Token is valid — no flag
+      } catch (e: any) {
+        const code = e.response?.data?.error?.code;
+        if (code === 190) {
+          flags.push({
+            level:   'error',
+            code:    'META_TOKEN_EXPIRED',
+            message: 'Meta access token has expired or is invalid',
+            action:  'Go to Credentials tab and update the Meta Access Token immediately',
+          });
+        } else if (e.code === 'ECONNABORTED' || e.code === 'ETIMEDOUT') {
+          flags.push({
+            level:   'warning',
+            code:    'META_API_TIMEOUT',
+            message: 'Meta API did not respond in time — possible connectivity issue',
+            action:  'Check Meta API status at developers.facebook.com',
+          });
+        }
+        // Other errors (rate limit etc.) — don't flag
+      }
+    }
+
+    // ── 2. Shopify Token check ────────────────────────────────────────────
+    if (!merchant.shopifyToken || !merchant.storeUrl) {
+      if (merchant.status === 'ACTIVE') {
+        flags.push({
+          level:   'error',
+          code:    'SHOPIFY_CREDS_MISSING',
+          message: 'Shopify credentials missing — abandoned cart webhooks will not work',
+          action:  'Go to Credentials tab and set Shopify Token + Store URL',
+        });
+      }
+    } else {
+      // Quick Shopify token check
+      try {
+        const axios = await import('axios');
+        const cleanUrl = merchant.storeUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        await axios.default.get(
+          `https://${cleanUrl}/admin/api/2024-01/shop.json`,
+          { headers: { 'X-Shopify-Access-Token': merchant.shopifyToken }, timeout: 5000 }
+        );
+      } catch (e: any) {
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          flags.push({
+            level:   'error',
+            code:    'SHOPIFY_TOKEN_INVALID',
+            message: 'Shopify access token is invalid or revoked',
+            action:  'Go to Credentials tab → use Refresh Token button to generate a new token',
+          });
+        }
+      }
+    }
+
+    // ── 3. Subscription expiry ────────────────────────────────────────────
+    const now = new Date();
+    if (merchant.subscriptionExpiry) {
+      const daysLeft = Math.ceil(
+        (merchant.subscriptionExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysLeft < 0) {
+        flags.push({
+          level:   'error',
+          code:    'SUBSCRIPTION_EXPIRED',
+          message: `Subscription expired ${Math.abs(daysLeft)} days ago`,
+          action:  'Collect payment from merchant and add payment in Overview tab',
+        });
+      } else if (daysLeft <= 5) {
+        flags.push({
+          level:   'warning',
+          code:    'SUBSCRIPTION_EXPIRING_SOON',
+          message: `Subscription expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+          action:  'Contact merchant for renewal and add payment before expiry',
+        });
+      }
+    }
+
+    // ── 4. Service paused but active ─────────────────────────────────────
+    if (merchant.status === 'ACTIVE' && !(merchant as any).serviceActive) {
+      flags.push({
+        level:   'warning',
+        code:    'SERVICE_PAUSED',
+        message: 'Service is manually paused — messages are not being sent',
+        action:  'Go to Overview tab and toggle Service to Resume if intended',
+      });
+    }
+
+    // ── 5. WA Invalid customers (opted out or bad numbers) ───────────────
+    const waInvalidCount = await prisma.customer.count({
+      where: { merchantId, tags: { contains: 'wa_invalid' } }
+    });
+    if (waInvalidCount > 50) {
+      flags.push({
+        level:   'warning',
+        code:    'HIGH_INVALID_NUMBERS',
+        message: `${waInvalidCount} customers have invalid WhatsApp numbers`,
+        action:  'Review Customers tab → WA Invalid filter. Consider cleaning up list.',
+      });
+    }
+
+    // ── 6. Failed messages in last 24 hours ──────────────────────────────
+    const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const recentFailed = await prisma.message.count({
+      where: {
+        merchantId,
+        status:    'FAILED',
+        direction: 'OUTGOING',
+        timestamp: { gte: since24h },
+      }
+    });
+    if (recentFailed > 20) {
+      flags.push({
+        level:   'error',
+        code:    'HIGH_FAILED_MESSAGES',
+        message: `${recentFailed} messages failed in the last 24 hours`,
+        action:  'Check Meta credentials and quality rating in Overview tab',
+      });
+    } else if (recentFailed > 5) {
+      flags.push({
+        level:   'warning',
+        code:    'SOME_FAILED_MESSAGES',
+        message: `${recentFailed} messages failed in the last 24 hours`,
+        action:  'Monitor Meta quality rating — may indicate delivery issues',
+      });
+    }
+
+    // ── 7. No customers synced ────────────────────────────────────────────
+    if (merchant.status === 'ACTIVE') {
+      const customerCount = await prisma.customer.count({ where: { merchantId } });
+      if (customerCount === 0) {
+        flags.push({
+          level:   'warning',
+          code:    'NO_CUSTOMERS',
+          message: 'No customers synced yet — campaigns and flows have no recipients',
+          action:  'Go to Customers tab → Run Full Sync to import from Shopify',
+        });
+      }
+    }
+
+    // ── 8. No active flows ────────────────────────────────────────────────
+    if (merchant.status === 'ACTIVE') {
+      const activeFlows = await prisma.automationFlow.count({
+        where: { merchantId, isActive: true }
+      });
+      if (activeFlows === 0) {
+        flags.push({
+          level:   'info',
+          code:    'NO_ACTIVE_FLOWS',
+          message: 'No automation flows are active — abandoned cart recovery is off',
+          action:  'Go to Flows tab and enable at least one abandoned cart flow',
+        });
+      }
+    }
+
+    // ── Overall severity ──────────────────────────────────────────────────
+    const levels  = flags.map(f => f.level);
+    const overall = levels.includes('error')   ? 'error'
+                  : levels.includes('warning') ? 'warning'
+                  : levels.includes('info')    ? 'info' : 'ok';
+
+    res.json({
+      overall,
+      flagCount: flags.length,
+      flags,
+      checkedAt: now.toISOString(),
+    });
+
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 export default router;

@@ -6,7 +6,8 @@ import Link from "next/link";
 import {
   FaUserSecret, FaWallet, FaChartPie, FaUsers, FaSearch,
   FaSignOutAlt, FaExternalLinkAlt, FaCheckCircle, FaExclamationTriangle,
-  FaRupeeSign, FaStore, FaBell, FaShieldAlt, FaChartLine
+  FaRupeeSign, FaStore, FaBell, FaShieldAlt, FaChartLine,
+  FaDatabase, FaServer, FaLayerGroup, FaSync, FaTimesCircle
 } from "react-icons/fa";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -26,6 +27,22 @@ export default function AdminConsole() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeNav, setActiveNav] = useState("Dashboard");
 
+  // System Health state
+  const [sysHealth, setSysHealth]       = useState<any>(null);
+  const [sysLoading, setSysLoading]     = useState(false);
+
+  const fetchSystemHealth = async (key: string) => {
+    setSysLoading(true);
+    try {
+      // system-health is on /api/admin/system-health (not under /api/admin/)
+      const r = await axios.get(`${API_URL}/admin/system-health`, {
+        headers: { "x-admin-api-key": key }
+      });
+      setSysHealth(r.data);
+    } catch { /* silent — backend may be starting up */ }
+    finally { setSysLoading(false); }
+  };
+
   const fetchAll = async (key: string) => {
     try {
       const headers = { "x-admin-api-key": key };
@@ -37,6 +54,7 @@ export default function AdminConsole() {
       setStats(sRes.data);
       setIsAuth(true);
       sessionStorage.setItem("adminKey", key);
+      fetchSystemHealth(key);
     } catch {
       alert("Access Denied: Invalid Key");
     }
@@ -233,6 +251,88 @@ export default function AdminConsole() {
                 <span className="text-amber-400 font-bold">{pendingCount} pending</span> activation
               </p>
             </div>
+          </div>
+
+          {/* ── System Health ── */}
+          <div className="bg-slate-800 border border-white/5 rounded-2xl p-5 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className={`w-2.5 h-2.5 rounded-full ${
+                  !sysHealth ? 'bg-slate-500' :
+                  sysHealth.overall === 'ok'      ? 'bg-green-400 animate-pulse' :
+                  sysHealth.overall === 'warning' ? 'bg-yellow-400 animate-pulse' :
+                                                    'bg-red-400 animate-pulse'
+                }`} />
+                <p className="text-white font-bold text-sm">System Health</p>
+                {sysHealth?.checkedAt && (
+                  <span className="text-slate-600 text-[10px]">
+                    checked {new Date(sysHealth.checkedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => fetchSystemHealth(sessionStorage.getItem("adminKey") || "")}
+                disabled={sysLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition disabled:opacity-40"
+              >
+                <FaSync className={sysLoading ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+            </div>
+
+            {!sysHealth ? (
+              <p className="text-slate-500 text-xs text-center py-2">Loading system status...</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {Object.values(sysHealth.checks).map((check: any) => {
+                  const icon = check.label === 'Database'      ? <FaDatabase  /> :
+                               check.label === 'Redis'         ? <FaServer    /> :
+                                                                  <FaLayerGroup />;
+                  return (
+                    <div key={check.label} className={`flex items-center gap-3 rounded-xl p-3 border ${
+                      check.status === 'ok'      ? 'bg-green-500/5 border-green-500/20'  :
+                      check.status === 'warning' ? 'bg-yellow-500/5 border-yellow-500/20' :
+                                                   'bg-red-500/5 border-red-500/20'
+                    }`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${
+                        check.status === 'ok'      ? 'bg-green-500/20 text-green-400'  :
+                        check.status === 'warning' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                     'bg-red-500/20 text-red-400'
+                      }`}>
+                        {check.status === 'ok' ? <FaCheckCircle /> :
+                         check.status === 'error' ? <FaTimesCircle /> : <FaExclamationTriangle />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white text-xs font-bold">{check.label}</span>
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
+                            check.status === 'ok'      ? 'bg-green-500/20 text-green-400'   :
+                            check.status === 'warning' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                         'bg-red-500/20 text-red-400'
+                          }`}>{check.status}</span>
+                        </div>
+                        <p className="text-slate-500 text-[10px] truncate mt-0.5">{check.message}</p>
+                        {/* Queue stats detail */}
+                        {check.stats && (
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            {[
+                              { label: 'wait', val: check.stats.waiting,  color: 'text-slate-400' },
+                              { label: 'active', val: check.stats.active,  color: 'text-blue-400' },
+                              { label: 'delay', val: check.stats.delayed, color: 'text-teal-400' },
+                              { label: 'failed', val: check.stats.failed,  color: check.stats.failed > 0 ? 'text-red-400 font-bold' : 'text-slate-500' },
+                            ].map(s => (
+                              <span key={s.label} className={`text-[9px] ${s.color}`}>
+                                {s.val} {s.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* ── Merchants Table ── */}

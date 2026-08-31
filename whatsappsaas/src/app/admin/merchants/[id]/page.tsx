@@ -291,6 +291,19 @@ export default function MerchantControlHub() {
   const [activityPage, setActivityPage]         = useState(1);
   const [activityFilter, setActivityFilter]     = useState('');
 
+  // Red Flags state
+  const [redFlags, setRedFlags]               = useState<any>(null);
+  const [redFlagsLoading, setRedFlagsLoading] = useState(false);
+
+  const fetchRedFlags = async () => {
+    setRedFlagsLoading(true);
+    try {
+      const r = await axios.get(`${API_URL}/admin/red-flags/${merchantId}`, { headers: ah() });
+      setRedFlags(r.data);
+    } catch { /* silent */ }
+    finally { setRedFlagsLoading(false); }
+  };
+
   const loadActivityLog = async (page = 1, filter = '') => {
     setActivityLoading(true);
     try {
@@ -455,6 +468,8 @@ export default function MerchantControlHub() {
         setCredClientSecret(m.shopifyClientSecret || "");
       }
       if (mRes.data.merchant?.storeUrl) setStoreUrl(mRes.data.merchant.storeUrl);
+      // Load red flags on initial page load
+      fetchRedFlags();
     } finally {
       setFetching(false);
     }
@@ -475,6 +490,9 @@ export default function MerchantControlHub() {
     }
     if (activeTab === 'activitylog') {
       loadActivityLog(1, activityFilter);
+    }
+    if (activeTab === 'overview') {
+      fetchRedFlags();
     }
   }, [activeTab]);
 
@@ -867,6 +885,76 @@ export default function MerchantControlHub() {
         {/* ── OVERVIEW TAB ── */}
         {activeTab === "overview" && (
           <div className="space-y-6">
+
+            {/* ── Red Flags Alert Banner ── */}
+            {(redFlags?.flagCount > 0 || redFlagsLoading) && (
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${
+                      redFlags?.overall === 'error'   ? 'bg-red-400 animate-pulse' :
+                      redFlags?.overall === 'warning' ? 'bg-yellow-400 animate-pulse' :
+                                                        'bg-green-400'
+                    }`} />
+                    <p className="text-white font-bold text-sm">
+                      {redFlagsLoading ? 'Checking alerts...' :
+                       redFlags?.overall === 'ok' ? '✅ All clear — no issues found' :
+                       `🚨 ${redFlags?.flagCount} alert${redFlags?.flagCount > 1 ? 's' : ''} found`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={fetchRedFlags}
+                    disabled={redFlagsLoading}
+                    className="text-xs text-slate-500 hover:text-slate-300 font-bold transition"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                {/* Flag cards */}
+                {redFlags?.flags?.map((flag: any) => (
+                  <div key={flag.code} className={`rounded-xl p-4 border flex items-start gap-3 ${
+                    flag.level === 'error'   ? 'bg-red-500/10 border-red-500/20'     :
+                    flag.level === 'warning' ? 'bg-yellow-500/10 border-yellow-500/20' :
+                                              'bg-blue-500/10 border-blue-500/20'
+                  }`}>
+                    <span className="text-xl mt-0.5 flex-shrink-0">
+                      {flag.level === 'error' ? '🔴' : flag.level === 'warning' ? '🟡' : 'ℹ️'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className={`font-bold text-sm ${
+                          flag.level === 'error'   ? 'text-red-400'    :
+                          flag.level === 'warning' ? 'text-yellow-400' : 'text-blue-400'
+                        }`}>{flag.message}</p>
+                        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
+                          flag.level === 'error'   ? 'bg-red-500/20 text-red-400'      :
+                          flag.level === 'warning' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                     'bg-blue-500/20 text-blue-400'
+                        }`}>{flag.level}</span>
+                      </div>
+                      <p className="text-slate-400 text-xs mt-1">💡 {flag.action}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Show "all clear" if loaded and no flags */}
+            {redFlags && redFlags.flagCount === 0 && !redFlagsLoading && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex items-center gap-3">
+                <span className="text-green-400 text-lg">✅</span>
+                <div>
+                  <p className="text-green-400 font-bold text-sm">All systems healthy</p>
+                  <p className="text-slate-500 text-xs">No issues detected for this merchant</p>
+                </div>
+                <button onClick={fetchRedFlags} className="ml-auto text-xs text-slate-500 hover:text-slate-300 font-bold transition">
+                  Refresh
+                </button>
+              </div>
+            )}
+
             {/* Analytics */}
             {isActive && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
