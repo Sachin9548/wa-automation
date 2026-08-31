@@ -304,6 +304,46 @@ export default function MerchantControlHub() {
     finally { setRedFlagsLoading(false); }
   };
 
+  // ROI Report state
+  const [roiReport, setRoiReport]         = useState<any>(null);
+  const [roiLoading, setRoiLoading]       = useState(false);
+  const [roiDays, setRoiDays]             = useState(30);
+  const [roiFee, setRoiFee]               = useState('5000');
+  const [roiCopied, setRoiCopied]         = useState(false);
+
+  const generateRoiReport = async (days = roiDays, fee = roiFee) => {
+    setRoiLoading(true);
+    setRoiReport(null);
+    try {
+      const r = await axios.get(
+        `${API_URL}/admin/roi-report/${merchantId}?days=${days}&fee=${fee}`,
+        { headers: ah() }
+      );
+      setRoiReport(r.data);
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Failed to generate report');
+    } finally { setRoiLoading(false); }
+  };
+
+  const copyRoiMessage = async () => {
+    if (!roiReport?.whatsappMessage) return;
+    try {
+      await navigator.clipboard.writeText(roiReport.whatsappMessage);
+      setRoiCopied(true);
+      setTimeout(() => setRoiCopied(false), 2500);
+    } catch {
+      // Fallback for older browsers
+      const el = document.createElement('textarea');
+      el.value = roiReport.whatsappMessage;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setRoiCopied(true);
+      setTimeout(() => setRoiCopied(false), 2500);
+    }
+  };
+
   const loadActivityLog = async (page = 1, filter = '') => {
     setActivityLoading(true);
     try {
@@ -1355,6 +1395,161 @@ export default function MerchantControlHub() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── ROI Report / Invoice Generator ── */}
+            <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="text-white font-extrabold flex items-center gap-2">
+                    📊 ROI Report
+                  </p>
+                  <p className="text-slate-400 text-xs mt-0.5">Generate renewal message for merchant — shows revenue recovered vs subscription fee</p>
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="px-6 py-4 border-b border-white/5">
+                <div className="flex flex-wrap gap-3 items-end">
+                  {/* Period selector */}
+                  <div>
+                    <label className="text-slate-500 text-[10px] font-bold uppercase block mb-1.5">Period</label>
+                    <div className="flex gap-1.5">
+                      {[7, 30, 60, 90].map(d => (
+                        <button
+                          key={d}
+                          onClick={() => setRoiDays(d)}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                            roiDays === d
+                              ? 'bg-teal-500/20 border-teal-500/30 text-teal-300'
+                              : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {d}d
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Monthly fee input */}
+                  <div>
+                    <label className="text-slate-500 text-[10px] font-bold uppercase block mb-1.5">Monthly Fee (₹)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">₹</span>
+                      <input
+                        type="number"
+                        value={roiFee}
+                        onChange={e => setRoiFee(e.target.value)}
+                        placeholder="5000"
+                        className="pl-7 pr-3 py-2 bg-slate-900 border border-white/10 text-white rounded-xl text-xs font-mono w-28 outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Generate button */}
+                  <button
+                    onClick={() => generateRoiReport(roiDays, roiFee)}
+                    disabled={roiLoading}
+                    className="flex items-center gap-2 px-5 py-2 bg-teal-500 hover:bg-teal-400 text-white text-xs font-bold rounded-xl transition disabled:opacity-50"
+                  >
+                    {roiLoading
+                      ? <><FaSpinner className="animate-spin" /> Generating...</>
+                      : <>📊 Generate Report</>
+                    }
+                  </button>
+                </div>
+              </div>
+
+              {/* Report Output */}
+              {roiReport && (
+                <div className="p-6 space-y-5">
+
+                  {/* ── KPI Cards ── */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { icon: '💬', label: 'Messages Sent',    value: roiReport.messages.sent.toLocaleString('en-IN'),         color: 'text-blue-400',   bg: 'bg-blue-500/10' },
+                      { icon: '👁️', label: 'Read Rate',        value: `${roiReport.messages.openRate}%`,                       color: 'text-teal-400',   bg: 'bg-teal-500/10' },
+                      { icon: '🛒', label: 'Carts Recovered',  value: roiReport.engagement.cartsRecovered.toLocaleString('en-IN'), color: 'text-orange-400', bg: 'bg-orange-500/10' },
+                      { icon: '💰', label: 'Revenue Recovered', value: `₹${roiReport.revenue.recovered.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, color: 'text-green-400',  bg: 'bg-green-500/10' },
+                    ].map(s => (
+                      <div key={s.label} className={`${s.bg} rounded-xl p-3 md:p-4`}>
+                        <p className="text-xl mb-1">{s.icon}</p>
+                        <p className={`text-lg md:text-xl font-extrabold ${s.color}`}>{s.value}</p>
+                        <p className="text-slate-500 text-[10px] font-bold mt-0.5">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* ── ROI Highlight ── */}
+                  <div className={`rounded-xl p-4 border flex items-center gap-4 ${
+                    parseFloat(roiReport.revenue.roi) >= 100
+                      ? 'bg-green-500/10 border-green-500/20'
+                      : 'bg-yellow-500/10 border-yellow-500/20'
+                  }`}>
+                    <div className="text-3xl shrink-0">
+                      {parseFloat(roiReport.revenue.roi) >= 100 ? '🚀' : '📈'}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-extrabold text-lg ${parseFloat(roiReport.revenue.roi) >= 100 ? 'text-green-400' : 'text-yellow-400'}`}>
+                        {roiReport.revenue.roi}% ROI
+                      </p>
+                      <p className="text-slate-300 text-sm mt-0.5">
+                        Every ₹1 spent on subscription returned <strong className="text-white">₹{roiReport.revenue.revenuePerRupee}</strong> in recovered revenue
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-slate-400 text-xs">Fee paid</p>
+                      <p className="text-white font-extrabold">₹{parseFloat(roiFee).toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+
+                  {/* ── More stats ── */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {[
+                      { label: 'Delivery Rate',    value: `${roiReport.messages.deliveryRate}%`,     icon: '✅' },
+                      { label: 'Click Rate',        value: `${roiReport.engagement.clickRate}%`,      icon: '🔗' },
+                      { label: 'Cart Recovery Rate', value: `${roiReport.engagement.cartRecoveryRate}%`, icon: '🛒' },
+                      { label: 'Link Clicks',       value: roiReport.engagement.clicks.toLocaleString('en-IN'), icon: '👆' },
+                      { label: 'Carts Targeted',    value: roiReport.engagement.cartsSent.toLocaleString('en-IN'), icon: '🎯' },
+                      { label: 'Campaigns Sent',    value: roiReport.campaigns.length,               icon: '📢' },
+                    ].map(s => (
+                      <div key={s.label} className="bg-slate-900/50 rounded-xl p-3 flex items-center gap-3">
+                        <span className="text-lg shrink-0">{s.icon}</span>
+                        <div>
+                          <p className="text-white font-extrabold text-sm">{s.value}</p>
+                          <p className="text-slate-500 text-[10px] font-bold">{s.label}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* ── WhatsApp Message Preview ── */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-slate-400 text-xs font-bold uppercase">📱 WhatsApp Message (copy & send to merchant)</p>
+                      <button
+                        onClick={copyRoiMessage}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition ${
+                          roiCopied
+                            ? 'bg-green-500/20 border-green-500/30 text-green-400'
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        {roiCopied ? '✅ Copied!' : '📋 Copy Message'}
+                      </button>
+                    </div>
+                    <div className="bg-slate-900 border border-white/5 rounded-xl p-4">
+                      <pre className="text-slate-300 text-xs leading-relaxed whitespace-pre-wrap font-sans">
+                        {roiReport.whatsappMessage}
+                      </pre>
+                    </div>
+                    <p className="text-slate-600 text-[10px] mt-2">
+                      Generated at: {new Date(roiReport.generatedAt).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+
                 </div>
               )}
             </div>

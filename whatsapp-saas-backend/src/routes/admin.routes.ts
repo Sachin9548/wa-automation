@@ -754,6 +754,129 @@ router.get('/analytics/:merchantId', async (req: Request, res: Response): Promis
   }
 });
 
+// ── ROI Report — full period summary for merchant renewal conversation ────────
+// GET /api/admin/roi-report/:merchantId?days=30&fee=5000
+router.get('/roi-report/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId  = req.params.merchantId as string;
+    const days        = parseInt(req.query.days as string) || 30;
+    const monthlyFee  = parseFloat(req.query.fee as string) || 5000;
+    const since       = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: merchantId },
+      select: {
+        brandName: true, storeUrl: true,
+        totalSent: true, totalRead: true, recoveredRevenue: true,
+        subscriptionExpiry: true, totalPaidAmount: true,
+      }
+    });
+    if (!merchant) return res.status(404).json({ message: 'Merchant not found' });
+
+    // ── All queries in parallel ───────────────────────────────────────────
+    const [
+      msgSent, msgDelivered, msgRead, msgFailed,
+      trackingLinks,
+      campaigns,
+      cartsSent, cartsRecovered,
+      customerCount,
+      payments,
+    ] = await Promise.all([
+      // Messages in period
+      prisma.message.count({ where: { merchantId, direction: 'OUTGOING', timestamp: { gte: since } } }),
+      prisma.message.count({ where: { merchantId, direction: 'OUTGOING', status: 'DELIVERED', timestamp: { gte: since } } }),
+      prisma.message.count({ where: { merchantId, direction: 'OUTGOING', status: 'READ', timestamp: { gte: since } } }),
+      prisma.message.count({ where: { merchantId, direction: 'OUTGOING', status: 'FAILED', timestamp: { gte: since } } }),
+
+      // Tracking links — clicks + conversions + revenue
+      (prisma as any).trackingLink.findMany({
+        where: { merchantId, createdAt: { gte: since } },
+        select: { clicked: true, converted: true, convertedRevenue: true, discountCode: true }
+      }),
+
+      // Campaigns launched in period
+      prisma.campaign.findMany({
+        where: { merchantId, createdAt: { gte: since }, status: { in: ['COMPLETED', 'SENDING'] } },
+        select: { name: true, sentCount: true, totalRecipients: true, createdAt: true }
+      }),
+
+      // Abandoned carts sent
+      prisma.abandonedCart.count({ where: { merchantId, status: 'SENT',      createdAt: { gte: since } } }),
+      prisma.abandonedCart.count({ where: { merchantId, status: 'RECOVERED', createdAt: { gte: since } } }),
+
+      // Total customers
+      prisma.customer.count({ where: { merchantId } }),
+
+      // Payments in period
+      (prisma as any).payment.findMany({
+        where: { merchantId, paidAt: { gte: since } },
+        select: { amount: true, paidAt: true, note: true }
+      }),
+    ]);
+
+    // ── Compute metrics ───────────────────────────────────────────────────
+    const clicks              = trackingLinks.filter((l: any) => l.clicked).length;
+    const conversions         = trackingLinks.filter((l: any) => l.converted).length;
+    const revenueRecovered    = trackingLinks
+      .filter((l: any) => l.converted)
+      .reduce((s: number, l: any) => s + (l.convertedRevenue || 0), 0);
+
+    const deliveryRate        = msgSent > 0 ? ((msgDelivered / msgSent) * 100).toFixed(1) : '0';
+    const openRate            = msgSent > 0 ? ((msgRead     / msgSent) * 100).toFixed(1) : '0';
+    const clickRate           = msgSent > 0 ? ((clicks      / msgSent) * 100).toFixed(1) : '0';
+    const cartRecoveryRate    = cartsSent > 0 ? ((cartsRecovered / cartsSent) * 100).toFixed(1) : '0';
+    const roi                 = monthlyFee > 0 ? ((revenueRecovered / monthlyFee) * 100).toFixed(0) : '0';
+    const revenuePerRupee     = monthlyFee > 0 ? (revenueRecovered / monthlyFee).toFixed(1) : '0';
+
+    // ── Build WhatsApp-ready message ──────────────────────────────────────
+    const daysLabel  = days === 30 ? 'this month' : days === 7 ? 'this week' : `last ${days} days`;
+    const expiryStr  = merchant.subscriptionExpiry
+      ? new Date(merchant.subscriptionExpiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+      : 'N/A';
+
+    const whatsappMessage = `📊 *WA-Automation Monthly Report*
+━━━━━━━━━━━━━━━━━━━━
+🏪 *Brand:* ${merchant.brandName}
+📅 *Period:* ${daysLabel} (${days} days)
+━━━━━━━━━━━━━━━━━━━━
+
+💬 *Messages Sent:* ${msgSent.toLocaleString('en-IN')}
+✅ *Delivered:* ${msgDelivered.toLocaleString('en-IN')} (${deliveryRate}%)
+👁️ *Read/Opened:* ${msgRead.toLocaleString('en-IN')} (${openRate}%)
+🔗 *Link Clicks:* ${clicks.toLocaleString('en-IN')} (${clickRate}%)
+
+🛒 *Abandoned Carts Targeted:* ${cartsSent.toLocaleString('en-IN')}
+✅ *Carts Recovered:* ${cartsRecovered.toLocaleString('en-IN')} (${cartRecoveryRate}%)
+${campaigns.length > 0 ? `📢 *Campaigns Sent:* ${campaigns.length}\n` : ''}
+━━━━━━━━━━━━━━━━━━━━
+💰 *Revenue Recovered:* ₹${revenueRecovered.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+📈 *ROI:* ${roi}% on ₹${monthlyFee.toLocaleString('en-IN')} subscription
+⚡ *Every ₹1 you paid = ₹${revenuePerRupee} returned*
+━━━━━━━━━━━━━━━━━━━━
+
+📌 *Subscription expiry:* ${expiryStr}
+💳 *Monthly fee:* ₹${monthlyFee.toLocaleString('en-IN')}
+
+_Powered by WA-Automation_ 🚀
+_Reply to renew your subscription_`;
+
+    res.json({
+      period:      { days, since: since.toISOString(), label: daysLabel },
+      merchant:    { brandName: merchant.brandName, storeUrl: merchant.storeUrl, subscriptionExpiry: merchant.subscriptionExpiry },
+      messages:    { sent: msgSent, delivered: msgDelivered, read: msgRead, failed: msgFailed, deliveryRate, openRate },
+      engagement:  { clicks, conversions, clickRate, cartsSent, cartsRecovered, cartRecoveryRate },
+      revenue:     { recovered: revenueRecovered, monthlyFee, roi, revenuePerRupee },
+      campaigns:   campaigns.map((c: any) => ({ name: c.name, sent: c.sentCount, total: c.totalRecipients })),
+      customers:   { total: customerCount },
+      payments:    payments.map((p: any) => ({ amount: p.amount, paidAt: p.paidAt, note: p.note })),
+      whatsappMessage,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 // ── WABA Info — fetch live data from Meta Graph API ──────────────────────────
 // Returns: phone number, display name, quality rating, messaging tier, WABA name
 router.get('/waba-info/:merchantId', async (req: Request, res: Response): Promise<any> => {
