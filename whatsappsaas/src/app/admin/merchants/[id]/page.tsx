@@ -824,35 +824,35 @@ export default function MerchantControlHub() {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* Header */}
-      <header className="h-16 bg-slate-900/80 backdrop-blur border-b border-white/5 flex items-center px-8 gap-4 sticky top-0 z-10">
-        <button onClick={() => router.back()} className="flex items-center gap-2 text-slate-400 hover:text-teal-400 font-bold text-sm transition">
-          <FaArrowLeft /> Back
+      <header className="h-14 md:h-16 bg-slate-900/80 backdrop-blur border-b border-white/5 flex items-center px-3 md:px-8 gap-2 md:gap-4 sticky top-0 z-10">
+        <button onClick={() => router.back()} className="flex items-center gap-1.5 text-slate-400 hover:text-teal-400 font-bold text-sm transition shrink-0">
+          <FaArrowLeft /> <span className="hidden sm:inline">Back</span>
         </button>
-        <div className="w-px h-6 bg-white/10" />
-        <div className="flex items-center gap-2">
-          <FaStore className="text-teal-400 text-sm" />
-          <span className="text-white font-extrabold">{merchant?.brandName || "Loading..."}</span>
-          <span className="text-slate-500 text-sm">· {merchantId.slice(0, 8)}...</span>
+        <div className="w-px h-6 bg-white/10 hidden sm:block" />
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <FaStore className="text-teal-400 text-sm shrink-0" />
+          <span className="text-white font-extrabold truncate text-sm md:text-base">{merchant?.brandName || "Loading..."}</span>
+          <span className="text-slate-500 text-xs hidden md:inline">· {merchantId.slice(0, 8)}...</span>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${waConnected ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-slate-700 border-white/5 text-slate-400"}`}>
-            <FaWhatsapp />{waConnected ? "WA Live" : "WA Offline"}
+        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+          <div className={`hidden sm:flex items-center gap-1.5 px-2 md:px-3 py-1 md:py-1.5 rounded-xl border text-xs font-bold ${waConnected ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-slate-700 border-white/5 text-slate-400"}`}>
+            <FaWhatsapp />{waConnected ? "WA Live" : "WA Off"}
           </div>
-          <div className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border ${isActive ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-amber-500/10 border-amber-500/20 text-amber-400"}`}>
+          <div className={`px-2 md:px-3 py-1 md:py-1.5 rounded-xl text-[10px] md:text-xs font-extrabold border ${isActive ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-amber-500/10 border-amber-500/20 text-amber-400"}`}>
             {isActive ? "● ACTIVE" : "● PENDING"}
           </div>
         </div>
       </header>
 
       {/* Hero */}
-      <div className="bg-gradient-to-br from-teal-700 to-teal-900 px-8 py-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center gap-6">
+      <div className="bg-gradient-to-br from-teal-700 to-teal-900 px-4 md:px-8 py-4 md:py-6">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
           <div className="flex-1">
             <p className="text-teal-200 text-xs font-bold uppercase tracking-wider mb-1">Merchant Hub</p>
-            <h1 className="text-2xl font-extrabold text-white">{merchant?.brandName}</h1>
+            <h1 className="text-xl md:text-2xl font-extrabold text-white">{merchant?.brandName}</h1>
             <p className="text-teal-300 text-sm mt-0.5">{merchant?.storeUrl || "—"}</p>
           </div>
-          <div className="flex gap-8">
+          <div className="flex gap-4 md:gap-8">
             {[
               { label: "Customers", value: merchant?._count?.customers ?? customerTotal },
               { label: "Sent", value: merchant?.totalSent ?? 0 },
@@ -869,18 +869,20 @@ export default function MerchantControlHub() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-white/5 bg-slate-900 px-8">
-        <div className="max-w-6xl mx-auto flex">
-          {TABS.map(t => (
-            <button key={t.key} onClick={() => setActiveTab(t.key as any)}
-              className={`px-5 py-4 text-sm font-bold border-b-2 transition ${activeTab === t.key ? "border-teal-400 text-teal-400" : "border-transparent text-slate-400 hover:text-slate-200"}`}>
-              {t.label}
-            </button>
-          ))}
+      <div className="border-b border-white/5 bg-slate-900 px-0 md:px-8">
+        <div className="max-w-6xl mx-auto overflow-x-auto scrollbar-hide">
+          <div className="flex whitespace-nowrap min-w-max">
+            {TABS.map(t => (
+              <button key={t.key} onClick={() => setActiveTab(t.key as any)}
+                className={`px-3 md:px-5 py-3 md:py-4 text-xs md:text-sm font-bold border-b-2 transition shrink-0 ${activeTab === t.key ? "border-teal-400 text-teal-400" : "border-transparent text-slate-400 hover:text-slate-200"}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-8 space-y-6">
+      <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
 
         {/* ── OVERVIEW TAB ── */}
         {activeTab === "overview" && (
@@ -1955,41 +1957,46 @@ export default function MerchantControlHub() {
 
             {/* Customers table */}
             <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
-              <div className="px-6 py-3 border-b border-white/5 grid grid-cols-12 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                <span className="col-span-3">Customer</span>
-                <span className="col-span-3">Phone</span>
-                <span className="col-span-2">Orders</span>
-                <span className="col-span-2">Total Spent</span>
-                <span className="col-span-2">Type</span>
+              {/* table-like grid — scroll horizontally on mobile */}
+              <div className="overflow-x-auto">
+                <div className="min-w-[540px]">
+                  <div className="px-4 md:px-6 py-3 border-b border-white/5 grid grid-cols-12 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <span className="col-span-3">Customer</span>
+                    <span className="col-span-3">Phone</span>
+                    <span className="col-span-2">Orders</span>
+                    <span className="col-span-2">Total Spent</span>
+                    <span className="col-span-2">Type</span>
+                  </div>
+                  {customers.length === 0 ? (
+                    <div className="px-6 py-12 text-center">
+                      <FaUsers className="text-slate-600 text-3xl mx-auto mb-2" />
+                      <p className="text-slate-500 text-sm">No customers found. Sync from Shopify or import CSV.</p>
+                    </div>
+                  ) : customers.map((c: any) => (
+                    <div key={c.id} className="px-4 md:px-6 py-3 grid grid-cols-12 border-b border-white/5 hover:bg-white/3 transition items-center">
+                      <div className="col-span-3">
+                        <p className="text-white text-sm font-medium">{c.name || '—'}</p>
+                        {c.city && <p className="text-slate-500 text-xs">{c.city}</p>}
+                      </div>
+                      <span className="col-span-3 text-slate-400 text-xs font-mono truncate">{c.phone}</span>
+                      <span className="col-span-2 text-slate-300 text-sm">{c.totalOrders || 0}</span>
+                      <span className="col-span-2 text-teal-400 text-sm font-bold">₹{(c.totalSpent || 0).toFixed(0)}</span>
+                      <div className="col-span-2 flex gap-1 flex-wrap">
+                        {c.hasAbandonedCart && <span className="bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[9px] font-bold px-1.5 py-0.5 rounded">Cart</span>}
+                        {c.hasPlacedOrder && <span className="bg-green-500/10 border border-green-500/20 text-green-400 text-[9px] font-bold px-1.5 py-0.5 rounded">Order</span>}
+                        {(c.phone === 'NO_PHONE' || c.phone === '' || c.phone?.startsWith('email:')) && <span className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-bold px-1.5 py-0.5 rounded">No Phone</span>}
+                        {c.tags?.includes('wa_invalid') && <span className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[9px] font-bold px-1.5 py-0.5 rounded">WA ✗</span>}
+                        {!c.hasAbandonedCart && !c.hasPlacedOrder && c.phone !== 'NO_PHONE' && !c.phone?.startsWith('email:') && !c.tags?.includes('wa_invalid') && <span className="text-slate-600 text-[9px]">—</span>}
+                      </div>
+                    </div>
+                  ))}
+                  {customerTotal > customers.length && (
+                    <div className="px-6 py-3 text-center text-slate-500 text-xs">
+                      Showing {customers.length} of {customerTotal} customers
+                    </div>
+                  )}
+                </div>
               </div>
-              {customers.length === 0 ? (
-                <div className="px-6 py-12 text-center">
-                  <FaUsers className="text-slate-600 text-3xl mx-auto mb-2" />
-                  <p className="text-slate-500 text-sm">No customers found. Sync from Shopify or import CSV.</p>
-                </div>
-              ) : customers.map((c: any) => (
-                <div key={c.id} className="px-6 py-3 grid grid-cols-12 border-b border-white/5 hover:bg-white/3 transition items-center">
-                  <div className="col-span-3">
-                    <p className="text-white text-sm font-medium">{c.name || '—'}</p>
-                    {c.city && <p className="text-slate-500 text-xs">{c.city}</p>}
-                  </div>
-                  <span className="col-span-3 text-slate-400 text-sm font-mono">{c.phone}</span>
-                  <span className="col-span-2 text-slate-300 text-sm">{c.totalOrders || 0}</span>
-                  <span className="col-span-2 text-teal-400 text-sm font-bold">₹{(c.totalSpent || 0).toFixed(0)}</span>
-                  <div className="col-span-2 flex gap-1 flex-wrap">
-                    {c.hasAbandonedCart && <span className="bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[9px] font-bold px-1.5 py-0.5 rounded">Cart</span>}
-                    {c.hasPlacedOrder && <span className="bg-green-500/10 border border-green-500/20 text-green-400 text-[9px] font-bold px-1.5 py-0.5 rounded">Order</span>}
-                    {(c.phone === 'NO_PHONE' || c.phone === '' || c.phone?.startsWith('email:')) && <span className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-bold px-1.5 py-0.5 rounded">No Phone</span>}
-                    {c.tags?.includes('wa_invalid') && <span className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[9px] font-bold px-1.5 py-0.5 rounded">WA ✗</span>}
-                    {!c.hasAbandonedCart && !c.hasPlacedOrder && c.phone !== 'NO_PHONE' && !c.phone?.startsWith('email:') && !c.tags?.includes('wa_invalid') && <span className="text-slate-600 text-[9px]">—</span>}
-                  </div>
-                </div>
-              ))}
-              {customerTotal > customers.length && (
-                <div className="px-6 py-3 text-center text-slate-500 text-xs">
-                  Showing {customers.length} of {customerTotal} customers
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -2439,10 +2446,11 @@ export default function MerchantControlHub() {
 
         {/* ── INBOX TAB ── */}
         {activeTab === "inbox" && (
-          <div className="flex gap-4 h-[75vh]">
+          <div className="flex flex-col md:flex-row gap-4 h-auto md:h-[75vh]">
 
             {/* ── Left: Conversation List ── */}
-            <div className="w-80 flex-shrink-0 bg-slate-800 border border-white/5 rounded-2xl flex flex-col overflow-hidden">
+            {/* On mobile: hidden when a convo is selected, shown otherwise */}
+            <div className={`${selectedConvo ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-80 md:flex-shrink-0 bg-slate-800 border border-white/5 rounded-2xl overflow-hidden h-[60vh] md:h-full`}>
               {/* Header */}
               <div className="px-4 py-3 border-b border-white/5">
                 <p className="text-white font-extrabold text-sm mb-2">💬 Conversations</p>
@@ -2517,7 +2525,8 @@ export default function MerchantControlHub() {
             </div>
 
             {/* ── Right: Chat Window ── */}
-            <div className="flex-1 bg-slate-800 border border-white/5 rounded-2xl flex flex-col overflow-hidden">
+            {/* On mobile: shown only when a convo is selected */}
+            <div className={`${selectedConvo ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-slate-800 border border-white/5 rounded-2xl overflow-hidden h-[75vh] md:h-full`}>
               {!selectedConvo ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
                   <p className="text-5xl mb-4">👈</p>
@@ -2527,29 +2536,38 @@ export default function MerchantControlHub() {
               ) : (
                 <>
                   {/* Chat header */}
-                  <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
-                    <div>
-                      <p className="text-white font-extrabold text-sm">
-                        {selectedConvo.customerName || selectedConvo.customerPhone}
-                      </p>
-                      <p className="text-slate-500 text-[10px]">{selectedConvo.customerPhone}</p>
+                  <div className="px-4 md:px-5 py-3 border-b border-white/5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* Mobile back button */}
+                      <button
+                        onClick={() => setSelectedConvo(null)}
+                        className="md:hidden text-slate-400 hover:text-white p-1 shrink-0"
+                      >
+                        <FaArrowLeft className="text-sm" />
+                      </button>
+                      <div className="min-w-0">
+                        <p className="text-white font-extrabold text-sm truncate">
+                          {selectedConvo.customerName || selectedConvo.customerPhone}
+                        </p>
+                        <p className="text-slate-500 text-[10px] truncate">{selectedConvo.customerPhone}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end shrink-0 max-w-[180px] md:max-w-none">
                       {/* 24hr window indicator */}
                       {selectedConvo.canSendFreeText && timeLeft && (
-                        <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
-                          <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                          <span className="text-green-400 text-[10px] font-bold">Window open: {timeLeft} left</span>
+                        <div className="flex items-center gap-1 bg-green-500/10 border border-green-500/20 rounded-xl px-2 py-1">
+                          <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shrink-0" />
+                          <span className="text-green-400 text-[9px] font-bold whitespace-nowrap">{timeLeft} left</span>
                         </div>
                       )}
                       {!selectedConvo.canSendFreeText && (
-                        <div className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-1.5">
-                          <span className="text-yellow-400 text-[10px] font-bold">⏰ 24hr window closed — template only</span>
+                        <div className="flex items-center gap-1 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-2 py-1">
+                          <span className="text-yellow-400 text-[9px] font-bold">⏰ Template only</span>
                         </div>
                       )}
                       {selectedConvo.isOptedOut && (
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-1.5">
-                          <span className="text-red-400 text-[10px] font-bold">🚫 Opted Out</span>
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-2 py-1">
+                          <span className="text-red-400 text-[9px] font-bold">🚫 Opted Out</span>
                         </div>
                       )}
                     </div>
