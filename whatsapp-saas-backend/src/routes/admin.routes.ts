@@ -1005,7 +1005,7 @@ router.get('/red-flags/:merchantId', async (req: Request, res: Response): Promis
       action: string;
     }> = [];
 
-    // ── 1. Meta Access Token check ────────────────────────────────────────
+    // ── 1. Meta Access Token check + Quality Rating ──────────────────────
     if (!merchant.metaAccessToken || !merchant.metaPhoneNumberId) {
       flags.push({
         level:   'error',
@@ -1014,14 +1014,45 @@ router.get('/red-flags/:merchantId', async (req: Request, res: Response): Promis
         action:  'Go to Credentials tab and set Meta Phone Number ID + Access Token',
       });
     } else {
-      // Validate token with a lightweight Meta API call
+      // Single API call — get token validity + quality rating together
       try {
         const axios = await import('axios');
-        await axios.default.get(
-          `https://graph.facebook.com/v23.0/${merchant.metaPhoneNumberId}?fields=id`,
-          { headers: { Authorization: `Bearer ${merchant.metaAccessToken}` }, timeout: 5000 }
+        const resp = await axios.default.get(
+          `https://graph.facebook.com/v23.0/${merchant.metaPhoneNumberId}?fields=id,quality_rating,messaging_limit_tier,account_mode`,
+          { headers: { Authorization: `Bearer ${merchant.metaAccessToken}` }, timeout: 6000 }
         );
-        // Token is valid — no flag
+
+        const qualityRating = resp.data?.quality_rating || 'UNKNOWN';
+        const tierRaw       = resp.data?.messaging_limit_tier || '';
+
+        // ── Quality Rating alert ────────────────────────────────────────
+        if (qualityRating === 'RED') {
+          flags.push({
+            level:   'error',
+            code:    'META_QUALITY_RED',
+            message: '🔴 Meta Quality Rating is RED — your number may get blocked!',
+            action:  'Pause all campaigns immediately. Review recent messages. Avoid bulk sending until rating recovers to GREEN.',
+          });
+        } else if (qualityRating === 'YELLOW') {
+          flags.push({
+            level:   'warning',
+            code:    'META_QUALITY_YELLOW',
+            message: '🟡 Meta Quality Rating is YELLOW — declining, action needed',
+            action:  'Reduce campaign frequency, check for spam-like templates, monitor for the next 24-48 hours.',
+          });
+        }
+        // GREEN or UNKNOWN — no flag needed
+
+        // ── Low messaging tier warning ──────────────────────────────────
+        if (tierRaw === 'TIER_50') {
+          flags.push({
+            level:   'warning',
+            code:    'LOW_MESSAGING_TIER',
+            message: 'Messaging tier is very low — only 50 conversations/day allowed',
+            action:  'Increase quality rating and volume gradually to upgrade to TIER_250+',
+          });
+        }
+
       } catch (e: any) {
         const code = e.response?.data?.error?.code;
         if (code === 190) {
@@ -1039,7 +1070,6 @@ router.get('/red-flags/:merchantId', async (req: Request, res: Response): Promis
             action:  'Check Meta API status at developers.facebook.com',
           });
         }
-        // Other errors (rate limit etc.) — don't flag
       }
     }
 
@@ -1180,10 +1210,18 @@ router.get('/red-flags/:merchantId', async (req: Request, res: Response): Promis
                   : levels.includes('warning') ? 'warning'
                   : levels.includes('info')    ? 'info' : 'ok';
 
+    // Extract quality rating from flags for easy frontend access
+    const qualityFlag = flags.find(f => f.code === 'META_QUALITY_RED' || f.code === 'META_QUALITY_YELLOW');
+    const qualityRating = qualityFlag?.code === 'META_QUALITY_RED'    ? 'RED'
+                        : qualityFlag?.code === 'META_QUALITY_YELLOW' ? 'YELLOW'
+                        : flags.some(f => f.code === 'META_CREDS_MISSING' || f.code === 'META_TOKEN_EXPIRED') ? 'UNKNOWN'
+                        : 'GREEN';
+
     res.json({
       overall,
       flagCount: flags.length,
       flags,
+      qualityRating,   // GREEN | YELLOW | RED | UNKNOWN — for header badge
       checkedAt: now.toISOString(),
     });
 

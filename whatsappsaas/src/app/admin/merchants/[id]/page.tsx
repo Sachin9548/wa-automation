@@ -518,8 +518,9 @@ export default function MerchantControlHub() {
         setCredClientSecret(m.shopifyClientSecret || "");
       }
       if (mRes.data.merchant?.storeUrl) setStoreUrl(mRes.data.merchant.storeUrl);
-      // Load red flags on initial page load
+      // Load red flags + WABA info on initial page load
       fetchRedFlags();
+      fetchWabaInfo();
     } finally {
       setFetching(false);
     }
@@ -543,6 +544,8 @@ export default function MerchantControlHub() {
     }
     if (activeTab === 'overview') {
       fetchRedFlags();
+      // Re-fetch waba info if not yet loaded
+      if (!wabaInfo) fetchWabaInfo();
     }
   }, [activeTab]);
 
@@ -888,6 +891,22 @@ export default function MerchantControlHub() {
           <div className={`hidden sm:flex items-center gap-1.5 px-2 md:px-3 py-1 md:py-1.5 rounded-xl border text-xs font-bold ${waConnected ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-slate-700 border-white/5 text-slate-400"}`}>
             <FaWhatsapp />{waConnected ? "WA Live" : "WA Off"}
           </div>
+          {/* Quality Rating badge — auto populated from red-flags */}
+          {redFlags?.qualityRating && redFlags.qualityRating !== 'UNKNOWN' && (
+            <div className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-xl border text-[10px] font-extrabold ${
+              redFlags.qualityRating === 'GREEN'  ? 'bg-green-500/10 border-green-500/20 text-green-400'  :
+              redFlags.qualityRating === 'YELLOW' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400 animate-pulse' :
+              redFlags.qualityRating === 'RED'    ? 'bg-red-500/10 border-red-500/20 text-red-400 animate-pulse'  :
+                                                    'bg-slate-700 border-white/10 text-slate-400'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                redFlags.qualityRating === 'GREEN'  ? 'bg-green-400'  :
+                redFlags.qualityRating === 'YELLOW' ? 'bg-yellow-400' :
+                redFlags.qualityRating === 'RED'    ? 'bg-red-400'    : 'bg-slate-500'
+              }`} />
+              {redFlags.qualityRating}
+            </div>
+          )}
           <div className={`px-2 md:px-3 py-1 md:py-1.5 rounded-xl text-[10px] md:text-xs font-extrabold border ${isActive ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-amber-500/10 border-amber-500/20 text-amber-400"}`}>
             {isActive ? "● ACTIVE" : "● PENDING"}
           </div>
@@ -1271,19 +1290,31 @@ export default function MerchantControlHub() {
                 <div className="flex items-center gap-2">
                   <FaWhatsapp className="text-green-400" />
                   <span className="text-white font-bold">WhatsApp Business Account</span>
+                  {/* Live quality badge next to title */}
+                  {wabaInfo && !wabaInfo.error && (
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ml-1 ${
+                      wabaInfo.qualityColor === 'green'  ? 'bg-green-500/20 border-green-500/30 text-green-400'  :
+                      wabaInfo.qualityColor === 'yellow' ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400' :
+                      wabaInfo.qualityColor === 'red'    ? 'bg-red-500/20 border-red-500/30 text-red-400 animate-pulse' :
+                                                           'bg-slate-700 border-white/10 text-slate-400'
+                    }`}>
+                      ● {wabaInfo.qualityRating}
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={fetchWabaInfo}
                   disabled={wabaLoading}
                   className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition disabled:opacity-40"
                 >
-                  <FaSync className={wabaLoading ? 'animate-spin' : ''} /> {wabaInfo ? 'Refresh' : 'Load Info'}
+                  <FaSync className={wabaLoading ? 'animate-spin' : ''} /> Refresh
                 </button>
               </div>
 
               {!wabaInfo && !wabaLoading && (
-                <div className="px-6 py-8 text-center">
-                  <p className="text-slate-500 text-sm">Click "Load Info" to fetch live data from Meta</p>
+                <div className="px-6 py-6 flex items-center justify-center gap-3">
+                  <FaSpinner className="animate-spin text-teal-400" />
+                  <span className="text-slate-400 text-sm">Loading WABA info...</span>
                 </div>
               )}
 
