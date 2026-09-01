@@ -9,7 +9,7 @@ import {
   FaSpinner, FaWhatsapp, FaUsers, FaChartBar, FaEnvelope,
   FaMousePointer, FaRupeeSign, FaTimes, FaPlay, FaClock,
   FaCheckDouble, FaShoppingCart, FaBoxOpen, FaToggleOn,
-  FaToggleOff, FaEdit, FaRobot,
+  FaToggleOff, FaEdit, FaRobot, FaGift,
 } from "react-icons/fa";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -46,6 +46,16 @@ const FLOW_TYPES = [
     border: "border-green-500/30",
     defaultDelay: 0,
     defaultTemplate: `✅ *Order Confirmed, {{name}}!*\n\nThank you for shopping with us! 🎉\n\nYour order is being processed. We'll notify you once it's shipped.\n\n_Need help? Just reply to this message._ 💬`,
+  },
+  {
+    type: "POST_PURCHASE_UPSELL",
+    label: "Post-Purchase Upsell",
+    icon: <FaGift />,
+    color: "text-purple-400",
+    bg: "bg-purple-500/20",
+    border: "border-purple-500/30",
+    defaultDelay: 120,
+    defaultTemplate: `🎉 *Thanks for your purchase, {{name}}!*\n\nYou just got *{{product}}* — great choice! 👌\n\nWe thought you might love these matching items too:\n\n👇 *Explore collection:*\n{{link}}\n\n{{discount_code ? \`Use code *\${discount_code}* for extra discount! 🏷️\` : ''}}\n\n_Happy shopping!_ 💫`,
   },
 ];
 
@@ -1691,14 +1701,19 @@ export default function MerchantControlHub() {
                           className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                         <div className="mt-2 grid grid-cols-4 gap-1">
-                          {[{ label: '1 min', val: 1 }, { label: '30 min', val: 30 }, { label: '1 hr', val: 60 }, { label: '24 hrs', val: 1440 }].map(p => (
+                          {(ft.type === 'POST_PURCHASE_UPSELL'
+                            ? [{ label: '30 min', val: 30 }, { label: '1 hr', val: 60 }, { label: '2 hrs', val: 120 }, { label: '4 hrs', val: 240 }]
+                            : [{ label: '1 min', val: 1 }, { label: '30 min', val: 30 }, { label: '1 hr', val: 60 }, { label: '24 hrs', val: 1440 }]
+                          ).map(p => (
                             <button key={p.val} type="button" onClick={() => updateDraft({ delay: p.val })}
                               className={`text-xs py-1.5 rounded-lg border font-bold transition ${currentDelay === p.val ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>
                               {p.label}
                             </button>
                           ))}
                         </div>
-                        <p className="text-slate-600 text-xs mt-1.5">Use 1 min for testing · 30 min for production</p>
+                        <p className="text-slate-600 text-xs mt-1.5">
+                          {ft.type === 'POST_PURCHASE_UPSELL' ? '2 hrs recommended · gives customer time to receive order first' : 'Use 1 min for testing · 30 min for production'}
+                        </p>
                       </div>
                     </div>
 
@@ -1718,6 +1733,24 @@ export default function MerchantControlHub() {
                         Auto-appended to cart URL + tracked separately in Analytics
                       </p>
                     </div>
+
+                    {/* ── Upsell-specific variable hint ── */}
+                    {ft.type === 'POST_PURCHASE_UPSELL' && (
+                      <div className="bg-purple-900/20 border border-purple-500/20 rounded-xl p-4 text-xs text-slate-300">
+                        <p className="text-purple-300 font-bold mb-2 flex items-center gap-2">
+                          <FaGift /> Post-Purchase Upsell — Template Variables
+                        </p>
+                        <div className="space-y-1 font-mono">
+                          <p><span className="text-purple-400">{'{{1}}'}</span> <span className="text-slate-400">= Customer first name (e.g. "Priya")</span></p>
+                          <p><span className="text-purple-400">{'{{2}}'}</span> <span className="text-slate-400">= Product they just bought (e.g. "Kundan Necklace")</span></p>
+                          <p><span className="text-purple-400">{'{{3}}'}</span> <span className="text-slate-400">= Store link (tracked for clicks)</span></p>
+                          <p><span className="text-purple-400">{'{{4}}'}</span> <span className="text-slate-400">= Discount code (only if set above)</span></p>
+                        </div>
+                        <p className="text-slate-500 text-[10px] mt-2">
+                          ⚡ Triggered 2hr after order — same customer will not get upsell again within 7 days
+                        </p>
+                      </div>
+                    )}
 
                     {/* Toggle + Save button */}
                     <div className="flex items-center justify-between pt-3 border-t border-white/5">

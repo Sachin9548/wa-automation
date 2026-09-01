@@ -72,13 +72,14 @@ const markPhoneAsInvalid = async (merchantId: string, phone: string, reason: str
 export const initMessageWorker = () => {
   const worker = new Worker('message-sending', async (job) => {
 
-    // ── 1. ABANDONED CART ──────────────────────────────────────────────────
+    // ── 1. ABANDONED CART / POST-PURCHASE UPSELL ──────────────────────────
     if (job.name === 'send-automated-msg') {
-      const { cartId, merchantId, phone, templateName, templateLang, discountCode, trackingLinkId, variables } = job.data;
-      console.log(`🤖 Job: ${job.id} | Cart: ${cartId} | Phone: ${phone} | Template: ${templateName}`);
+      const { cartId, merchantId, phone, templateName, templateLang, discountCode, trackingLinkId, variables, jobType } = job.data;
+      const isUpsell = jobType === 'POST_PURCHASE_UPSELL' || !cartId;
+      console.log(`🤖 Job: ${job.id} | Type: ${isUpsell ? 'UPSELL' : 'CART'} | Cart: ${cartId || 'N/A'} | Phone: ${phone} | Template: ${templateName}`);
 
       if (!phone || phone === 'NO_PHONE') {
-        console.log(`❌ Skipped: No phone for Cart ${cartId}`);
+        console.log(`❌ Skipped: No phone`);
         return;
       }
 
@@ -87,17 +88,23 @@ export const initMessageWorker = () => {
       const alreadyInvalid = await isPhoneInvalid(merchantId, toPhone);
       if (alreadyInvalid) {
         console.log(`📵 Skipped: Phone ${toPhone} already marked as WA invalid — no retry`);
-        await prisma.abandonedCart.update({
-          where: { id: cartId },
-          data: { status: 'FAILED' }
-        });
+        // Only update cart status if this is a cart job
+        if (cartId) {
+          await prisma.abandonedCart.update({
+            where: { id: cartId },
+            data: { status: 'FAILED' }
+          });
+        }
         return;
       }
 
-      const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
-      if (!cart || cart.status !== 'PENDING') {
-        console.log(`ℹ️ Cart ${cartId} already processed (status: ${cart?.status}). Skipping.`);
-        return;
+      // ── Cart status check (skip for upsell jobs — no cart record) ────
+      if (!isUpsell && cartId) {
+        const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
+        if (!cart || cart.status !== 'PENDING') {
+          console.log(`ℹ️ Cart ${cartId} already processed (status: ${cart?.status}). Skipping.`);
+          return;
+        }
       }
 
       // ── Use cached merchant eligibility (reduces DB reads) ────────────
@@ -140,17 +147,27 @@ export const initMessageWorker = () => {
           });
         }
 
-        await prisma.$transaction([
-          prisma.merchant.update({
+        // Cart status update only for cart jobs
+        if (!isUpsell && cartId) {
+          await prisma.$transaction([
+            prisma.merchant.update({
+              where: { id: merchantId },
+              data: { totalSent: { increment: 1 } }
+            }),
+            prisma.abandonedCart.update({
+              where: { id: cartId },
+              data: { status: 'SENT' }
+            }),
+          ]);
+          console.log(`✅ Abandoned cart message sent → ${toPhone}`);
+        } else {
+          // Upsell — just increment sent count
+          await prisma.merchant.update({
             where: { id: merchantId },
             data: { totalSent: { increment: 1 } }
-          }),
-          prisma.abandonedCart.update({
-            where: { id: cartId },
-            data: { status: 'SENT' }
-          }),
-        ]);
-        console.log(`✅ Abandoned cart message sent → ${toPhone}`);
+          });
+          console.log(`🎁 Post-purchase upsell sent → ${toPhone}`);
+        }
 
       } else if (!result.retryable) {
         // ── Non-retryable: save failure + maybe mark phone invalid ────────
@@ -158,7 +175,7 @@ export const initMessageWorker = () => {
           ? `NOT_ON_WHATSAPP (${result.errorCode})`
           : `${result.errorMessage || 'Meta error'} (${result.errorCode})`;
 
-        console.error(`🚫 Non-retryable error for cart ${cartId} → ${toPhone}: ${failReason}`);
+        console.error(`🚫 Non-retryable error for ${isUpsell ? 'upsell' : 'cart'} ${cartId || 'N/A'} → ${toPhone}: ${failReason}`);
 
         await prisma.message.create({
           data: {
@@ -173,11 +190,13 @@ export const initMessageWorker = () => {
           }
         });
 
-        // Mark cart as FAILED so no future jobs re-queue this
-        await prisma.abandonedCart.update({
-          where: { id: cartId },
-          data: { status: 'FAILED' }
-        });
+        // Mark cart as FAILED only for cart jobs
+        if (!isUpsell && cartId) {
+          await prisma.abandonedCart.update({
+            where: { id: cartId },
+            data: { status: 'FAILED' }
+          });
+        }
 
         // If number is not on WhatsApp — mark customer so we never try again
         if (result.invalidNumber) {
