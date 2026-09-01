@@ -290,7 +290,11 @@ router.get('/meta-templates/:merchantId', async (req: Request, res: Response): P
 // ── Meta: Create new template ─────────────────────────────────────────────────
 router.post('/meta-templates', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { merchantId, name, language, category, bodyText, headerText, footerText } = req.body;
+    const { merchantId, name, language, category, bodyText, headerText, footerText, buttons } = req.body;
+    // buttons = [{ type: 'URL', text: 'Shop Now', url: 'https://...' }
+    //           |{ type: 'PHONE_NUMBER', text: 'Call Us', phone_number: '+91...' }
+    //           |{ type: 'QUICK_REPLY', text: 'STOP' }]
+
     if (!merchantId || !name || !bodyText) {
       return res.status(400).json({ message: 'merchantId, name, bodyText required' });
     }
@@ -304,6 +308,26 @@ router.post('/meta-templates', async (req: Request, res: Response): Promise<any>
     components.push({ type: 'BODY', text: bodyText });
     if (footerText) components.push({ type: 'FOOTER', text: footerText });
 
+    // ── Buttons component ──────────────────────────────────────────────────
+    if (buttons && Array.isArray(buttons) && buttons.length > 0) {
+      const metaButtons = buttons.map((btn: any) => {
+        if (btn.type === 'URL') {
+          return { type: 'URL', text: btn.text, url: btn.url };
+        }
+        if (btn.type === 'PHONE_NUMBER') {
+          return { type: 'PHONE_NUMBER', text: btn.text, phone_number: btn.phone_number };
+        }
+        if (btn.type === 'QUICK_REPLY') {
+          return { type: 'QUICK_REPLY', text: btn.text };
+        }
+        return null;
+      }).filter(Boolean);
+
+      if (metaButtons.length > 0) {
+        components.push({ type: 'BUTTONS', buttons: metaButtons });
+      }
+    }
+
     const axios = await import('axios');
     const resp = await axios.default.post(
       `https://graph.facebook.com/v23.0/${merchant.metaWabaId}/message_templates`,
@@ -312,8 +336,8 @@ router.post('/meta-templates', async (req: Request, res: Response): Promise<any>
     );
 
     logActivity(merchantId, 'TEMPLATE_CREATED',
-      `Template '${name}' submitted for Meta review (${language || 'en_US'}, ${category || 'MARKETING'})`,
-      { name, language, category }
+      `Template '${name}' submitted for Meta review (${language || 'en_US'}, ${category || 'MARKETING'})${buttons?.length ? ` with ${buttons.length} button(s)` : ''}`,
+      { name, language, category, buttonCount: buttons?.length || 0 }
     );
 
     res.status(200).json({ message: '✅ Template submitted for review!', data: resp.data });
