@@ -253,7 +253,7 @@ export default function MerchantControlHub() {
   const [customerTotal, setCustomerTotal] = useState(0);
   const [fetching, setFetching] = useState(true);
   const [loading, setLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "flows" | "campaign" | "customers" | "analytics" | "credentials" | "templates" | "inbox" | "activitylog">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "flows" | "campaign" | "customers" | "analytics" | "credentials" | "templates" | "inbox" | "activitylog" | "mpm">("overview");
 
   // Activation
   const [category, setCategory] = useState("ECOMMERCE");
@@ -392,6 +392,21 @@ export default function MerchantControlHub() {
   const [campScheduledAt, setCampScheduledAt]         = useState("");   // datetime-local string
   const [campCustomerFilter, setCampCustomerFilter]   = useState("all");
   const [campCancelId, setCampCancelId]               = useState<string | null>(null);
+
+  // ── MPM — Product Messages ─────────────────────────────────────────────────
+  const [mpmTemplate, setMpmTemplate]         = useState("");
+  const [mpmLang, setMpmLang]                 = useState("en_US");
+  const [mpmBodyVars, setMpmBodyVars]         = useState("");
+  const [mpmThumbnailId, setMpmThumbnailId]   = useState("");
+  const [mpmSections, setMpmSections]         = useState<Array<{ title: string; products: string }>>([
+    { title: "Featured Products", products: "" }
+  ]);
+  const [mpmCustomerFilter, setMpmCustomerFilter] = useState("all");
+  const [mpmToPhone, setMpmToPhone]           = useState("");
+  const [mpmSending, setMpmSending]           = useState(false);
+  const [mpmMode, setMpmMode]                 = useState<"catalog" | "mpm">("catalog");
+  const [mpmBodyText, setMpmBodyText]         = useState("👋 Hi! Check out our latest collection right here in WhatsApp 👇");
+  const [mpmFooterText, setMpmFooterText]     = useState("Tap 'View Catalog' to browse & shop");
 
   // ── Inbox state ────────────────────────────────────────────────────────────
   const [inboxConversations, setInboxConversations]     = useState<any[]>([]);
@@ -677,6 +692,55 @@ export default function MerchantControlHub() {
     }
   };
 
+  const handleSendMPM = async () => {
+    if (mpmMode === 'mpm' && !mpmTemplate) { alert('Please enter an MPM template name'); return; }
+    if (mpmMode === 'mpm' && !mpmThumbnailId) { alert('Thumbnail Product Retailer ID is required'); return; }
+    if (mpmMode === 'mpm') {
+      const hasProducts = mpmSections.some(s => s.products.trim());
+      if (!hasProducts) { alert('Add at least one product retailer ID in a section'); return; }
+    }
+
+    setMpmSending(true);
+    try {
+      if (mpmMode === 'catalog') {
+        // Simple catalog message — send to single phone only (needs 24hr window)
+        if (!mpmToPhone) { alert('Phone number required for catalog message (24hr window)'); setMpmSending(false); return; }
+        const r = await axios.post(`${API_URL}/admin/send-catalog`, {
+          merchantId,
+          toPhone:   mpmToPhone,
+          bodyText:  mpmBodyText,
+          footerText: mpmFooterText || undefined,
+          thumbnailProductRetailerId: mpmThumbnailId || undefined,
+        }, { headers: ah() });
+        alert(r.data.message);
+        setMpmToPhone("");
+      } else {
+        // MPM template — single or bulk
+        const sections = mpmSections
+          .filter(s => s.products.trim())
+          .map(s => ({
+            title:         s.title || 'Products',
+            product_items: s.products.split(',').map(id => ({ product_retailer_id: id.trim() })).filter(p => p.product_retailer_id),
+          }));
+
+        const r = await axios.post(`${API_URL}/admin/send-mpm`, {
+          merchantId,
+          toPhone:         mpmToPhone || undefined,
+          templateName:    mpmTemplate,
+          languageCode:    mpmLang,
+          bodyVariables:   mpmBodyVars ? mpmBodyVars.split(',').map(v => v.trim()) : [],
+          thumbnailProductRetailerId: mpmThumbnailId,
+          sections,
+          customerFilter:  mpmToPhone ? undefined : mpmCustomerFilter,
+        }, { headers: ah() });
+
+        alert(r.data.message + (r.data.etaMinutes ? `\nETA: ~${r.data.etaMinutes} min` : ''));
+        setMpmToPhone("");
+      }
+    } catch (e: any) { alert(e.response?.data?.message || "Failed to send"); }
+    finally { setMpmSending(false); }
+  };
+
   const handleLaunchCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!campMetaTemplate) { alert('Please select a Meta template first'); return; }
@@ -895,6 +959,7 @@ export default function MerchantControlHub() {
     { key: "inbox",        label: "💬 Inbox" },
     { key: "flows",        label: "Flows" },
     { key: "campaign",     label: "Campaign" },
+    { key: "mpm",          label: "📦 Products" },
     { key: "customers",    label: `Customers (${customerTotal})` },
     { key: "analytics",    label: "📊 Analytics" },
     { key: "activitylog",  label: "🕐 Activity Log" },
@@ -2093,6 +2158,237 @@ export default function MerchantControlHub() {
                 </div>
               </div>
             )}
+
+          </div>
+        )}
+
+        {/* ── MPM PRODUCTS TAB ── */}
+        {activeTab === "mpm" && (
+          <div className="max-w-2xl space-y-6">
+
+            {/* Header info */}
+            <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-xl p-4 flex items-start gap-3">
+              <span className="text-2xl shrink-0">📦</span>
+              <div>
+                <p className="text-indigo-300 font-bold text-sm">WhatsApp Native Product Messages</p>
+                <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                  Send product cards <strong>directly inside WhatsApp</strong> — customer sees image, price, name without leaving the app.
+                  Requires a <strong>Facebook Catalog</strong> connected to your WABA in Commerce Manager.
+                </p>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20 font-bold">📚 Catalog Message — open full catalog (24hr window)</span>
+                  <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded border border-purple-500/20 font-bold">📦 MPM Template — specific products (anytime)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mode toggle */}
+            <div className="border border-white/10 rounded-xl overflow-hidden">
+              <div className="flex">
+                <button type="button" onClick={() => setMpmMode('catalog')}
+                  className={`flex-1 py-3 text-sm font-bold transition flex items-center justify-center gap-2 ${
+                    mpmMode === 'catalog' ? 'bg-blue-500/20 text-blue-300 border-b-2 border-blue-400' : 'bg-slate-900 text-slate-400 hover:text-white'
+                  }`}>
+                  📚 Catalog Message
+                </button>
+                <button type="button" onClick={() => setMpmMode('mpm')}
+                  className={`flex-1 py-3 text-sm font-bold transition flex items-center justify-center gap-2 ${
+                    mpmMode === 'mpm' ? 'bg-purple-500/20 text-purple-300 border-b-2 border-purple-400' : 'bg-slate-900 text-slate-400 hover:text-white'
+                  }`}>
+                  📦 MPM Template
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+
+                {/* ── CATALOG MODE ── */}
+                {mpmMode === 'catalog' && (
+                  <>
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-xs text-blue-300">
+                      Sends a <strong>"View Catalog"</strong> button message. Customer taps → full product catalog opens inside WhatsApp.
+                      Only works within 24hr window (customer must have messaged first).
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Customer Phone <span className="text-red-400">*</span></label>
+                      <input type="tel" placeholder="918805155743" value={mpmToPhone}
+                        onChange={e => setMpmToPhone(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Message Body <span className="text-red-400">*</span></label>
+                      <textarea rows={3} value={mpmBodyText} onChange={e => setMpmBodyText(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none" />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Footer <span className="text-slate-600">(optional)</span></label>
+                      <input type="text" placeholder="Tap 'View Catalog' to browse" value={mpmFooterText}
+                        onChange={e => setMpmFooterText(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Thumbnail Product Retailer ID <span className="text-slate-600">(optional)</span></label>
+                      <input type="text" placeholder="e.g. SKU-1234 or Shopify product ID" value={mpmThumbnailId}
+                        onChange={e => setMpmThumbnailId(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" />
+                      <p className="text-slate-600 text-[10px] mt-1">Product shown as preview image. Must exist in your Facebook Catalog.</p>
+                    </div>
+                  </>
+                )}
+
+                {/* ── MPM TEMPLATE MODE ── */}
+                {mpmMode === 'mpm' && (
+                  <>
+                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3 text-xs text-purple-300">
+                      Uses an approved <strong>MPM template</strong> — sends specific product cards from your catalog.
+                      Works anytime (no 24hr restriction). Can be sent to single contact or bulk.
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 mb-1 block">MPM Template Name <span className="text-red-400">*</span></label>
+                        <input type="text" placeholder="abandoned_cart_mpm" value={mpmTemplate}
+                          onChange={e => setMpmTemplate(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                          className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 mb-1 block">Language</label>
+                        <select value={mpmLang} onChange={e => setMpmLang(e.target.value)}
+                          className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                          <option value="en_US">English (US)</option>
+                          <option value="en">English</option>
+                          <option value="hi">Hindi</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Body Variables <span className="text-slate-600">(optional, comma-separated)</span></label>
+                      <input type="text" placeholder="Sachin, 20OFF" value={mpmBodyVars}
+                        onChange={e => setMpmBodyVars(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono" />
+                      <p className="text-slate-600 text-[10px] mt-1">Maps to {`{{1}}`}, {`{{2}}`} etc in your template body</p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 mb-1 block">Thumbnail Product Retailer ID <span className="text-red-400">*</span></label>
+                      <input type="text" placeholder="e.g. SKU-1234" value={mpmThumbnailId}
+                        onChange={e => setMpmThumbnailId(e.target.value)}
+                        className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono" />
+                    </div>
+
+                    {/* Product Sections */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-400">Product Sections <span className="text-slate-600">(max 10, 30 products total)</span></label>
+                        {mpmSections.length < 10 && (
+                          <button type="button"
+                            onClick={() => setMpmSections(prev => [...prev, { title: `Section ${prev.length + 1}`, products: "" }])}
+                            className="text-[10px] px-2 py-1 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 rounded-lg font-bold transition">
+                            + Add Section
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        {mpmSections.map((section, i) => (
+                          <div key={i} className="bg-slate-900 border border-white/10 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <input type="text" placeholder="Section title (e.g. Trending Jewellery)"
+                                value={section.title}
+                                onChange={e => setMpmSections(prev => prev.map((s, idx) => idx === i ? {...s, title: e.target.value} : s))}
+                                className="flex-1 bg-slate-800 border border-white/10 text-white placeholder-slate-600 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-purple-500" />
+                              {mpmSections.length > 1 && (
+                                <button type="button" onClick={() => setMpmSections(prev => prev.filter((_, idx) => idx !== i))}
+                                  className="ml-2 text-red-400 hover:text-red-300 text-xs shrink-0">✕</button>
+                              )}
+                            </div>
+                            <div>
+                              <textarea rows={2} placeholder="product_id_1, product_id_2, sku_123 (comma-separated retailer IDs)"
+                                value={section.products}
+                                onChange={e => setMpmSections(prev => prev.map((s, idx) => idx === i ? {...s, products: e.target.value} : s))}
+                                className="w-full bg-slate-800 border border-white/10 text-white placeholder-slate-600 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-purple-500 resize-none font-mono" />
+                              <p className="text-slate-600 text-[10px] mt-0.5">
+                                {section.products ? `${section.products.split(',').filter(s => s.trim()).length} products` : 'Enter retailer IDs from your Facebook Catalog'}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Send target */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 mb-1 block">Single Phone <span className="text-slate-600">(optional)</span></label>
+                        <input type="tel" placeholder="918805155743 or leave blank for bulk"
+                          value={mpmToPhone} onChange={e => setMpmToPhone(e.target.value)}
+                          className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono" />
+                      </div>
+                      {!mpmToPhone && (
+                        <div>
+                          <label className="text-xs font-bold text-slate-400 mb-1 block">Bulk Send To</label>
+                          <select value={mpmCustomerFilter} onChange={e => setMpmCustomerFilter(e.target.value)}
+                            className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                            <option value="all">All Customers ({customerTotal})</option>
+                            <option value="ordered">Placed Order only</option>
+                            <option value="abandoned">Abandoned Cart only</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Send button */}
+                {!isActive && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-xs text-red-400">
+                    ❌ Merchant must be ACTIVE to send product messages
+                  </div>
+                )}
+
+                <button onClick={handleSendMPM} disabled={mpmSending || !isActive}
+                  className={`w-full py-3.5 font-bold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 text-sm transition ${
+                    mpmMode === 'catalog'
+                      ? 'bg-blue-500 hover:bg-blue-400 text-white'
+                      : 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white'
+                  }`}>
+                  {mpmSending
+                    ? <><FaSpinner className="animate-spin" /> Sending...</>
+                    : mpmMode === 'catalog'
+                      ? '📚 Send Catalog Message'
+                      : `📦 Send Product Cards${!mpmToPhone ? ` (${mpmCustomerFilter === 'all' ? customerTotal : '?'} customers)` : ''}`
+                  }
+                </button>
+
+              </div>
+            </div>
+
+            {/* Requirements checklist */}
+            <div className="bg-slate-800 border border-white/5 rounded-2xl p-5 space-y-3">
+              <p className="text-white font-bold text-sm">✅ Setup Checklist</p>
+              <div className="space-y-2 text-xs">
+                {[
+                  { label: 'Facebook Business Account verified', done: true },
+                  { label: 'Facebook Catalog created in Commerce Manager', done: false },
+                  { label: 'Catalog connected to your WABA', done: false },
+                  { label: 'Products synced to catalog with retailer IDs matching Shopify SKUs', done: false },
+                  { label: 'MPM template created and approved (for template mode)', done: false },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className={item.done ? 'text-green-400' : 'text-slate-600'}>
+                      {item.done ? '✅' : '⬜'}
+                    </span>
+                    <span className={item.done ? 'text-slate-300' : 'text-slate-500'}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-slate-600 text-[10px]">
+                Setup guide: Commerce Manager → Catalog → Connect to WhatsApp Business Account
+              </p>
+            </div>
 
           </div>
         )}

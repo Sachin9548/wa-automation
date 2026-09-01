@@ -9,7 +9,7 @@ import {
   logActivity,
 } from "../controllers/admin.controller";
 import { adminProtect } from "../middleware/admin.middleware";
-import { sendMetaTextMessage, sendMetaTemplateMessage } from "../services/whatsapp.service";
+import { sendMetaTextMessage, sendMetaTemplateMessage, sendMPMTemplateMessage, sendCatalogMessage } from "../services/whatsapp.service";
 import prisma from "../lib/prisma";
 import { Request, Response } from "express";
 
@@ -975,6 +975,207 @@ router.get('/waba-info/:merchantId', async (req: Request, res: Response): Promis
   } catch (e: any) {
     console.error('WABA info error:', e.response?.data || e.message);
     res.status(500).json({ message: e.response?.data?.error?.message || e.message });
+  }
+});
+
+// ── MPM: Send Multi-Product Message via approved MPM template ─────────────────
+// POST /api/admin/send-mpm
+// Requires: Facebook Catalog linked to WABA, products synced with retailer IDs
+router.post('/send-mpm', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const {
+      merchantId,
+      toPhone,
+      templateName,
+      languageCode,
+      bodyVariables,
+      thumbnailProductRetailerId,
+      sections,   // [{ title: string, product_items: [{ product_retailer_id: string }] }]
+      customerFilter,  // 'all' | 'abandoned' | 'ordered' — optional bulk send
+    } = req.body;
+
+    if (!merchantId || !templateName || !sections?.length) {
+      return res.status(400).json({ message: 'merchantId, templateName, and sections are required' });
+    }
+    if (!thumbnailProductRetailerId) {
+      return res.status(400).json({ message: 'thumbnailProductRetailerId is required — the product shown as preview' });
+    }
+
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    if (!merchant?.metaPhoneNumberId || !merchant?.metaAccessToken) {
+      return res.status(400).json({ message: 'Meta credentials not configured' });
+    }
+
+    // ── Single phone send ──────────────────────────────────────────────────
+    if (toPhone) {
+      const result = await sendMPMTemplateMessage({
+        phoneNumberId:              merchant.metaPhoneNumberId,
+        accessToken:                merchant.metaAccessToken,
+        toPhone,
+        templateName,
+        languageCode:               languageCode || 'en_US',
+        bodyVariables:              bodyVariables || [],
+        thumbnailProductRetailerId,
+        sections,
+      });
+
+      if (result.success) {
+        await prisma.message.create({
+          data: {
+            merchantId,
+            customerPhone: toPhone,
+            content:       `[MPM: ${templateName}]`,
+            direction:     'OUTGOING',
+            status:        'SENT',
+            templateName,
+          }
+        });
+        await prisma.merchant.update({
+          where: { id: merchantId },
+          data:  { totalSent: { increment: 1 } }
+        });
+        logActivity(merchantId, 'CAMPAIGN_LAUNCHED',
+          `MPM product message sent to ${toPhone} — template: ${templateName}, products: ${sections.flatMap((s: any) => s.product_items).length}`,
+          { toPhone, templateName, productCount: sections.flatMap((s: any) => s.product_items).length }
+        );
+        return res.json({ success: true, message: `✅ MPM sent to ${toPhone}` });
+      } else {
+        return res.status(500).json({ success: false, message: result.errorMessage, code: result.errorCode });
+      }
+    }
+
+    // ── Bulk send to filtered customers ──────────────────────────────────
+    const whereClause: any = {
+      merchantId,
+      NOT: [
+        { phone: 'NO_PHONE' }, { phone: '' },
+        { phone: { startsWith: 'email:' } },
+        { tags: { contains: 'wa_invalid' } },
+      ]
+    };
+    if (customerFilter === 'abandoned') whereClause.hasAbandonedCart = true;
+    if (customerFilter === 'ordered')   whereClause.hasPlacedOrder   = true;
+
+    const customers = await prisma.customer.findMany({
+      where: whereClause,
+      select: { phone: true, name: true },
+      take: 500,  // safety cap
+    });
+
+    if (customers.length === 0) {
+      return res.status(400).json({ message: 'No eligible customers found' });
+    }
+
+    // Queue jobs with stagger
+    const { messageQueue } = await import('../lib/queue');
+    for (let i = 0; i < customers.length; i++) {
+      await messageQueue.add('send-mpm-msg', {
+        merchantId,
+        phone:                      customers[i].phone,
+        templateName,
+        languageCode:               languageCode || 'en_US',
+        bodyVariables:              bodyVariables || [customers[i].name || 'there'],
+        thumbnailProductRetailerId,
+        sections,
+      }, {
+        delay:    i * 15000,  // 15s stagger
+        attempts: 2,
+        backoff:  { type: 'exponential', delay: 30000 },
+      });
+    }
+
+    logActivity(merchantId, 'CAMPAIGN_LAUNCHED',
+      `MPM product campaign queued — template: ${templateName}, ${customers.length} recipients, products: ${sections.flatMap((s: any) => s.product_items).length}`,
+      { templateName, recipientCount: customers.length, productCount: sections.flatMap((s: any) => s.product_items).length }
+    );
+
+    res.json({
+      success: true,
+      message: `📱 MPM campaign queued for ${customers.length} customers`,
+      totalQueued: customers.length,
+      etaMinutes: Math.ceil((customers.length * 15) / 60),
+    });
+
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Catalog Message: send "View Catalog" interactive message ──────────────────
+// POST /api/admin/send-catalog
+// Simpler than MPM — no template needed, works within 24hr window
+// Opens merchant's full Facebook catalog inside WhatsApp
+router.post('/send-catalog', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const {
+      merchantId,
+      toPhone,
+      bodyText,
+      footerText,
+      thumbnailProductRetailerId,
+    } = req.body;
+
+    if (!merchantId || !toPhone || !bodyText) {
+      return res.status(400).json({ message: 'merchantId, toPhone, bodyText required' });
+    }
+
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    if (!merchant?.metaPhoneNumberId || !merchant?.metaAccessToken) {
+      return res.status(400).json({ message: 'Meta credentials not configured' });
+    }
+
+    // Check 24hr window — catalog messages are free-form interactive
+    const lastIncoming = await prisma.message.findFirst({
+      where: { merchantId, customerPhone: toPhone, direction: 'INCOMING' },
+      orderBy: { timestamp: 'desc' },
+      select: { timestamp: true },
+    });
+
+    if (!lastIncoming) {
+      return res.status(400).json({
+        message: '24hr window not open — customer has not messaged first. For outbound catalog, use MPM template instead.',
+        code: 'NO_24HR_WINDOW',
+      });
+    }
+
+    const msElapsed = Date.now() - new Date(lastIncoming.timestamp).getTime();
+    if (msElapsed >= 24 * 60 * 60 * 1000) {
+      return res.status(400).json({
+        message: '24hr window expired — use MPM template instead.',
+        code: 'WINDOW_EXPIRED',
+      });
+    }
+
+    const success = await sendCatalogMessage(
+      merchant.metaPhoneNumberId,
+      merchant.metaAccessToken,
+      toPhone,
+      bodyText,
+      footerText,
+      thumbnailProductRetailerId,
+    );
+
+    if (success) {
+      await prisma.message.create({
+        data: {
+          merchantId,
+          customerPhone: toPhone,
+          content:       `[Catalog: ${bodyText.substring(0, 50)}]`,
+          direction:     'OUTGOING',
+          status:        'SENT',
+        }
+      });
+      await prisma.merchant.update({
+        where: { id: merchantId },
+        data:  { totalSent: { increment: 1 } }
+      });
+      return res.json({ success: true, message: '✅ Catalog message sent!' });
+    } else {
+      return res.status(500).json({ message: 'Failed to send catalog message — check Meta credentials' });
+    }
+
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
   }
 });
 

@@ -346,6 +346,54 @@ export const initMessageWorker = () => {
       }
     }
 
+    // ── 3. MPM PRODUCT MESSAGE ─────────────────────────────────────────────
+    if (job.name === 'send-mpm-msg') {
+      const { merchantId, phone, templateName, languageCode, bodyVariables, thumbnailProductRetailerId, sections } = job.data;
+
+      if (!phone || phone === 'NO_PHONE') return;
+
+      const toPhone = formatPhone(phone);
+
+      const alreadyInvalid = await isPhoneInvalid(merchantId, toPhone);
+      if (alreadyInvalid) {
+        console.log(`📵 MPM skip: Phone ${toPhone} already marked WA invalid`);
+        return;
+      }
+
+      const eligibility = await getCachedMerchant(merchantId);
+      if (!eligibility.eligible) {
+        console.log(`❌ MPM blocked: ${eligibility.reason}`);
+        return;
+      }
+      const { merchant } = eligibility as any;
+
+      const { sendMPMTemplateMessage } = await import('../services/whatsapp.service');
+      const result = await sendMPMTemplateMessage({
+        phoneNumberId:              merchant.metaPhoneNumberId,
+        accessToken:                merchant.metaAccessToken,
+        toPhone,
+        templateName,
+        languageCode:               languageCode || 'en_US',
+        bodyVariables:              bodyVariables || [],
+        thumbnailProductRetailerId,
+        sections,
+      });
+
+      if (result.success) {
+        await prisma.message.create({
+          data: { merchantId, customerPhone: toPhone, content: `[MPM: ${templateName}]`, direction: 'OUTGOING', status: 'SENT', templateName }
+        });
+        await prisma.merchant.update({ where: { id: merchantId }, data: { totalSent: { increment: 1 } } });
+        console.log(`✅ MPM sent to ${toPhone}`);
+      } else if (!result.retryable) {
+        console.error(`🚫 Non-retryable MPM error → ${toPhone}: ${result.errorCode}`);
+        if (result.invalidNumber) await markPhoneAsInvalid(merchantId, toPhone, `Meta ${result.errorCode}`);
+        return;
+      } else {
+        throw new Error(`MPM send failed (${result.errorCode}): ${result.errorMessage}`);
+      }
+    }
+
   }, {
     connection: { url: process.env.REDIS_URL, maxRetriesPerRequest: null },
     concurrency: 1,

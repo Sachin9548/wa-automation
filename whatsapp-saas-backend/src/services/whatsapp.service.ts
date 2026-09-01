@@ -134,3 +134,134 @@ export const markMessageRead = async (
     );
   } catch { /* non-critical */ }
 };
+
+// ── MPM Types ─────────────────────────────────────────────────────────────────
+export interface MPMSection {
+  title: string;               // e.g. "Trending Jewellery"
+  product_items: Array<{
+    product_retailer_id: string; // Shopify product ID / SKU in Facebook catalog
+  }>;
+}
+
+export interface MPMSendOptions {
+  phoneNumberId:              string;
+  accessToken:                string;
+  toPhone:                    string;
+  templateName:               string;   // approved MPM template name
+  languageCode?:              string;   // default 'en_US'
+  bodyVariables?:             string[]; // {{1}} {{2}} etc in template body
+  thumbnailProductRetailerId: string;   // product shown as preview thumbnail
+  sections:                   MPMSection[]; // up to 10 sections, 30 products total
+}
+
+// ── Send MPM (Multi-Product Message) via approved template ───────────────────
+// Customer sees product cards inside WhatsApp — no need to visit website
+// Requires: Facebook Catalog linked to WABA + products synced
+export const sendMPMTemplateMessage = async (
+  opts: MPMSendOptions
+): Promise<MetaSendResult> => {
+  const {
+    phoneNumberId, accessToken, toPhone,
+    templateName, languageCode = 'en_US',
+    bodyVariables = [],
+    thumbnailProductRetailerId,
+    sections,
+  } = opts;
+
+  try {
+    const components: any[] = [];
+
+    // Body variables ({{1}}, {{2}} etc)
+    if (bodyVariables.length > 0) {
+      components.push({
+        type: 'body',
+        parameters: bodyVariables.map(v => ({ type: 'text', text: String(v) })),
+      });
+    }
+
+    // MPM button component — this is what makes it interactive product message
+    components.push({
+      type:     'button',
+      sub_type: 'mpm',
+      index:    0,
+      parameters: [{
+        type: 'action',
+        action: {
+          thumbnail_product_retailer_id: thumbnailProductRetailerId,
+          sections,
+        }
+      }]
+    });
+
+    await axios.post(
+      `${META_BASE_URL}/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        recipient_type:    'individual',
+        to:                toPhone,
+        type:              'template',
+        template: {
+          name:     templateName,
+          language: { code: languageCode },
+          components,
+        }
+      },
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
+    );
+
+    console.log(`✅ MPM sent to ${toPhone} — template: ${templateName}, products: ${sections.flatMap(s => s.product_items).length}`);
+    return { success: true, retryable: false };
+
+  } catch (error: any) {
+    const metaError = error.response?.data?.error;
+    const code: number = metaError?.code;
+    const message: string = metaError?.message || error.message;
+    const retryable = !NON_RETRYABLE_META_CODES.includes(code);
+
+    console.error(`❌ MPM send error for ${toPhone}: code=${code} msg=${message}`);
+    return { success: false, retryable, errorCode: code, errorMessage: message };
+  }
+};
+
+// ── Send Catalog Message (no template needed — opens full catalog) ────────────
+// Simpler than MPM — just sends a "View catalog" button message
+// Does NOT require an approved template — works within 24hr window
+export const sendCatalogMessage = async (
+  phoneNumberId: string,
+  accessToken:   string,
+  toPhone:       string,
+  bodyText:      string,
+  footerText?:   string,
+  thumbnailProductRetailerId?: string,
+): Promise<boolean> => {
+  try {
+    const action: any = { name: 'catalog_message' };
+    if (thumbnailProductRetailerId) {
+      action.parameters = { thumbnail_product_retailer_id: thumbnailProductRetailerId };
+    }
+
+    await axios.post(
+      `${META_BASE_URL}/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        recipient_type:    'individual',
+        to:                toPhone,
+        type:              'interactive',
+        interactive: {
+          type:   'catalog_message',
+          body:   { text: bodyText },
+          ...(footerText ? { footer: { text: footerText } } : {}),
+          action,
+        }
+      },
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
+    );
+
+    console.log(`✅ Catalog message sent to ${toPhone}`);
+    return true;
+
+  } catch (error: any) {
+    console.error(`❌ Catalog message error for ${toPhone}:`, error.response?.data?.error || error.message);
+    return false;
+  }
+};
