@@ -51,27 +51,75 @@ router.post('/meta', async (req: Request, res: Response) => {
 
             // Extract content based on message type
             let content = '';
-            let isMedia = false;
+            let mediaData: {
+              mediaId?: string;
+              mediaType?: string;
+              mediaMimeType?: string;
+              mediaCaption?: string;
+              mediaFilename?: string;
+              mediaLat?: number;
+              mediaLng?: number;
+              mediaAddress?: string;
+            } = {};
+
             if (msgType === 'text') {
               content = message.text?.body || '';
             } else if (msgType === 'image') {
-              content = `[Image${message.image?.caption ? `: ${message.image.caption}` : ''}]`;
-              isMedia = true;
+              const img = message.image || {};
+              content = img.caption ? `📷 ${img.caption}` : '📷 Image';
+              mediaData = {
+                mediaId:       img.id,
+                mediaType:     'image',
+                mediaMimeType: img.mime_type,
+                mediaCaption:  img.caption || null,
+              };
             } else if (msgType === 'video') {
-              content = `[Video${message.video?.caption ? `: ${message.video.caption}` : ''}]`;
-              isMedia = true;
+              const vid = message.video || {};
+              content = vid.caption ? `🎥 ${vid.caption}` : '🎥 Video';
+              mediaData = {
+                mediaId:       vid.id,
+                mediaType:     'video',
+                mediaMimeType: vid.mime_type,
+                mediaCaption:  vid.caption || null,
+              };
             } else if (msgType === 'audio') {
-              content = '[Voice Message]';
-              isMedia = true;
+              const aud = message.audio || {};
+              content = '🎤 Voice Message';
+              mediaData = {
+                mediaId:       aud.id,
+                mediaType:     'audio',
+                mediaMimeType: aud.mime_type,
+              };
             } else if (msgType === 'document') {
-              content = `[Document: ${message.document?.filename || 'file'}]`;
-              isMedia = true;
-            } else if (msgType === 'location') {
-              content = `[Location: ${message.location?.name || `${message.location?.latitude},${message.location?.longitude}`}]`;
+              const doc = message.document || {};
+              content = `📄 ${doc.filename || 'Document'}`;
+              mediaData = {
+                mediaId:       doc.id,
+                mediaType:     'document',
+                mediaMimeType: doc.mime_type,
+                mediaFilename: doc.filename || null,
+                mediaCaption:  doc.caption || null,
+              };
             } else if (msgType === 'sticker') {
-              content = '[Sticker]';
+              const stk = message.sticker || {};
+              content = '🎭 Sticker';
+              mediaData = {
+                mediaId:       stk.id,
+                mediaType:     'sticker',
+                mediaMimeType: stk.mime_type,
+              };
+            } else if (msgType === 'location') {
+              const loc = message.location || {};
+              const name = loc.name || loc.address || `${loc.latitude},${loc.longitude}`;
+              content = `📍 ${name}`;
+              mediaData = {
+                mediaType:   'location',
+                mediaLat:    loc.latitude,
+                mediaLng:    loc.longitude,
+                mediaAddress: loc.name || loc.address || null,
+              };
             } else if (msgType === 'reaction') {
-              content = `[Reaction: ${message.reaction?.emoji || '👍'}]`;
+              content = `${message.reaction?.emoji || '👍'} Reaction`;
             } else {
               content = `[${msgType}]`;
             }
@@ -104,6 +152,7 @@ router.post('/meta', async (req: Request, res: Response) => {
                   content,
                   direction: 'INCOMING',
                   status: 'READ',
+                  ...mediaData,
                 }
               });
               // Mark as read on Meta side
@@ -121,6 +170,7 @@ router.post('/meta', async (req: Request, res: Response) => {
                 content,
                 direction: 'INCOMING',
                 status: 'DELIVERED',
+                ...mediaData,
               }
             });
 

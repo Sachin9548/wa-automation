@@ -83,6 +83,17 @@ model Message {
   templateName  String?             // which template was used
   campaignId    String?             // if part of a campaign
   cartId        String?             // if abandoned cart message
+
+  // Media fields — populated for incoming media messages
+  mediaId       String?             // Meta media ID (used to fetch URL)
+  mediaType     String?             // image | video | audio | document | sticker | location
+  mediaMimeType String?             // e.g. image/jpeg, audio/ogg
+  mediaCaption  String?             // caption sent with image/video
+  mediaFilename String?             // original filename for documents
+  mediaLat      Float?              // latitude for location messages
+  mediaLng      Float?              // longitude for location messages
+  mediaAddress  String?             // address/name for location messages
+
   timestamp     DateTime @default(now())
   
   merchant      Merchant    @relation(fields: [merchantId], references: [id])

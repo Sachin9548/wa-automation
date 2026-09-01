@@ -3012,26 +3012,138 @@ export default function MerchantControlHub() {
                     ) : (
                       inboxMessages.map((msg: any) => (
                         <div key={msg.id} className={`flex ${msg.direction === 'OUTGOING' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-xs lg:max-w-sm rounded-2xl px-4 py-2.5 ${
+                          <div className={`max-w-xs lg:max-w-sm rounded-2xl overflow-hidden ${
                             msg.direction === 'OUTGOING'
                               ? 'bg-teal-600 text-white rounded-br-sm'
                               : 'bg-slate-700 text-slate-100 rounded-bl-sm'
                           }`}>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                            <div className={`flex items-center gap-1.5 mt-1 ${msg.direction === 'OUTGOING' ? 'justify-end' : 'justify-start'}`}>
-                              <span className="text-[9px] opacity-60">
-                                {new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              {msg.direction === 'OUTGOING' && (
-                                <span className={`text-[9px] font-bold ${
-                                  msg.status === 'READ'      ? 'text-blue-300' :
-                                  msg.status === 'DELIVERED' ? 'text-teal-200' :
-                                  msg.status === 'FAILED'    ? 'text-red-300'  : 'opacity-50'
-                                }`}>
-                                  {msg.status === 'READ' ? '✓✓' : msg.status === 'DELIVERED' ? '✓✓' : msg.status === 'FAILED' ? '✗' : '✓'}
-                                </span>
+
+                            {/* ── Media content ── */}
+                            {msg.mediaType === 'image' && msg.mediaId && (
+                              <a
+                                href={`${API_URL}/inbox/media/${msg.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                              >
+                                <img
+                                  src={`${API_URL}/inbox/media/${msg.id}`}
+                                  alt={msg.mediaCaption || 'Image'}
+                                  className="w-full max-w-[240px] rounded-t-2xl object-cover"
+                                  style={{ maxHeight: '200px' }}
+                                  onError={e => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              </a>
+                            )}
+
+                            {msg.mediaType === 'video' && msg.mediaId && (
+                              <div className="px-4 pt-3">
+                                <div className="bg-black/30 rounded-xl flex items-center justify-center gap-2 px-3 py-2">
+                                  <span className="text-xl">🎥</span>
+                                  <a
+                                    href={`${API_URL}/inbox/media/${msg.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs font-bold underline opacity-90 hover:opacity-100"
+                                  >
+                                    View Video
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+
+                            {msg.mediaType === 'audio' && msg.mediaId && (
+                              <div className="px-4 pt-3">
+                                <audio
+                                  controls
+                                  className="w-full max-w-[220px] h-8"
+                                  style={{ filter: 'invert(1) brightness(0.8)' }}
+                                >
+                                  <source src={`${API_URL}/inbox/media/${msg.id}`} type={msg.mediaMimeType || 'audio/ogg'} />
+                                  <a href={`${API_URL}/inbox/media/${msg.id}`} target="_blank" rel="noopener noreferrer" className="text-xs underline">
+                                    🎤 Voice Message
+                                  </a>
+                                </audio>
+                              </div>
+                            )}
+
+                            {msg.mediaType === 'document' && msg.mediaId && (
+                              <div className="px-4 pt-3">
+                                <a
+                                  href={`${API_URL}/inbox/media/${msg.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 bg-black/20 rounded-xl px-3 py-2 hover:bg-black/30 transition"
+                                >
+                                  <span className="text-xl shrink-0">📄</span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold truncate">{msg.mediaFilename || 'Document'}</p>
+                                    <p className="text-[10px] opacity-60 truncate">{msg.mediaMimeType || 'file'}</p>
+                                  </div>
+                                </a>
+                              </div>
+                            )}
+
+                            {msg.mediaType === 'sticker' && msg.mediaId && (
+                              <div className="px-4 pt-3">
+                                <img
+                                  src={`${API_URL}/inbox/media/${msg.id}`}
+                                  alt="Sticker"
+                                  className="w-20 h-20 object-contain"
+                                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              </div>
+                            )}
+
+                            {msg.mediaType === 'location' && (
+                              <div className="px-4 pt-3">
+                                <a
+                                  href={`https://maps.google.com/?q=${msg.mediaLat},${msg.mediaLng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 bg-black/20 rounded-xl px-3 py-2 hover:bg-black/30 transition"
+                                >
+                                  <span className="text-xl shrink-0">📍</span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold truncate">{msg.mediaAddress || 'Location'}</p>
+                                    {msg.mediaLat && msg.mediaLng && (
+                                      <p className="text-[10px] opacity-60">{msg.mediaLat.toFixed(4)}, {msg.mediaLng.toFixed(4)}</p>
+                                    )}
+                                    <p className="text-[10px] opacity-70 underline">Open in Maps</p>
+                                  </div>
+                                </a>
+                              </div>
+                            )}
+
+                            {/* ── Text content ── */}
+                            <div className="px-4 py-2.5">
+                              {/* Show caption for image/video, or full content for text/others */}
+                              {msg.mediaType && ['image', 'video', 'document'].includes(msg.mediaType) && msg.mediaCaption ? (
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.mediaCaption}</p>
+                              ) : msg.mediaType && msg.mediaId ? (
+                                /* Media without caption — show nothing extra */
+                                null
+                              ) : (
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                               )}
+                              <div className={`flex items-center gap-1.5 mt-1 ${msg.direction === 'OUTGOING' ? 'justify-end' : 'justify-start'}`}>
+                                <span className="text-[9px] opacity-60">
+                                  {new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {msg.direction === 'OUTGOING' && (
+                                  <span className={`text-[9px] font-bold ${
+                                    msg.status === 'READ'      ? 'text-blue-300' :
+                                    msg.status === 'DELIVERED' ? 'text-teal-200' :
+                                    msg.status === 'FAILED'    ? 'text-red-300'  : 'opacity-50'
+                                  }`}>
+                                    {msg.status === 'READ' ? '✓✓' : msg.status === 'DELIVERED' ? '✓✓' : msg.status === 'FAILED' ? '✗' : '✓'}
+                                  </span>
+                                )}
+                              </div>
                             </div>
+
                           </div>
                         </div>
                       ))

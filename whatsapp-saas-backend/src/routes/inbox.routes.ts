@@ -311,5 +311,74 @@ router.post('/opt-out/:merchantId', async (req: Request, res: Response): Promise
   }
 });
 
+// ── 6. Media proxy — fetch media from Meta and stream to client ──────────────
+// GET /api/inbox/media/:messageId
+// Why proxy? Meta media URLs are temporary (expire after ~5 min)
+// We fetch the URL on-demand each time, then stream bytes to browser
+router.get('/media/:messageId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const messageId = req.params.messageId as string;
+
+    // Find message with mediaId
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      select: {
+        id:            true,
+        mediaId:       true,
+        mediaType:     true,
+        mediaMimeType: true,
+        mediaFilename: true,
+        merchantId:    true,
+      }
+    });
+
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+    if (!message.mediaId) return res.status(400).json({ message: 'No media attached to this message' });
+
+    // Get merchant access token
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: message.merchantId },
+      select: { metaAccessToken: true }
+    });
+    if (!merchant?.metaAccessToken) {
+      return res.status(400).json({ message: 'Meta access token not configured' });
+    }
+
+    const axios = await import('axios');
+    const headers = { Authorization: `Bearer ${merchant.metaAccessToken}` };
+
+    // Step 1: Get temporary media URL from Meta Graph API
+    const urlResp = await axios.default.get(
+      `https://graph.facebook.com/v23.0/${message.mediaId}`,
+      { headers }
+    );
+    const mediaUrl: string = urlResp.data?.url;
+    if (!mediaUrl) return res.status(500).json({ message: 'Could not get media URL from Meta' });
+
+    // Step 2: Download media bytes from the temporary URL
+    const mediaResp = await axios.default.get(mediaUrl, {
+      headers,
+      responseType: 'stream',
+      timeout: 15000,
+    });
+
+    // Set appropriate response headers
+    const mimeType = message.mediaMimeType || 'application/octet-stream';
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'private, max-age=300'); // 5 min browser cache
+
+    if (message.mediaType === 'document' && message.mediaFilename) {
+      res.setHeader('Content-Disposition', `inline; filename="${message.mediaFilename}"`);
+    }
+
+    // Stream bytes directly to client
+    mediaResp.data.pipe(res);
+
+  } catch (e: any) {
+    console.error('Media proxy error:', e.response?.data || e.message);
+    res.status(500).json({ message: e.response?.data?.error?.message || e.message });
+  }
+});
+
 export { isStopKeyword };
 export default router;
