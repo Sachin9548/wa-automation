@@ -863,7 +863,39 @@ export default function MerchantControlHub() {
   };
 
   const handleToggleService = async (active: boolean) => {
-    setLoading("service");
+    // When enabling — run quick requirements check first
+    if (active) {
+      setLoading("service");
+      try {
+        const checkResp = await axios.post(
+          `${API_URL}/admin/check-feature/${merchantId}`,
+          { feature: 'ABANDONED_CART' },
+          { headers: ah() }
+        );
+        const check = checkResp.data;
+        if (!check.canEnable) {
+          alert([
+            '❌ Cannot enable service — requirements not met:',
+            '',
+            ...check.errors,
+          ].join('\n'));
+          setLoading(null);
+          return;
+        }
+        if (check.warnings.length > 0) {
+          const proceed = confirm([
+            '⚠️ Warnings found:',
+            '',
+            ...check.warnings,
+            '',
+            'Enable service anyway?',
+          ].join('\n'));
+          if (!proceed) { setLoading(null); return; }
+        }
+      } catch { /* if check fails, allow toggle — non-blocking */ }
+    } else {
+      setLoading("service");
+    }
     try {
       const r = await axios.post(`${API_URL}/admin/toggle-service`, { merchantId, serviceActive: active }, { headers: ah() });
       alert(r.data.message);
@@ -1218,7 +1250,7 @@ export default function MerchantControlHub() {
                         {loading === "service" ? <FaSpinner className="animate-spin" /> :
                           merchant?.serviceActive ? <FaToggleOn className="text-xl" /> : <FaToggleOff className="text-xl" />
                         }
-                        {merchant?.serviceActive ? 'Turn OFF' : 'Turn ON'}
+                        {loading === "service" ? 'Checking...' : merchant?.serviceActive ? 'Turn OFF' : 'Turn ON'}
                       </button>
                     </div>
                   </div>
@@ -3647,7 +3679,16 @@ export default function MerchantControlHub() {
                                 /* Media without caption — show nothing extra */
                                 null
                               ) : (
-                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                <>
+                                  {msg.templateName && (
+                                    <div className="mb-1">
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 opacity-70">
+                                        📋 {msg.templateName}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                </>
                               )}
                               <div className={`flex items-center gap-1.5 mt-1 ${msg.direction === 'OUTGOING' ? 'justify-end' : 'justify-start'}`}>
                                 <span className="text-[9px] opacity-60">

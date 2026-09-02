@@ -127,12 +127,19 @@ export const initMessageWorker = () => {
       );
 
       if (result.success) {
+        // ── Build readable content from template name + variables ─────────
+        // We don't fetch Meta template body here (too slow per job)
+        // Instead: store as "templateName | var1, var2, var3" so frontend can display it
+        const contentDisplay = variables && variables.length > 0
+          ? `📋 ${templateName}\n${variables.join(' · ')}`
+          : `📋 ${templateName}`;
+
         // Save message with tracking link reference
         const message = await prisma.message.create({
           data: {
             merchantId,
             customerPhone: toPhone,
-            content: `Template: ${templateName}`,
+            content: contentDisplay,
             direction: 'OUTGOING',
             status: 'SENT',
             templateName,
@@ -294,7 +301,9 @@ export const initMessageWorker = () => {
             data: {
               merchantId,
               customerPhone: toPhone,
-              content: `Template: ${templateName}`,
+              content: variables && variables.length > 0
+                ? `📋 ${templateName}\n${variables.join(' · ')}`
+                : `📋 ${templateName}`,
               direction: 'OUTGOING',
               status: 'SENT',
               templateName,

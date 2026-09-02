@@ -1179,6 +1179,180 @@ router.post('/send-catalog', async (req: Request, res: Response): Promise<any> =
   }
 });
 
+// ── Catalog Status — check if Facebook Catalog is connected to WABA ──────────
+// GET /api/admin/catalog-status/:merchantId
+router.get('/catalog-status/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const merchant   = await prisma.merchant.findUnique({ where: { id: merchantId } });
+
+    if (!merchant?.metaWabaId || !merchant?.metaAccessToken) {
+      return res.json({
+        connected: false,
+        reason: 'Meta credentials (WABA ID + Access Token) not configured',
+        catalogs: [],
+      });
+    }
+
+    const axiosLib = await import('axios');
+    try {
+      // Fetch catalogs connected to this WABA
+      const resp = await axiosLib.default.get(
+        `https://graph.facebook.com/v23.0/${merchant.metaWabaId}/product_catalogs?fields=id,name,product_count`,
+        { headers: { Authorization: `Bearer ${merchant.metaAccessToken}` }, timeout: 6000 }
+      );
+
+      const catalogs = resp.data?.data || [];
+
+      if (catalogs.length === 0) {
+        return res.json({
+          connected: false,
+          reason: 'No Facebook Catalog connected to this WhatsApp Business Account',
+          catalogs: [],
+          howToFix: 'Go to Facebook Commerce Manager → Catalogs → Connect to WhatsApp',
+        });
+      }
+
+      return res.json({
+        connected: true,
+        catalogs: catalogs.map((c: any) => ({
+          id:            c.id,
+          name:          c.name,
+          productCount:  c.product_count || 0,
+        })),
+        message: `✅ ${catalogs.length} catalog(s) connected`,
+      });
+
+    } catch (e: any) {
+      const code = e.response?.data?.error?.code;
+      if (code === 190) {
+        return res.json({ connected: false, reason: 'Meta access token expired or invalid', catalogs: [] });
+      }
+      if (e.response?.status === 400 || e.response?.status === 403) {
+        return res.json({
+          connected: false,
+          reason:    'This WABA does not have Commerce/Catalog permissions. Business Verification may be required.',
+          catalogs:  [],
+          howToFix:  'Complete Facebook Business Verification → then connect catalog in Commerce Manager',
+        });
+      }
+      return res.json({ connected: false, reason: e.message, catalogs: [] });
+    }
+
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Feature Requirements Check ────────────────────────────────────────────────
+// POST /api/admin/check-feature/:merchantId
+// Checks whether a specific feature can be enabled for a merchant
+// Body: { feature: 'MPM' | 'ABANDONED_CART' | 'CAMPAIGN' | 'CATALOG_MESSAGE' | 'AI_REPLY' }
+router.post('/check-feature/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const { feature } = req.body;
+
+    if (!feature) return res.status(400).json({ message: 'feature required' });
+
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    if (!merchant) return res.status(404).json({ message: 'Merchant not found' });
+
+    const errors:   string[] = [];
+    const warnings: string[] = [];
+    let canEnable = true;
+
+    // ── Common checks (all features need these) ───────────────────────────
+    if (!merchant.metaAccessToken || !merchant.metaPhoneNumberId) {
+      errors.push('❌ Meta credentials not configured (Phone Number ID + Access Token required)');
+      canEnable = false;
+    }
+    if (!merchant.metaWabaId) {
+      errors.push('❌ WhatsApp Business Account ID (WABA ID) not set');
+      canEnable = false;
+    }
+    if (merchant.status !== 'ACTIVE') {
+      errors.push('❌ Merchant is not activated yet');
+      canEnable = false;
+    }
+
+    // ── Feature-specific checks ───────────────────────────────────────────
+    if (feature === 'ABANDONED_CART' || feature === 'CAMPAIGN') {
+      if (!merchant.shopifyToken || !merchant.storeUrl) {
+        errors.push('❌ Shopify credentials not configured (Token + Store URL required)');
+        canEnable = false;
+      }
+      const customerCount = await prisma.customer.count({ where: { merchantId } });
+      if (customerCount === 0) {
+        warnings.push('⚠️ No customers synced yet — run Full Sync from Customers tab first');
+      }
+      const activeFlows = await prisma.automationFlow.count({ where: { merchantId, isActive: true } });
+      if (feature === 'ABANDONED_CART' && activeFlows === 0) {
+        warnings.push('⚠️ No automation flows enabled — configure flows in the Flows tab');
+      }
+    }
+
+    if (feature === 'MPM' || feature === 'CATALOG_MESSAGE') {
+      // Check catalog connection
+      if (!merchant.metaWabaId || !merchant.metaAccessToken) {
+        errors.push('❌ Meta credentials required for product messages');
+        canEnable = false;
+      } else {
+        try {
+          const axiosLib = await import('axios');
+          const resp = await axiosLib.default.get(
+            `https://graph.facebook.com/v23.0/${merchant.metaWabaId}/product_catalogs?fields=id,name`,
+            { headers: { Authorization: `Bearer ${merchant.metaAccessToken}` }, timeout: 5000 }
+          );
+          const catalogs = resp.data?.data || [];
+          if (catalogs.length === 0) {
+            errors.push('❌ No Facebook Catalog connected to WABA — required for product messages');
+            errors.push('   → Go to Facebook Commerce Manager → connect catalog to WhatsApp');
+            canEnable = false;
+          }
+          if (feature === 'MPM') {
+            warnings.push('⚠️ MPM requires an approved MPM template — create one in Meta WhatsApp Manager');
+            warnings.push('⚠️ Products must be synced to Facebook Catalog with matching retailer IDs');
+          }
+        } catch (e: any) {
+          if (e.response?.status === 400 || e.response?.status === 403) {
+            errors.push('❌ Business Verification required — complete Facebook Business Verification first');
+            errors.push('   → Then connect your catalog in Commerce Manager');
+            canEnable = false;
+          } else {
+            warnings.push('⚠️ Could not verify catalog status — Meta API timeout');
+          }
+        }
+      }
+    }
+
+    if (feature === 'AI_REPLY') {
+      // AI reply needs an AI provider key
+      const hasAiKey = !!(process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
+      if (!hasAiKey) {
+        errors.push('❌ AI provider not configured — set OPENAI_API_KEY or GEMINI_API_KEY in backend .env');
+        canEnable = false;
+      }
+      warnings.push('⚠️ AI replies consume API credits per message — monitor usage carefully');
+    }
+
+    res.json({
+      feature,
+      canEnable,
+      errors,
+      warnings,
+      summary: canEnable
+        ? warnings.length > 0
+          ? `✅ Can enable with ${warnings.length} warning(s)`
+          : '✅ All requirements met — can enable'
+        : `❌ Cannot enable — ${errors.length} requirement(s) not met`,
+    });
+
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 // ── Activity Log — get logs for a merchant ────────────────────────────────────
 // GET /api/admin/activity-log/:merchantId?page=1&limit=50&action=CAMPAIGN_LAUNCHED
 router.get('/activity-log/:merchantId', async (req: Request, res: Response): Promise<any> => {

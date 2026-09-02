@@ -222,11 +222,33 @@ router.post('/send/:merchantId', async (req: Request, res: Response): Promise<an
       success = result.success;
 
       if (success) {
+        // ── Fetch actual template body from Meta to save readable content ─
+        let templateBody = `[Template: ${templateName}]`;
+        try {
+          const axiosLib = await import('axios');
+          const tmplResp = await axiosLib.default.get(
+            `https://graph.facebook.com/v23.0/${merchant.metaWabaId}/message_templates?name=${templateName}&fields=name,components`,
+            { headers: { Authorization: `Bearer ${merchant.metaAccessToken}` }, timeout: 4000 }
+          );
+          const tmplData = tmplResp.data?.data?.[0];
+          if (tmplData) {
+            const bodyComp = tmplData.components?.find((c: any) => c.type === 'BODY');
+            if (bodyComp?.text) {
+              // Replace {{1}}, {{2}} with actual variable values
+              let body = bodyComp.text;
+              (variables || []).forEach((v: string, i: number) => {
+                body = body.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), v);
+              });
+              templateBody = body;
+            }
+          }
+        } catch { /* fallback to template name */ }
+
         savedMessage = await prisma.message.create({
           data: {
             merchantId,
             customerPhone,
-            content: `[Template: ${templateName}]`,
+            content: templateBody,
             direction: 'OUTGOING',
             status: 'SENT',
             templateName,
