@@ -161,3 +161,10 @@ Kyun? Kyunki:
 Point 11 (24hr rule) bhi iske saath aata hai — ek saath build karo
 Yeh ek complete revenue feature hai — merchant seedha customer se baat kar sakta hai
 Aur Point 2 (WABA info) sirf ek read-only widget hai — fast hoga lekin usse pehle inbox zyada value deta hai
+
+
+
+
+
+
+ek baar check kar lete hai like mostly click ke when they run the ads on facebook so unka catelog to connected hi rahega n if nahiraha hu admin panel se ki will want to check ki connect hai ya nahi if nahi haiso we will connect and ai auto replay ki service on off karne ka option hona chaiye and infox me like jo message send hu hai like shop teplme ka name show ho rahhai temple ka message nahi show ho raha hai need to show the complete templete on inbox and one more thing like as you mention if facebook catalog id sync hai shopify product catalogs se so can you tell me wo whatsapp per se hi kaise product check kar sakta ahi and order place kaise kar sakta hai need to open the webiste or what guide me propelry
