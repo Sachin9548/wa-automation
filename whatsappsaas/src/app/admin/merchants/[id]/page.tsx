@@ -408,6 +408,36 @@ export default function MerchantControlHub() {
   const [mpmBodyText, setMpmBodyText]         = useState("👋 Hi! Check out our latest collection right here in WhatsApp 👇");
   const [mpmFooterText, setMpmFooterText]     = useState("Tap 'View Catalog' to browse & shop");
 
+  // ── AI Auto-Reply state ────────────────────────────────────────────────────
+  const [aiAutoReply, setAiAutoReply]               = useState(false);
+  const [aiKnowledgeBase, setAiKnowledgeBase]       = useState("");
+  const [aiFallbackMessage, setAiFallbackMessage]   = useState("");
+  const [aiSaving, setAiSaving]                     = useState(false);
+  const [aiLoaded, setAiLoaded]                     = useState(false);
+
+  const loadAISettings = async () => {
+    try {
+      const r = await axios.get(`${API_URL}/admin/ai-settings/${merchantId}`, { headers: ah() });
+      setAiAutoReply(r.data.aiAutoReply ?? false);
+      setAiKnowledgeBase(r.data.aiKnowledgeBase ?? "");
+      setAiFallbackMessage(r.data.aiFallbackMessage ?? "");
+      setAiLoaded(true);
+    } catch { /* silent */ }
+  };
+
+  const saveAISettings = async () => {
+    setAiSaving(true);
+    try {
+      const r = await axios.post(`${API_URL}/admin/ai-settings/${merchantId}`, {
+        aiAutoReply,
+        aiKnowledgeBase,
+        aiFallbackMessage: aiFallbackMessage || undefined,
+      }, { headers: ah() });
+      alert(r.data.message);
+    } catch (e: any) { alert(e.response?.data?.message || 'Failed to save AI settings'); }
+    finally { setAiSaving(false); }
+  };
+
   // ── Inbox state ────────────────────────────────────────────────────────────
   const [inboxConversations, setInboxConversations]     = useState<any[]>([]);
   const [inboxLoading, setInboxLoading]                 = useState(false);
@@ -554,6 +584,8 @@ export default function MerchantControlHub() {
       // Load red flags + WABA info on initial page load
       fetchRedFlags();
       fetchWabaInfo();
+      // Load AI settings
+      loadAISettings();
     } finally {
       setFetching(false);
     }
@@ -1717,6 +1749,116 @@ export default function MerchantControlHub() {
 
                 </div>
               )}
+            </div>
+
+            {/* ── AI Auto-Reply ── */}
+            <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg ${
+                    aiAutoReply ? 'bg-purple-500/20' : 'bg-slate-700'
+                  }`}>
+                    🤖
+                  </div>
+                  <div>
+                    <p className="text-white font-extrabold">AI Auto-Reply</p>
+                    <p className="text-slate-400 text-xs mt-0.5">
+                      {aiAutoReply
+                        ? '🟢 Active — Groq AI is replying to customer messages'
+                        : '⏸️ Paused — AI replies are disabled'}
+                    </p>
+                  </div>
+                </div>
+                {/* ON/OFF Toggle */}
+                <div
+                  onClick={() => setAiAutoReply(!aiAutoReply)}
+                  className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 cursor-pointer shrink-0 ${
+                    aiAutoReply ? 'bg-purple-500' : 'bg-slate-600'
+                  }`}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                    aiAutoReply ? 'translate-x-6' : 'translate-x-0'
+                  }`} />
+                </div>
+              </div>
+
+              <div className="p-5 space-y-4">
+
+                {/* How it works */}
+                <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 text-xs text-purple-300 space-y-1">
+                  <p className="font-bold text-purple-200">How AI Auto-Reply works:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-slate-300">
+                    <li>Customer sends a WhatsApp message</li>
+                    <li>Groq AI reads your Business Knowledge Base below</li>
+                    <li>If question matches → sends professional reply instantly</li>
+                    <li>If AI can't answer → sends fallback message automatically</li>
+                  </ol>
+                  <p className="text-slate-500 text-[10px] mt-2">
+                    Powered by Groq (llama-3.1-8b-instant) — free tier, ~2s response time
+                  </p>
+                </div>
+
+                {/* Knowledge Base */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase">
+                      📋 Business Knowledge Base
+                    </label>
+                    <span className="text-[10px] text-slate-600">{aiKnowledgeBase.length} chars</span>
+                  </div>
+                  <textarea
+                    rows={10}
+                    value={aiKnowledgeBase}
+                    onChange={e => setAiKnowledgeBase(e.target.value)}
+                    placeholder={`Write everything about your business here. The AI will use this to answer customer questions.\n\nExample:\n\nBusiness Name: Priya Jewellery\nLocation: Mumbai, Maharashtra\nProducts: Gold jewellery, Silver jewellery, Kundan sets, Bridal jewellery\n\nPricing:\n- Gold rings: ₹5,000 - ₹25,000\n- Bridal sets: ₹50,000 - ₹2,00,000\n- Silver items: ₹500 - ₹5,000\n\nDelivery: Free delivery on orders above ₹2,000. 3-5 business days.\nReturn Policy: 7-day returns accepted.\nContact: +91-98765-43210, priyajewellery@gmail.com\n\nFAQs:\nQ: Do you do custom orders? A: Yes, custom designs take 15-20 days.\nQ: Is the gold hallmarked? A: Yes, all gold is BIS hallmarked.\nQ: Do you ship outside India? A: Currently only within India.`}
+                    className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none font-sans leading-relaxed"
+                  />
+                  <p className="text-slate-600 text-[10px] mt-1">
+                    Add products, pricing, policies, FAQs, delivery info — the more detail, the better the AI replies
+                  </p>
+                </div>
+
+                {/* Fallback message */}
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">
+                    💬 Fallback Message <span className="text-slate-600 font-normal">(sent when AI can't answer)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={aiFallbackMessage}
+                    onChange={e => setAiFallbackMessage(e.target.value)}
+                    placeholder="Thank you for reaching out! 😊 Our team will connect with you shortly to help you."
+                    className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  />
+                  <p className="text-slate-600 text-[10px] mt-1">
+                    Leave blank to use the default message
+                  </p>
+                </div>
+
+                {/* Save button */}
+                <button
+                  onClick={saveAISettings}
+                  disabled={aiSaving}
+                  className="w-full py-3 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-bold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 text-sm transition"
+                >
+                  {aiSaving
+                    ? <><FaSpinner className="animate-spin" /> Saving...</>
+                    : <>🤖 Save AI Settings</>
+                  }
+                </button>
+
+                {/* GROQ_API_KEY reminder */}
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-300 flex items-start gap-2">
+                  <span className="shrink-0">⚠️</span>
+                  <div>
+                    <p className="font-bold">Setup Required: Add GROQ_API_KEY to backend .env</p>
+                    <p className="text-amber-400/70 mt-0.5">
+                      Get free API key at <strong>console.groq.com</strong> → Add to{' '}
+                      <code className="bg-slate-800 px-1 rounded">GROQ_API_KEY=gsk_...</code> in your backend .env file
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
           </div>

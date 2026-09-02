@@ -1179,6 +1179,63 @@ router.post('/send-catalog', async (req: Request, res: Response): Promise<any> =
   }
 });
 
+// ── AI Auto-Reply Settings ────────────────────────────────────────────────────
+// GET  /api/admin/ai-settings/:merchantId
+// POST /api/admin/ai-settings/:merchantId
+
+router.get('/ai-settings/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = req.params.merchantId as string;
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: merchantId },
+      select: {
+        id: true,
+        aiAutoReply:       true,
+        aiKnowledgeBase:   true,
+        aiFallbackMessage: true,
+      } as any,
+    });
+    if (!merchant) return res.status(404).json({ message: 'Merchant not found' });
+    res.json(merchant);
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+router.post('/ai-settings/:merchantId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId      = req.params.merchantId as string;
+    const { aiAutoReply, aiKnowledgeBase, aiFallbackMessage } = req.body;
+
+    const data: any = {};
+    if (aiAutoReply       !== undefined) data.aiAutoReply       = aiAutoReply;
+    if (aiKnowledgeBase   !== undefined) data.aiKnowledgeBase   = aiKnowledgeBase;
+    if (aiFallbackMessage !== undefined) data.aiFallbackMessage = aiFallbackMessage;
+
+    const merchant = await prisma.merchant.update({
+      where: { id: merchantId },
+      data,
+    });
+
+    logActivity(merchantId, 'SERVICE_TOGGLED',
+      `AI Auto-Reply ${aiAutoReply ? 'ENABLED 🤖' : aiAutoReply === false ? 'DISABLED ⏸️' : 'settings updated'}`,
+      { aiAutoReply, hasKnowledgeBase: !!(aiKnowledgeBase?.trim()) }
+    );
+
+    res.json({
+      success: true,
+      message: aiAutoReply === true
+        ? '✅ AI Auto-Reply enabled — Groq will reply to customer messages'
+        : aiAutoReply === false
+        ? '⏸️ AI Auto-Reply disabled'
+        : '✅ AI settings saved',
+      aiAutoReply: (merchant as any).aiAutoReply,
+    });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 // ── Catalog Status — check if Facebook Catalog is connected to WABA ──────────
 // GET /api/admin/catalog-status/:merchantId
 router.get('/catalog-status/:merchantId', async (req: Request, res: Response): Promise<any> => {

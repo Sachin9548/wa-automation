@@ -42,6 +42,11 @@ model Merchant {
   serviceActive     Boolean  @default(true)   // admin toggle: ON = messages send, OFF = paused
   isFree            Boolean  @default(false)  // free merchant flag
 
+  // AI Auto-Reply (Point 9)
+  aiAutoReply       Boolean  @default(false)  // ON = AI replies to customer messages
+  aiKnowledgeBase   String?  @db.Text         // Business info, FAQs, product details for AI context
+  aiFallbackMessage String?  @db.Text         // Sent when AI cannot answer (default: "Our team will connect with you shortly!")
+
   // Meta WhatsApp Cloud API credentials (set by admin per merchant)
   metaPhoneNumberId String?   // Phone Number ID from Meta app dashboard
   metaAccessToken   String?   // Permanent system user token (never expires)

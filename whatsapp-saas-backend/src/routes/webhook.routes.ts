@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { handleAbandonedCartWebhook, handleOrderCreatedWebhook } from '../webhooks/shopify.webhook';
-import { markMessageRead } from '../services/whatsapp.service';
+import { markMessageRead, sendMetaTextMessage } from '../services/whatsapp.service';
+import { generateAIReply } from '../services/ai.service';
 import prisma from '../lib/prisma';
 
 const router = Router();
@@ -128,8 +129,8 @@ router.post('/meta', async (req: Request, res: Response) => {
 
             // Find merchant by phoneNumberId
             const merchant = await prisma.merchant.findFirst({
-              where: { metaPhoneNumberId: phoneNumberId }
-            });
+              where: { metaPhoneNumberId: phoneNumberId },
+            }) as any;
 
             if (!merchant) {
               console.warn(`⚠️ No merchant found for phoneNumberId: ${phoneNumberId}`);
@@ -163,7 +164,7 @@ router.post('/meta', async (req: Request, res: Response) => {
             }
 
             // ── Save incoming message ───────────────────────────────────
-            await prisma.message.create({
+            const savedMsg = await prisma.message.create({
               data: {
                 merchantId: merchant.id,
                 customerPhone: from,
@@ -177,6 +178,60 @@ router.post('/meta', async (req: Request, res: Response) => {
             // Mark as read on Meta side
             if (merchant.metaAccessToken) {
               await markMessageRead(phoneNumberId!, merchant.metaAccessToken, message.id);
+            }
+
+            // ── AI Auto-Reply ────────────────────────────────────────────
+            // Only trigger for text messages — AI can't answer media
+            if (
+              msgType === 'text' &&
+              content.trim().length > 2 &&
+              (merchant as any).aiAutoReply === true &&
+              merchant.metaPhoneNumberId &&
+              merchant.metaAccessToken
+            ) {
+              // Fire-and-forget — don't block webhook response
+              setImmediate(async () => {
+                try {
+                  const aiResult = await generateAIReply(
+                    content,
+                    (merchant as any).aiKnowledgeBase || '',
+                    merchant.brandName,
+                    (merchant as any).aiFallbackMessage,
+                  );
+
+                  if (aiResult.replied || aiResult.isFallback) {
+                    // Send reply via WhatsApp
+                    const sent = await sendMetaTextMessage(
+                      merchant.metaPhoneNumberId!,
+                      merchant.metaAccessToken!,
+                      from,
+                      aiResult.message
+                    );
+
+                    if (sent) {
+                      // Save AI reply as outgoing message
+                      await prisma.message.create({
+                        data: {
+                          merchantId: merchant.id,
+                          customerPhone: from,
+                          content: aiResult.message,
+                          direction: 'OUTGOING',
+                          status: 'SENT',
+                          templateName: aiResult.isFallback ? 'ai_fallback' : 'ai_reply',
+                        }
+                      });
+                      await prisma.merchant.update({
+                        where: { id: merchant.id },
+                        data: { totalSent: { increment: 1 } },
+                      });
+                      console.log(`🤖 AI ${aiResult.isFallback ? 'fallback' : 'reply'} sent to ${from} (${aiResult.tokensUsed || 0} tokens)`);
+                    }
+                  }
+                } catch (aiErr: any) {
+                  console.error('❌ AI auto-reply error:', aiErr.message);
+                  // Non-critical — swallow silently
+                }
+              });
             }
           }
         }
