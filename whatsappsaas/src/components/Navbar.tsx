@@ -42,7 +42,7 @@ const Navbar = () => {
               <img
                 src="/wa-logo.png"
                 alt="WA-Automations"
-                className="h-18 w-auto"
+                className="h-28 w-auto"
               />
             </Link>
           </div>

@@ -26,7 +26,7 @@ const Footer = () => {
               <img
                 src="/wa-logo.png"
                 alt="WA-Automations"
-                className="h-24 w-auto"
+                className="h-38 w-auto"
               />
             </Link>
 
