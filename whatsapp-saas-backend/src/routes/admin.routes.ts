@@ -573,7 +573,7 @@ const NO_PHONE_CONDITION = (merchantId: string) => ({
     { phone: { startsWith: 'email:' } },   // email-only customers
     { phone: 'NO_PHONE' },                  // old abandoned cart placeholder
     { phone: '' },                          // blank
-    { phone: null },                        // truly null
+   
   ]
 });
 
