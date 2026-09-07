@@ -15,7 +15,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "WA-Automations | WhatsApp Marketing",
+
   description: "Recover abandoned carts with WhatsApp instantly.",
+  icons: {
+    icon: '/wa-logo.png',
+  },
 };
 
 export default function RootLayout({
