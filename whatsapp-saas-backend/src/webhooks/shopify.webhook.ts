@@ -416,14 +416,12 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
           discountCode,
           trackingLinkId: trackingLink?.id,
           variables,
-          // Tag for activity tracking
           jobType:        'POST_PURCHASE_UPSELL',
         }, {
           delay:    upsellFlow.delayMinutes * 60 * 1000,
           attempts: 2,
           backoff:  { type: 'exponential', delay: 60000 },
         });
-
         console.log(`🎁 Upsell queued: ${phone} | template: ${upsellFlow.metaTemplateName} | delay: ${upsellFlow.delayMinutes}min | product: ${purchasedProductName} | discount: ${discountCode || 'none'}`);
       }
     }

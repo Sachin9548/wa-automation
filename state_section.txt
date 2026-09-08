@@ -1,0 +1,476 @@
+}
+
+export default function MerchantControlHub() {
+  const { id } = useParams();
+  const router = useRouter();
+  const merchantId = id as string;
+
+  const [merchant, setMerchant] = useState<any>(null);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [flows, setFlows] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [customerTotal, setCustomerTotal] = useState(0);
+  const [fetching, setFetching] = useState(true);
+  const [loading, setLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    | "overview"
+    | "flows"
+    | "campaign"
+    | "customers"
+    | "analytics"
+    | "credentials"
+    | "templates"
+    | "inbox"
+    | "activitylog"
+    | "mpm"
+  >("overview");
+
+  // Activation
+  const [category, setCategory] = useState("ECOMMERCE");
+  const [shopifyToken, setShopifyToken] = useState("");
+  const [shopifySecret, setShopifySecret] = useState("");
+  const [storeUrl, setStoreUrl] = useState("");
+  // Meta Cloud API credentials
+  const [metaPhoneNumberId, setMetaPhoneNumberId] = useState("");
+  const [metaAccessToken, setMetaAccessToken] = useState("");
+  const [metaWabaId, setMetaWabaId] = useState("");
+
+  // Wallet / Sub
+  const [amount, setAmount] = useState("");
+  const [days, setDays] = useState("30");
+
+  // Payment
+  const [payAmount, setPayAmount] = useState("");
+  const [payDays, setPayDays] = useState("30");
+  const [payNote, setPayNote] = useState("");
+  const [payments, setPayments] = useState<any[]>([]);
+
+  // Customers
+  const [customerFilter, setCustomerFilter] = useState("all");
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [customerStats, setCustomerStats] = useState<{
+    noPhoneCount: number;
+    waInvalidCount: number;
+    abandonedCount: number;
+    orderedCount: number;
+  } | null>(null);
+
+  // Add single customer
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [addCustName, setAddCustName] = useState("");
+  const [addCustPhone, setAddCustPhone] = useState("");
+  const [addCustEmail, setAddCustEmail] = useState("");
+
+  // Flow drafts — local state before save
+  const [flowDrafts, setFlowDrafts] = useState<
+    Record<
+      string,
+      {
+        template: string;
+        delay: number;
+        active: boolean;
+        lang: string;
+        discount: string;
+      }
+    >
+  >({});
+
+  // Analytics
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsDays, setAnalyticsDays] = useState(30);
+
+  // WABA Info
+  const [wabaInfo, setWabaInfo] = useState<any>(null);
+  const [wabaLoading, setWabaLoading] = useState(false);
+
+  const fetchWabaInfo = async () => {
+    setWabaLoading(true);
+    try {
+      const r = await axios.get(`${API_URL}/admin/waba-info/${merchantId}`, {
+        headers: ah(),
+      });
+      setWabaInfo(r.data);
+    } catch (e: any) {
+      setWabaInfo({
+        error: e.response?.data?.message || "Failed to load WABA info",
+      });
+    } finally {
+      setWabaLoading(false);
+    }
+  };
+
+  // Activity Log state
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityFilter, setActivityFilter] = useState("");
+
+  // Red Flags state
+  const [redFlags, setRedFlags] = useState<any>(null);
+  const [redFlagsLoading, setRedFlagsLoading] = useState(false);
+
+  const fetchRedFlags = async () => {
+    setRedFlagsLoading(true);
+    try {
+      const r = await axios.get(`${API_URL}/admin/red-flags/${merchantId}`, {
+        headers: ah(),
+      });
+      setRedFlags(r.data);
+    } catch {
+      /* silent */
+    } finally {
+      setRedFlagsLoading(false);
+    }
+  };
+
+  // ROI Report state
+  const [roiReport, setRoiReport] = useState<any>(null);
+  const [roiLoading, setRoiLoading] = useState(false);
+  const [roiDays, setRoiDays] = useState(30);
+  const [roiFee, setRoiFee] = useState("5000");
+  const [roiCopied, setRoiCopied] = useState(false);
+
+  const generateRoiReport = async (days = roiDays, fee = roiFee) => {
+    setRoiLoading(true);
+    setRoiReport(null);
+    try {
+      const r = await axios.get(
+        `${API_URL}/admin/roi-report/${merchantId}?days=${days}&fee=${fee}`,
+        { headers: ah() },
+      );
+      setRoiReport(r.data);
+    } catch (e: any) {
+      alert(e.response?.data?.message || "Failed to generate report");
+    } finally {
+      setRoiLoading(false);
+    }
+  };
+
+  const copyRoiMessage = async () => {
+    if (!roiReport?.whatsappMessage) return;
+    try {
+      await navigator.clipboard.writeText(roiReport.whatsappMessage);
+      setRoiCopied(true);
+      setTimeout(() => setRoiCopied(false), 2500);
+    } catch {
+      // Fallback for older browsers
+      const el = document.createElement("textarea");
+      el.value = roiReport.whatsappMessage;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setRoiCopied(true);
+      setTimeout(() => setRoiCopied(false), 2500);
+    }
+  };
+
+  const loadActivityLog = async (page = 1, filter = "") => {
+    setActivityLoading(true);
+    try {
+      const r = await axios.get(
+        `${API_URL}/admin/activity-log/${merchantId}?page=${page}&limit=30${filter ? `&action=${filter}` : ""}`,
+        { headers: ah() },
+      );
+      setActivityLogs(r.data.logs || []);
+      setActivityTotal(r.data.total || 0);
+      setActivityPage(page);
+    } catch {
+      /* silent */
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
+  // Campaign
+  const [campaignName, setCampaignName] = useState("");
+  const [campaignTemplate, setCampaignTemplate] = useState("");
+  const [campMetaTemplate, setCampMetaTemplate] = useState("");
+  const [campMetaLang, setCampMetaLang] = useState("en_US");
+  const [campDiscountCode, setCampDiscountCode] = useState("");
+  const [campScheduleMode, setCampScheduleMode] = useState<"now" | "later">(
+    "now",
+  );
+  const [campScheduledAt, setCampScheduledAt] = useState(""); // datetime-local string
+  const [campCustomerFilter, setCampCustomerFilter] = useState("all");
+  const [campCancelId, setCampCancelId] = useState<string | null>(null);
+
+  // ── MPM — Product Messages ─────────────────────────────────────────────────
+  const [mpmTemplate, setMpmTemplate] = useState("");
+  const [mpmLang, setMpmLang] = useState("en_US");
+  const [mpmBodyVars, setMpmBodyVars] = useState("");
+  const [mpmThumbnailId, setMpmThumbnailId] = useState("");
+  const [mpmSections, setMpmSections] = useState<
+    Array<{ title: string; products: string }>
+  >([{ title: "Featured Products", products: "" }]);
+  const [mpmCustomerFilter, setMpmCustomerFilter] = useState("all");
+  const [mpmToPhone, setMpmToPhone] = useState("");
+  const [mpmSending, setMpmSending] = useState(false);
+  const [mpmMode, setMpmMode] = useState<"catalog" | "mpm">("catalog");
+  const [mpmBodyText, setMpmBodyText] = useState(
+    "👋 Hi! Check out our latest collection right here in WhatsApp 👇",
+  );
+  const [mpmFooterText, setMpmFooterText] = useState(
+    "Tap 'View Catalog' to browse & shop",
+  );
+
+  // ── AI Auto-Reply state ────────────────────────────────────────────────────
+  const [aiAutoReply, setAiAutoReply] = useState(false);
+  const [aiKnowledgeBase, setAiKnowledgeBase] = useState("");
+  const [aiFallbackMessage, setAiFallbackMessage] = useState("");
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiLoaded, setAiLoaded] = useState(false);
+
+  const loadAISettings = async () => {
+    try {
+      const r = await axios.get(`${API_URL}/admin/ai-settings/${merchantId}`, {
+        headers: ah(),
+      });
+      setAiAutoReply(r.data.aiAutoReply ?? false);
+      setAiKnowledgeBase(r.data.aiKnowledgeBase ?? "");
+      setAiFallbackMessage(r.data.aiFallbackMessage ?? "");
+      setAiLoaded(true);
+    } catch {
+      /* silent */
+    }
+  };
+
+  const saveAISettings = async () => {
+    setAiSaving(true);
+    try {
+      const r = await axios.post(
+        `${API_URL}/admin/ai-settings/${merchantId}`,
+        {
+          aiAutoReply,
+          aiKnowledgeBase,
+          aiFallbackMessage: aiFallbackMessage || undefined,
+        },
+        { headers: ah() },
+      );
+      alert(r.data.message);
+    } catch (e: any) {
+      alert(e.response?.data?.message || "Failed to save AI settings");
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+  // ── Inbox state ────────────────────────────────────────────────────────────
+  const [inboxConversations, setInboxConversations] = useState<any[]>([]);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [selectedConvo, setSelectedConvo] = useState<any>(null);
+  const [inboxMessages, setInboxMessages] = useState<any[]>([]);
+  const [inboxMessagesLoading, setInboxMessagesLoading] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replySending, setReplySending] = useState(false);
+  const [inboxSearch, setInboxSearch] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 24hr countdown
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+
+  const loadInboxConversations = async (search = "") => {
+    setInboxLoading(true);
+    try {
+      const r = await axios.get(
+        `${API_URL}/inbox/conversations/${merchantId}?search=${encodeURIComponent(search)}&limit=40`,
+        { headers: ah() },
+      );
+      setInboxConversations(r.data.conversations || []);
+    } catch {
+      /* silent */
+    } finally {
+      setInboxLoading(false);
+    }
+  };
+
+  const loadInboxMessages = async (convo: any) => {
+    setSelectedConvo(convo);
+    setInboxMessagesLoading(true);
+    setInboxMessages([]);
+    try {
+      const r = await axios.get(
+        `${API_URL}/inbox/messages/${merchantId}/${convo.customerPhone}?limit=100`,
+        { headers: ah() },
+      );
+      setInboxMessages(r.data.messages || []);
+      // Update 24hr window from fresh response
+      const w = r.data.window;
+      if (w?.windowExpiresAt && w?.canSendFreeText) {
+        const ms = new Date(w.windowExpiresAt).getTime() - Date.now();
+        const hrs = Math.floor(ms / 3600000);
+        const mins = Math.floor((ms % 3600000) / 60000);
+        setTimeLeft(`${hrs}h ${mins}m`);
+      } else {
+        setTimeLeft(null);
+      }
+      // mark read
+      await axios.post(
+        `${API_URL}/inbox/mark-read/${merchantId}`,
+        { customerPhone: convo.customerPhone },
+        { headers: ah() },
+      );
+      // refresh unread count
+      setInboxConversations((prev) =>
+        prev.map((c) =>
+          c.customerPhone === convo.customerPhone
+            ? { ...c, unreadCount: 0 }
+            : c,
+        ),
+      );
+    } catch {
+      /* silent */
+    } finally {
+      setInboxMessagesLoading(false);
+    }
+  };
+
+  const sendInboxReply = async () => {
+    if (!replyText.trim() || !selectedConvo) return;
+    setReplySending(true);
+    try {
+      const r = await axios.post(
+        `${API_URL}/inbox/send/${merchantId}`,
+        { customerPhone: selectedConvo.customerPhone, message: replyText },
+        { headers: ah() },
+      );
+      setInboxMessages((prev) => [...prev, r.data.message]);
+      setReplyText("");
+      setTimeout(
+        () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }),
+        100,
+      );
+    } catch (e: any) {
+      const code = e.response?.data?.code;
+      if (code === "WINDOW_EXPIRED" || code === "NO_24HR_WINDOW") {
+        alert("⏰ 24hr window closed — please send a template instead.");
+      } else {
+        alert(e.response?.data?.message || "Failed to send");
+      }
+    } finally {
+      setReplySending(false);
+    }
+  };
+
+  // Flow editing
+  const [editingFlow, setEditingFlow] = useState<any>(null);
+  const [editTemplate, setEditTemplate] = useState("");
+  const [editDelay, setEditDelay] = useState(0);
+
+  // Credentials update
+  const [credShopifyToken, setCredShopifyToken] = useState("");
+  const [credShopifySecret, setCredShopifySecret] = useState("");
+  const [credStoreUrl, setCredStoreUrl] = useState("");
+  const [credMetaPhoneId, setCredMetaPhoneId] = useState("");
+  const [credMetaToken, setCredMetaToken] = useState("");
+  const [credMetaWabaId, setCredMetaWabaId] = useState("");
+  const [credClientId, setCredClientId] = useState("");
+  const [credClientSecret, setCredClientSecret] = useState("");
+  // Templates
+  const [metaTemplates, setMetaTemplates] = useState<any[]>([]);
+  const [webhookResults, setWebhookResults] = useState<any[]>([]);
+  const [tmplName, setTmplName] = useState("");
+  const [tmplBody, setTmplBody] = useState("");
+  const [tmplHeader, setTmplHeader] = useState("");
+  const [tmplFooter, setTmplFooter] = useState("");
+  const [tmplCategory, setTmplCategory] = useState("MARKETING");
+  const [tmplLanguage, setTmplLanguage] = useState("en_US");
+  // Buttons — max 3 buttons
+  const [tmplButtons, setTmplButtons] = useState<
+    Array<{ type: string; text: string; url?: string; phone_number?: string }>
+  >([]);
+  // Library filter
+  const [tmplFilter, setTmplFilter] = useState<
+    "ALL" | "APPROVED" | "PENDING" | "REJECTED"
+  >("ALL");
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const [mRes, cRes, fRes, custRes, payRes] = await Promise.all([
+        axios
+          .get(`${API_URL}/admin/merchants/${merchantId}`, { headers: ah() })
+          .catch(() =>
+            axios
+              .get(`${API_URL}/admin/merchants`, { headers: ah() })
+              .then((r) => ({
+                data: {
+                  merchant: r.data.merchants.find(
+                    (m: any) => m.id === merchantId,
+                  ),
+                },
+              })),
+          ),
+        axios
+          .get(`${API_URL}/admin/campaigns/${merchantId}`, { headers: ah() })
+          .catch(() => ({ data: { campaigns: [] } })),
+        axios
+          .get(`${API_URL}/admin/flows/${merchantId}`, { headers: ah() })
+          .catch(() => ({ data: { flows: [] } })),
+        axios
+          .get(`${API_URL}/admin/customers/${merchantId}?limit=10`, {
+            headers: ah(),
+          })
+          .catch(() => ({ data: { customers: [], total: 0 } })),
+        axios
+          .get(`${API_URL}/admin/payments/${merchantId}`, { headers: ah() })
+          .catch(() => ({ data: { payments: [] } })),
+      ]);
+      setMerchant(mRes.data.merchant);
+      setCampaigns(cRes.data.campaigns || []);
+      setFlows(fRes.data.flows || []);
+      setCustomers(custRes.data.customers || []);
+      setCustomerTotal(custRes.data.total || 0);
+      setPayments(payRes.data.payments || []);
+
+      // Load sync status
+      axios
+        .get(`${API_URL}/admin/sync-status/${merchantId}`, { headers: ah() })
+        .then((r) => setSyncStatus(r.data))
+        .catch(() => {});
+      // Pre-fill credentials form from DB
+      const m = mRes.data.merchant;
+      if (m) {
+        setCredStoreUrl(m.storeUrl || "");
+        setCredShopifyToken(m.shopifyToken || "");
+        setCredShopifySecret(m.shopifySecret || "");
+        setCredMetaPhoneId(m.metaPhoneNumberId || "");
+        setCredMetaToken(m.metaAccessToken || "");
+        setCredMetaWabaId(m.metaWabaId || "");
+        setCredClientId(m.shopifyClientId || "");
+        setCredClientSecret(m.shopifyClientSecret || "");
+      }
+      if (mRes.data.merchant?.storeUrl)
+        setStoreUrl(mRes.data.merchant.storeUrl);
+      // Load red flags + WABA info on initial page load
+      fetchRedFlags();
+      fetchWabaInfo();
+      // Load AI settings
+      loadAISettings();
+    } finally {
+      setFetching(false);
+    }
+  }, [merchantId]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  // Auto-load Meta templates when flows, campaign, or templates tab opens
+  useEffect(() => {
+    if (
+      (activeTab === "flows" ||
+        activeTab === "campaign" ||
+        activeTab === "templates" ||
+        activeTab === "inbox") &&
+      metaTemplates.length === 0
+    ) {
+      fetchMetaTemplates();
+    }
+    if (activeTab === "customers") {
+      loadFilteredCustomers(customerFilter);
+    }
+    if (activeTab === "inbox") {
+      loadInboxConversations();
+    }

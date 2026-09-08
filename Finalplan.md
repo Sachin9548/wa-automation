@@ -167,4 +167,3 @@ Aur Point 2 (WABA info) sirf ek read-only widget hai — fast hoga lekin usse pe
 
 
 
-look hume one more thing karna hai we have to add the one more flow in the our flow tab which is order_confromation any order coem in shopify we wil send the messge as order confrom thank you for shopify and suggest to add some more or current discounts also we wil seen on order jo bhi karega us customer ko order comfrom tio messge jana chahiye ok guide me for this as well

@@ -1,0 +1,301 @@
+        {activeTab === "customers" && (
+          <div className="space-y-5">
+            {/* Sync Status Bar */}
+            <SyncStatusBar
+              merchantId={merchantId}
+              isActive={isActive}
+              onFullSync={handleFullSync}
+              onQuickSync={handleSync}
+              loading={loading}
+            />
+
+            {/* ── Customer Stats Cards ── */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                {
+                  label: "Total",
+                  value: customerTotal,
+                  color: "text-white",
+                  bg: "bg-slate-700",
+                  border: "border-white/10",
+                  filter: "all",
+                },
+                {
+                  label: "🛒 Abandoned",
+                  value: customerStats?.abandonedCount ?? "—",
+                  color: "text-orange-400",
+                  bg: "bg-orange-500/10",
+                  border: "border-orange-500/20",
+                  filter: "abandoned",
+                },
+                {
+                  label: "✅ Ordered",
+                  value: customerStats?.orderedCount ?? "—",
+                  color: "text-green-400",
+                  bg: "bg-green-500/10",
+                  border: "border-green-500/20",
+                  filter: "ordered",
+                },
+                {
+                  label: "📵 No Phone",
+                  value: customerStats?.noPhoneCount ?? "—",
+                  color: "text-red-400",
+                  bg: "bg-red-500/10",
+                  border: "border-red-500/20",
+                  filter: "no_phone",
+                },
+                {
+                  label: "🚫 WA Invalid",
+                  value: customerStats?.waInvalidCount ?? "—",
+                  color: "text-yellow-400",
+                  bg: "bg-yellow-500/10",
+                  border: "border-yellow-500/20",
+                  filter: "wa_invalid",
+                },
+              ].map((s) => (
+                <button
+                  key={s.filter}
+                  onClick={() => {
+                    setCustomerFilter(s.filter);
+                    loadFilteredCustomers(s.filter);
+                  }}
+                  className={`${s.bg} border ${s.border} rounded-xl p-3 text-left transition hover:opacity-80 ${customerFilter === s.filter ? "ring-2 ring-teal-400" : ""}`}
+                >
+                  <p className={`text-xl font-extrabold ${s.color}`}>
+                    {s.value}
+                  </p>
+                  <p className="text-slate-400 text-xs mt-0.5 font-bold">
+                    {s.label}
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            {/* ── Alert if no_phone / wa_invalid selected ── */}
+            {customerFilter === "no_phone" && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-xs text-red-300 flex items-start gap-3">
+                <span className="text-lg">📵</span>
+                <div>
+                  <p className="font-bold text-red-400 mb-1">
+                    Customers without WhatsApp phone number
+                  </p>
+                  <p>
+                    These customers have no phone or only an email. WhatsApp
+                    messages <strong>cannot be sent</strong> to them. You can
+                    manually add their phone number using the Edit option.
+                  </p>
+                </div>
+              </div>
+            )}
+            {customerFilter === "wa_invalid" && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 text-xs text-yellow-300 flex items-start gap-3">
+                <span className="text-lg">🚫</span>
+                <div>
+                  <p className="font-bold text-yellow-400 mb-1">
+                    Numbers not registered on WhatsApp
+                  </p>
+                  <p>
+                    These numbers were tried but Meta returned an error — the
+                    number is not on WhatsApp. Future messages to these numbers
+                    will be <strong>automatically skipped</strong> to save API
+                    quota.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Actions row */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="ml-auto flex gap-2 flex-wrap">
+                {/* Export CSV */}
+                <a
+                  href={`${API_URL}/admin/customers/export/${merchantId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-slate-700 hover:bg-slate-600 border border-white/10 text-slate-300 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    fetch(`${API_URL}/admin/customers/export/${merchantId}`, {
+                      headers: ah(),
+                    })
+                      .then((r) => r.blob())
+                      .then((blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `customers-${merchantId}.csv`;
+                        a.click();
+                      });
+                  }}
+                >
+                  ⬇️ Export CSV
+                </a>
+
+                {/* Import CSV */}
+                <label className="bg-teal-500/20 hover:bg-teal-500 border border-teal-500/30 text-teal-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer">
+                  ⬆️ Import CSV
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={handleImportCSV}
+                  />
+                </label>
+
+                {/* Add single */}
+                <button
+                  onClick={() => setShowAddCustomer(!showAddCustomer)}
+                  className="bg-indigo-500/20 hover:bg-indigo-500 border border-indigo-500/30 text-indigo-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition"
+                >
+                  + Add Customer
+                </button>
+              </div>
+            </div>
+
+            {/* Add single customer form */}
+            {showAddCustomer && (
+              <div className="bg-slate-800 border border-indigo-500/20 rounded-2xl p-5">
+                <p className="text-white font-bold mb-3 text-sm">
+                  Add Customer Manually
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Name"
+                    value={addCustName}
+                    onChange={(e) => setAddCustName(e.target.value)}
+                    className="p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone (e.g. 9876543210)"
+                    value={addCustPhone}
+                    onChange={(e) => setAddCustPhone(e.target.value)}
+                    className="p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email (optional)"
+                    value={addCustEmail}
+                    onChange={(e) => setAddCustEmail(e.target.value)}
+                    className="p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                </div>
+                <div className="flex gap-3 mt-3">
+                  <button
+                    onClick={handleAddSingleCustomer}
+                    disabled={loading === "addcust" || !addCustPhone}
+                    className="bg-indigo-500 hover:bg-indigo-400 text-white font-bold px-5 py-2.5 rounded-xl text-sm disabled:opacity-40 flex items-center gap-2 transition"
+                  >
+                    {loading === "addcust" ? (
+                      <FaSpinner className="animate-spin" />
+                    ) : (
+                      <FaCheckCircle />
+                    )}{" "}
+                    Save Customer
+                  </button>
+                  <button
+                    onClick={() => setShowAddCustomer(false)}
+                    className="text-slate-400 hover:text-white text-sm transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* CSV format hint */}
+            <div className="bg-slate-900 border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-500">
+              📋 CSV format:{" "}
+              <code className="text-teal-400">name,phone,email</code> — one
+              customer per row. Phone required.
+            </div>
+
+            {/* Customers table */}
+            <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden">
+              {/* table-like grid — scroll horizontally on mobile */}
+              <div className="overflow-x-auto">
+                <div className="min-w-[540px]">
+                  <div className="px-4 md:px-6 py-3 border-b border-white/5 grid grid-cols-12 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <span className="col-span-3">Customer</span>
+                    <span className="col-span-3">Phone</span>
+                    <span className="col-span-2">Orders</span>
+                    <span className="col-span-2">Total Spent</span>
+                    <span className="col-span-2">Type</span>
+                  </div>
+                  {customers.length === 0 ? (
+                    <div className="px-6 py-12 text-center">
+                      <FaUsers className="text-slate-600 text-3xl mx-auto mb-2" />
+                      <p className="text-slate-500 text-sm">
+                        No customers found. Sync from Shopify or import CSV.
+                      </p>
+                    </div>
+                  ) : (
+                    customers.map((c: any) => (
+                      <div
+                        key={c.id}
+                        className="px-4 md:px-6 py-3 grid grid-cols-12 border-b border-white/5 hover:bg-white/3 transition items-center"
+                      >
+                        <div className="col-span-3">
+                          <p className="text-white text-sm font-medium">
+                            {c.name || "—"}
+                          </p>
+                          {c.city && (
+                            <p className="text-slate-500 text-xs">{c.city}</p>
+                          )}
+                        </div>
+                        <span className="col-span-3 text-slate-400 text-xs font-mono truncate">
+                          {c.phone}
+                        </span>
+                        <span className="col-span-2 text-slate-300 text-sm">
+                          {c.totalOrders || 0}
+                        </span>
+                        <span className="col-span-2 text-teal-400 text-sm font-bold">
+                          ₹{(c.totalSpent || 0).toFixed(0)}
+                        </span>
+                        <div className="col-span-2 flex gap-1 flex-wrap">
+                          {c.hasAbandonedCart && (
+                            <span className="bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                              Cart
+                            </span>
+                          )}
+                          {c.hasPlacedOrder && (
+                            <span className="bg-green-500/10 border border-green-500/20 text-green-400 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                              Order
+                            </span>
+                          )}
+                          {(c.phone === "NO_PHONE" ||
+                            c.phone === "" ||
+                            c.phone?.startsWith("email:")) && (
+                            <span className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                              No Phone
+                            </span>
+                          )}
+                          {c.tags?.includes("wa_invalid") && (
+                            <span className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                              WA ✗
+                            </span>
+                          )}
+                          {!c.hasAbandonedCart &&
+                            !c.hasPlacedOrder &&
+                            c.phone !== "NO_PHONE" &&
+                            !c.phone?.startsWith("email:") &&
+                            !c.tags?.includes("wa_invalid") && (
+                              <span className="text-slate-600 text-[9px]">
+                                —
+                              </span>
+                            )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {customerTotal > customers.length && (
+                    <div className="px-6 py-3 text-center text-slate-500 text-xs">
+                      Showing {customers.length} of {customerTotal} customers
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
