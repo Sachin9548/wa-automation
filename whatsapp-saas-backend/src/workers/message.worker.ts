@@ -3,6 +3,7 @@ import { Worker } from 'bullmq';
 import prisma from '../lib/prisma';
 import { sendMetaTemplateMessage } from '../services/whatsapp.service';
 import { checkMerchantEligibility } from '../services/automation.service';
+import { messageQueueEvents } from '../lib/queue';
 
 // ── In-memory merchant cache — avoids repeated DB reads per job batch ─────────
 // Cache is valid for 5 minutes per merchant, clears automatically
@@ -25,7 +26,7 @@ const getCachedMerchant = async (merchantId: string) => {
 const formatPhone = (phone: string): string => {
   const clean = phone.replace(/[\s\-()]/g, '');
   if (clean.startsWith('+')) return clean.slice(1);   // +918805... → 918805...
-  if (clean.length === 10)   return `91${clean}`;     // 8805...    → 918805...
+  if (clean.length === 10) return `91${clean}`;     // 8805...    → 918805...
   return clean;
 };
 
@@ -71,6 +72,8 @@ const markPhoneAsInvalid = async (merchantId: string, phone: string, reason: str
 
 export const initMessageWorker = () => {
   const worker = new Worker('message-sending', async (job) => {
+
+
 
     // ── 1. ABANDONED CART / POST-PURCHASE UPSELL ──────────────────────────
     if (job.name === 'send-automated-msg') {
@@ -378,12 +381,12 @@ export const initMessageWorker = () => {
 
       const { sendMPMTemplateMessage } = await import('../services/whatsapp.service');
       const result = await sendMPMTemplateMessage({
-        phoneNumberId:              merchant.metaPhoneNumberId,
-        accessToken:                merchant.metaAccessToken,
+        phoneNumberId: merchant.metaPhoneNumberId,
+        accessToken: merchant.metaAccessToken,
         toPhone,
         templateName,
-        languageCode:               languageCode || 'en_US',
-        bodyVariables:              bodyVariables || [],
+        languageCode: languageCode || 'en_US',
+        bodyVariables: bodyVariables || [],
         thumbnailProductRetailerId,
         sections,
       });
@@ -410,16 +413,45 @@ export const initMessageWorker = () => {
       max: 1,
       duration: 15000,      // 1 msg per 15s — Meta rate limit safe
     },
-    stalledInterval: 60000,
-    drainDelay: 30,
+    stalledInterval: 900000,
+    drainDelay: 10000,
+  });
+
+  // Worker idle detection — pause after 5 minutes of no jobs
+  let idleTimer: NodeJS.Timeout;
+
+  const resetIdleTimer = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(async () => {
+      await worker.pause();
+      console.log('⏸ Worker paused — no jobs in 5 minutes');
+    }, 5 * 60 * 1000); // 5 min idle
+  };
+
+
+
+
+  // Resume worker when new job added to queue
+
+  messageQueueEvents.on('waiting', async () => {
+    if (await worker.isPaused()) {
+      await worker.resume();
+      console.log('▶ Worker resumed — new job detected');
+      resetIdleTimer();
+    }
+  });
+
+  resetIdleTimer(); // start timer immediately
+
+
+  worker.on('completed', (job) => {
+    console.log(`✅ Job ${job?.id} completed`);
+    resetIdleTimer();  // ← add this
   });
 
   worker.on('failed', (job, err) => {
     console.error(`🚨 Job ${job?.id} failed after retries: ${err.message}`);
-  });
-
-  worker.on('completed', (job) => {
-    console.log(`✅ Job ${job?.id} completed`);
+    resetIdleTimer();  // ← add this
   });
 
   console.log('👷 Message Worker Started (Meta Cloud API) — Rate limit: 1 msg/15s');
