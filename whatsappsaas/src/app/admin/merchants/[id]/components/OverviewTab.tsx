@@ -129,21 +129,32 @@ export default function OverviewTab({
   handleAddPayment,
 }: OverviewTabProps) {
   // ── Local state for Shopify install flow ──────────────────────────────────
-  const [installLinkInput, setInstallLinkInput] = React.useState("");
-  const [tokenStatus,      setTokenStatus]      = React.useState<any>(null);
-  const [tokenChecking,    setTokenChecking]     = React.useState(false);
 
-  const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api")
-    .replace(/\/api$/, "");
+  const [shopifyClientId, setShopifyClientId] = React.useState("");
+  const [generatedInstallUrl, setGeneratedInstallUrl] = React.useState("");
+  const [urlCopied, setUrlCopied] = React.useState(false);
+
+  const [tokenStatus, setTokenStatus] = React.useState<any>(null);
+  const [tokenChecking, setTokenChecking] = React.useState(false);
+
+  const API_URL = (
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+  ).replace(/\/api$/, "");
 
   const checkTokenStatus = async () => {
     setTokenChecking(true);
     setTokenStatus(null);
     try {
-      const adminKey = typeof window !== "undefined" ? sessionStorage.getItem("adminKey") || "" : "";
-      const r = await fetch(`${API_URL}/api/admin/shopify-token-status/${merchant.id}`, {
-        headers: { "x-admin-api-key": adminKey }
-      });
+      const adminKey =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("adminKey") || ""
+          : "";
+      const r = await fetch(
+        `${API_URL}/api/admin/shopify-token-status/${merchant.id}`,
+        {
+          headers: { "x-admin-api-key": adminKey },
+        },
+      );
       const data = await r.json();
       setTokenStatus(data);
       // Auto-fill token if received
@@ -155,6 +166,31 @@ export default function OverviewTab({
     } finally {
       setTokenChecking(false);
     }
+  };
+
+  const generateInstallUrl = () => {
+    const domain = merchant?.storeUrl
+      ?.replace(/^https?:\/\//, "") // strip https://
+      ?.replace(/\/$/, ""); // strip trailing slash
+
+    if (!domain || !shopifyClientId.trim()) return;
+
+    const url =
+      `https://${domain}/admin/oauth/authorize` +
+      `?client_id=${shopifyClientId.trim()}` +
+      `&scope=read_customers,read_orders,read_products,read_all_orders` +
+      `&redirect_uri=https://api.wautomation.shop/shopify/callback/tokengenerate` +
+      `&state=${Math.random().toString(36).substring(2, 10)}`;
+
+    setGeneratedInstallUrl(url);
+    setUrlCopied(false);
+  };
+
+  const copyInstallUrl = async () => {
+    if (!generatedInstallUrl) return;
+    await navigator.clipboard.writeText(generatedInstallUrl);
+    setUrlCopied(true);
+    setTimeout(() => setUrlCopied(false), 2500);
   };
 
   return (
@@ -323,22 +359,57 @@ export default function OverviewTab({
             </div>
 
             {/* App Install Link — paste & share with client */}
+            {/* Generate App Install Link */}
             <div className="md:col-span-2">
               <label className="text-xs font-bold text-slate-400 mb-1 block">
-                App Install Link{" "}
-                <span className="text-slate-600 font-normal">(generate in Shopify Partner → paste here → share with client)</span>
+                Shopify Client ID{" "}
+                <span className="text-slate-600 font-normal">
+                  (from Shopify Partner → App credentials)
+                </span>
               </label>
-              <input
-                type="text"
-                placeholder="https://admin.shopify.com/oauth/install_custom_app?client_id=..."
-                value={installLinkInput}
-                onChange={(e) => setInstallLinkInput(e.target.value)}
-                className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-xs font-mono"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. d1f21eba442396e7ad89e099f9d490fd"
+                  value={shopifyClientId}
+                  onChange={(e) => setShopifyClientId(e.target.value)}
+                  className="flex-1 p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-xs font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={generateInstallUrl}
+                  disabled={!shopifyClientId.trim()}
+                  className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold rounded-xl transition disabled:opacity-40 whitespace-nowrap"
+                >
+                  Generate Link
+                </button>
+              </div>
+
+              {/* Generated URL display */}
+              {generatedInstallUrl && (
+                <div className="mt-2 bg-slate-900 border border-teal-500/20 rounded-xl px-3 py-2">
+                  <p className="text-teal-400 text-[10px] font-bold mb-1">
+                    ✅ Install URL — share this with client:
+                  </p>
+                  <p className="text-slate-300 text-xs font-mono break-all leading-relaxed">
+                    {generatedInstallUrl}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={copyInstallUrl}
+                    className="mt-2 px-3 py-1 bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/30 text-teal-300 text-xs font-bold rounded-lg transition"
+                  >
+                    {urlCopied ? "✅ Copied!" : "📋 Copy URL"}
+                  </button>
+                </div>
+              )}
+
               <p className="text-slate-600 text-[10px] mt-1">
-                Share this link with the client → they install → token auto-saves in database
+                Domain auto-taken from Store URL above → client installs → token
+                auto-saves
               </p>
             </div>
+
             <div>
               <label className="text-xs font-bold text-slate-400 mb-1 block">
                 Shopify Admin Token
@@ -361,18 +432,21 @@ export default function OverviewTab({
                 </button>
               </div>
               {tokenStatus && (
-                <div className={`mt-2 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 ${
-                  tokenStatus.status === "received"
-                    ? "bg-green-500/10 border border-green-500/20 text-green-400"
-                    : tokenStatus.status === "error"
-                    ? "bg-red-500/10 border border-red-500/20 text-red-400"
-                    : "bg-yellow-500/10 border border-yellow-500/20 text-yellow-400"
-                }`}>
+                <div
+                  className={`mt-2 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                    tokenStatus.status === "received"
+                      ? "bg-green-500/10 border border-green-500/20 text-green-400"
+                      : tokenStatus.status === "error"
+                        ? "bg-red-500/10 border border-red-500/20 text-red-400"
+                        : "bg-yellow-500/10 border border-yellow-500/20 text-yellow-400"
+                  }`}
+                >
                   {tokenStatus.message}
                 </div>
               )}
               <p className="text-slate-600 text-xs mt-1">
-                Click &quot;Check Status&quot; after client installs the app — token auto-fills if received
+                Click &quot;Check Status&quot; after client installs the app —
+                token auto-fills if received
               </p>
             </div>
             <div>
