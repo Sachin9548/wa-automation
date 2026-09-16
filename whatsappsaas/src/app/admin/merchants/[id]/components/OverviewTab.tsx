@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import {
   FaEnvelope,
   FaCheckDouble,
@@ -127,6 +128,35 @@ export default function OverviewTab({
   handleSetFree,
   handleAddPayment,
 }: OverviewTabProps) {
+  // ── Local state for Shopify install flow ──────────────────────────────────
+  const [installLinkInput, setInstallLinkInput] = React.useState("");
+  const [tokenStatus,      setTokenStatus]      = React.useState<any>(null);
+  const [tokenChecking,    setTokenChecking]     = React.useState(false);
+
+  const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api")
+    .replace(/\/api$/, "");
+
+  const checkTokenStatus = async () => {
+    setTokenChecking(true);
+    setTokenStatus(null);
+    try {
+      const adminKey = typeof window !== "undefined" ? sessionStorage.getItem("adminKey") || "" : "";
+      const r = await fetch(`${API_URL}/api/admin/shopify-token-status/${merchant.id}`, {
+        headers: { "x-admin-api-key": adminKey }
+      });
+      const data = await r.json();
+      setTokenStatus(data);
+      // Auto-fill token if received
+      if (data.status === "received" && data.token) {
+        setShopifyToken(data.token);
+      }
+    } catch {
+      setTokenStatus({ status: "error", message: "❌ Could not reach server" });
+    } finally {
+      setTokenChecking(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Red Flags */}
@@ -291,17 +321,59 @@ export default function OverviewTab({
                 className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
+
+            {/* App Install Link — paste & share with client */}
+            <div className="md:col-span-2">
+              <label className="text-xs font-bold text-slate-400 mb-1 block">
+                App Install Link{" "}
+                <span className="text-slate-600 font-normal">(generate in Shopify Partner → paste here → share with client)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="https://admin.shopify.com/oauth/install_custom_app?client_id=..."
+                value={installLinkInput}
+                onChange={(e) => setInstallLinkInput(e.target.value)}
+                className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-xs font-mono"
+              />
+              <p className="text-slate-600 text-[10px] mt-1">
+                Share this link with the client → they install → token auto-saves in database
+              </p>
+            </div>
             <div>
               <label className="text-xs font-bold text-slate-400 mb-1 block">
                 Shopify Admin Token
               </label>
-              <input
-                type="text"
-                placeholder="shpat_..."
-                value={shopifyToken}
-                onChange={(e) => setShopifyToken(e.target.value)}
-                className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="shpat_... (auto-filled after client installs)"
+                  value={shopifyToken}
+                  onChange={(e) => setShopifyToken(e.target.value)}
+                  className="flex-1 p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-sm font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={checkTokenStatus}
+                  disabled={tokenChecking}
+                  className="px-3 py-2 bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/30 text-teal-300 hover:text-teal-200 text-xs font-bold rounded-xl transition disabled:opacity-40 whitespace-nowrap"
+                >
+                  {tokenChecking ? "⏳..." : "🔄 Check Status"}
+                </button>
+              </div>
+              {tokenStatus && (
+                <div className={`mt-2 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                  tokenStatus.status === "received"
+                    ? "bg-green-500/10 border border-green-500/20 text-green-400"
+                    : tokenStatus.status === "error"
+                    ? "bg-red-500/10 border border-red-500/20 text-red-400"
+                    : "bg-yellow-500/10 border border-yellow-500/20 text-yellow-400"
+                }`}>
+                  {tokenStatus.message}
+                </div>
+              )}
+              <p className="text-slate-600 text-xs mt-1">
+                Click &quot;Check Status&quot; after client installs the app — token auto-fills if received
+              </p>
             </div>
             <div>
               <label className="text-xs font-bold text-slate-400 mb-1 block">

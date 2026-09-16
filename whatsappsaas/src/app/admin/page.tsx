@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { icon: <FaUsers />, label: "Merchants", active: false },
   { icon: <FaChartLine />, label: "Analytics", active: false },
   { icon: <FaShieldAlt />, label: "Security", active: false },
+  { icon: <FaStore />, label: "Shopify Installs", active: false },
 ];
 
 export default function AdminConsole() {
@@ -34,6 +35,23 @@ export default function AdminConsole() {
   // System Health state
   const [sysHealth, setSysHealth]   = useState<any>(null);
   const [sysLoading, setSysLoading] = useState(false);
+
+  // Shopify Install Logs state
+  const [installLogs,     setInstallLogs]     = useState<any[]>([]);
+  const [installLogsTotal,setInstallLogsTotal]= useState(0);
+  const [installLogsLoading, setInstallLogsLoading] = useState(false);
+
+  const fetchInstallLogs = async (key: string) => {
+    setInstallLogsLoading(true);
+    try {
+      const r = await axios.get(`${API_URL}/admin/shopify-install-logs?limit=50`, {
+        headers: { "x-admin-api-key": key }
+      });
+      setInstallLogs(r.data.logs || []);
+      setInstallLogsTotal(r.data.total || 0);
+    } catch { /* silent */ }
+    finally { setInstallLogsLoading(false); }
+  };
 
   const fetchSystemHealth = async (key: string) => {
     setSysLoading(true);
@@ -58,6 +76,7 @@ export default function AdminConsole() {
       setIsAuth(true);
       sessionStorage.setItem("adminKey", key);
       fetchSystemHealth(key);
+      fetchInstallLogs(key);
     } catch {
       alert("Access Denied: Invalid Key");
     }
@@ -72,6 +91,9 @@ export default function AdminConsole() {
   const handleNavClick = (label: string) => {
     setActiveNav(label);
     setSidebarOpen(false);
+    if (label === "Shopify Installs") {
+      fetchInstallLogs(sessionStorage.getItem("adminKey") || "");
+    }
   };
 
   // ── Login Screen ────────────────────────────────────────────────
@@ -464,6 +486,95 @@ export default function AdminConsole() {
               </table>
             </div>
           </div>
+
+          {/* ── Shopify Installs Tab ── */}
+          {activeNav === "Shopify Installs" && (
+            <div className="mt-6">
+              <div className="bg-slate-800 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+                <div className="flex items-center justify-between px-4 lg:px-6 py-4 border-b border-white/5">
+                  <div>
+                    <h2 className="text-white font-bold text-sm lg:text-base">Shopify App Installs</h2>
+                    <p className="text-slate-500 text-xs mt-0.5">{installLogsTotal} total install callbacks</p>
+                  </div>
+                  <button
+                    onClick={() => fetchInstallLogs(sessionStorage.getItem("adminKey") || "")}
+                    disabled={installLogsLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition disabled:opacity-40"
+                  >
+                    <FaSync className={installLogsLoading ? "animate-spin" : ""} /> Refresh
+                  </button>
+                </div>
+
+                {installLogsLoading ? (
+                  <div className="flex items-center justify-center py-16 gap-3">
+                    <FaSync className="animate-spin text-teal-400 text-xl" />
+                    <span className="text-slate-400 text-sm">Loading install logs...</span>
+                  </div>
+                ) : installLogs.length === 0 ? (
+                  <div className="px-6 py-16 text-center">
+                    <FaStore className="text-slate-600 text-4xl mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">No install callbacks yet</p>
+                    <p className="text-slate-600 text-xs mt-1">When a client installs the app, it will appear here</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left min-w-[600px]">
+                      <thead>
+                        <tr className="border-b border-white/5">
+                          <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Shop</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Merchant</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Status</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Token</th>
+                          <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Time</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {installLogs.map((log: any) => (
+                          <tr key={log.id} className="hover:bg-white/3 transition">
+                            <td className="px-4 py-3">
+                              <p className="text-white text-sm font-mono">{log.shop}</p>
+                            </td>
+                            <td className="px-4 py-3">
+                              {log.merchant ? (
+                                <div>
+                                  <p className="text-white text-sm font-bold">{log.merchant.brandName}</p>
+                                  <p className="text-slate-500 text-xs">{log.merchant.status}</p>
+                                </div>
+                              ) : (
+                                <span className="text-red-400 text-xs font-bold">Not matched</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-[10px] font-extrabold px-2 py-1 rounded-full border ${
+                                log.status === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                log.status === 'failed'  ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                                                           'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+                              }`}>
+                                {log.status === 'success' ? '✅ Success' : log.status === 'failed' ? '❌ Failed' : '⏳ Pending'}
+                              </span>
+                              {log.errorMsg && <p className="text-red-400 text-[10px] mt-1 truncate max-w-[200px]">{log.errorMsg}</p>}
+                            </td>
+                            <td className="px-4 py-3">
+                              {log.accessToken ? (
+                                <span className="text-green-400 text-xs font-mono">{log.accessToken}</span>
+                              ) : (
+                                <span className="text-slate-600 text-xs">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="text-slate-400 text-xs whitespace-nowrap">
+                                {new Date(log.callbackAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
         </div>
       </main>

@@ -13,6 +13,7 @@ import flowRoutes from './routes/flow.routes';
 import trackingRoutes from './routes/tracking.routes';
 import webhookRoutes from './routes/webhook.routes';
 import inboxRoutes from './routes/inbox.routes';
+import shopifyOAuthRoutes from './routes/shopify.oauth.routes';
 import { messageQueue } from './lib/queue';
 import redis from './lib/redis';
 dotenv.config();
@@ -109,6 +110,7 @@ app.use('/api/flows', flowRoutes);
 app.use('/api/tracking', trackingRoutes);  // click tracking redirects
 app.use('/api/webhooks', webhookRoutes);   // ← only once
 app.use('/api/inbox', inboxRoutes);        // customer inbox — 2-way chat
+app.use('/', shopifyOAuthRoutes);          // shopify oauth callback + status
 
 // ── Start server ──────────────────────────────────────────────────────────────
 app.listen(PORT, async () => {
