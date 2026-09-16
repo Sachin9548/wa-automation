@@ -1,6 +1,5 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
 import {
@@ -8,7 +7,7 @@ import {
   FaSignOutAlt, FaExternalLinkAlt, FaCheckCircle, FaExclamationTriangle,
   FaRupeeSign, FaStore, FaBell, FaShieldAlt, FaChartLine,
   FaDatabase, FaServer, FaLayerGroup, FaSync, FaTimesCircle,
-  FaBars, FaTimes
+  FaBars, FaTimes, FaBook, FaWhatsapp, FaBoxOpen, FaCheck
 } from "react-icons/fa";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -19,8 +18,44 @@ const NAV_ITEMS = [
   { icon: <FaChartLine />, label: "Analytics", active: false },
   { icon: <FaShieldAlt />, label: "Security", active: false },
   { icon: <FaStore />, label: "Shopify Installs", active: false },
+  { icon: <FaBoxOpen />, label: "Shopify Guide", active: false },
+  { icon: <FaWhatsapp />, label: "Meta Guide", active: false },
 ];
 
+// ── Guide helper components ───────────────────────────────────────────────────
+function GuideCard({ title, children, accent = "teal" }: { title: string; children: React.ReactNode; accent?: string }) {
+  const colors: Record<string, string> = {
+    teal:   "bg-teal-500/10 border-teal-500/20",
+    yellow: "bg-yellow-500/10 border-yellow-500/20",
+    red:    "bg-red-500/10 border-red-500/20",
+    blue:   "bg-blue-500/10 border-blue-500/20",
+  };
+  const titleColors: Record<string, string> = {
+    teal: "text-teal-300", yellow: "text-yellow-300", red: "text-red-300", blue: "text-blue-300"
+  };
+  return (
+    <div className={`border rounded-2xl px-4 py-4 ${colors[accent] || colors.teal}`}>
+      <p className={`font-bold text-sm mb-2 ${titleColors[accent] || titleColors.teal}`}>{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function GuideStep({ num, title, children, accent }: { num: number; title: string; children: React.ReactNode; accent?: string }) {
+  return (
+    <div className="bg-slate-800 border border-white/5 rounded-2xl px-4 py-4">
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold flex-shrink-0 ${accent === "red" ? "bg-red-500/20 text-red-400" : "bg-teal-500/20 text-teal-400"}`}>
+          {num}
+        </div>
+        <p className="text-white font-bold text-sm">{title}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AdminConsole() {
   const [merchants, setMerchants] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -573,6 +608,295 @@ export default function AdminConsole() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ── Shopify Guide Tab ── */}
+          {activeNav === "Shopify Guide" && (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                  <FaBoxOpen className="text-green-400" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg">Shopify Custom App Setup</h2>
+                  <p className="text-slate-500 text-xs">Per-client guide — creates permanent non-expiring access token</p>
+                </div>
+              </div>
+
+              {/* Prerequisites */}
+              <GuideCard title="Prerequisites (one-time)" accent="yellow">
+                <ul className="space-y-2 text-sm text-slate-300">
+                  <li className="flex gap-2"><span className="text-yellow-400 mt-0.5">•</span>Shopify Partner account already set up</li>
+                  <li className="flex gap-2"><span className="text-yellow-400 mt-0.5">•</span>Backend callback endpoint live: <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">https://api.wautomation.shop/shopify/callback/tokengenerate</code></li>
+                </ul>
+              </GuideCard>
+
+              {/* Steps */}
+              <GuideStep num={1} title="Create a new app in Dev Dashboard">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>Go to <a href="https://dev.shopify.com/dashboard" target="_blank" rel="noreferrer" className="text-teal-400 underline">dev.shopify.com/dashboard</a></li>
+                  <li>Click <strong className="text-white">Create app</strong></li>
+                  <li>Name it: <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">Wautomation - &lt;ClientName&gt;</code></li>
+                </ol>
+              </GuideStep>
+
+              <GuideStep num={2} title="Configure the app version">
+                <div className="overflow-x-auto mt-2">
+                  <table className="w-full text-sm border-collapse">
+                    <thead><tr className="border-b border-white/10"><th className="text-left py-2 pr-4 text-slate-400 font-bold text-xs uppercase">Field</th><th className="text-left py-2 text-slate-400 font-bold text-xs uppercase">Value</th></tr></thead>
+                    <tbody className="text-slate-300 divide-y divide-white/5">
+                      <tr><td className="py-2 pr-4 font-mono text-xs">App URL</td><td className="py-2 text-green-400 font-mono text-xs">https://api.wautomation.shop/health</td></tr>
+                      <tr><td className="py-2 pr-4 font-mono text-xs">Embed in Shopify admin</td><td className="py-2"><span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded-full font-bold">OFF</span></td></tr>
+                      <tr><td className="py-2 pr-4 font-mono text-xs">Preferences URL</td><td className="py-2 text-slate-500 text-xs">leave blank</td></tr>
+                      <tr><td className="py-2 pr-4 font-mono text-xs">Webhooks API version</td><td className="py-2 text-xs">latest available</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={3} title="Set scopes">
+                <p className="text-slate-400 text-xs mb-2">In the Scopes field, enter exactly:</p>
+                <code className="block bg-slate-900 text-green-400 px-3 py-2 rounded-xl text-xs font-mono">read_customers,read_orders,read_products,read_all_orders</code>
+              </GuideStep>
+
+              <GuideStep num={4} title='Enable "Use legacy install flow"' accent="red">
+                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mt-1">
+                  <span className="text-red-400 text-base mt-0.5">⚠️</span>
+                  <p className="text-red-300 text-xs">Find the <strong>&quot;Use legacy install flow&quot;</strong> toggle and turn it <strong>ON</strong>. Without this, Shopify forces the new managed-install flow which only issues expiring tokens.</p>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={5} title="Set the redirect URL">
+                <p className="text-slate-400 text-xs mb-2">In <strong>Allowed redirection URL(s)</strong>, enter:</p>
+                <code className="block bg-slate-900 text-green-400 px-3 py-2 rounded-xl text-xs font-mono">https://api.wautomation.shop/shopify/callback/tokengenerate</code>
+                <p className="text-slate-600 text-xs mt-1">Same for every client — built once.</p>
+              </GuideStep>
+
+              <GuideStep num={6} title="Release and collect credentials">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>Click <strong className="text-white">Release</strong></li>
+                  <li>Go to the app&apos;s credentials section and copy:</li>
+                </ol>
+                <div className="mt-2 space-y-1.5">
+                  <div className="flex items-center gap-2 bg-slate-900 rounded-xl px-3 py-2">
+                    <span className="text-slate-400 text-xs w-24">Client ID</span>
+                    <span className="text-white font-mono text-xs flex-1">Copy from Shopify Partner dashboard</span>
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-900 rounded-xl px-3 py-2">
+                    <span className="text-slate-400 text-xs w-24">Client Secret</span>
+                    <span className="text-white font-mono text-xs flex-1">Copy and save encrypted in DB</span>
+                  </div>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={7} title="Set distribution to Custom" accent="red">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>Open <strong className="text-white">App settings → Distribution</strong></li>
+                  <li>Select <strong className="text-white">Custom distribution</strong></li>
+                  <li>Confirm</li>
+                </ol>
+                <div className="flex items-start gap-2 bg-teal-500/10 border border-teal-500/20 rounded-xl px-3 py-2 mt-2">
+                  <span className="text-teal-400 mt-0.5">ℹ️</span>
+                  <p className="text-teal-300 text-xs">This is what makes a non-expiring token possible. Custom distribution apps are exempt from Shopify&apos;s expiring-token requirement.</p>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={8} title="Build the install link for this client">
+                <p className="text-slate-400 text-xs mb-2">From Shopify Partner dashboard, copy the install link — it looks like:</p>
+                <code className="block bg-slate-900 text-green-400 px-3 py-2 rounded-xl text-xs font-mono break-all">https://admin.shopify.com/oauth/install_custom_app?client_id=&#123;CLIENT_ID&#125;&amp;no_redirect=true&amp;signature=...</code>
+                <p className="text-slate-500 text-xs mt-1.5">Paste this in the merchant&apos;s <strong className="text-white">App Install Link</strong> field → share with client.</p>
+              </GuideStep>
+
+              <GuideStep num={9} title="Client installs the app">
+                <p className="text-slate-300 text-sm">Send the install link to the client. They log into their Shopify admin, review the permissions, and click <strong className="text-white">Install</strong>. The token auto-saves via the callback endpoint.</p>
+              </GuideStep>
+
+              <GuideStep num={10} title="Verify token received">
+                <p className="text-slate-300 text-sm">After client installs, go to the merchant&apos;s page → Shopify Admin Token field → click <strong className="text-white">🔄 Check Status</strong>. Token auto-fills if received.</p>
+              </GuideStep>
+
+              {/* Checklist */}
+              <GuideCard title="Per-client checklist" accent="teal">
+                <div className="space-y-2 mt-1">
+                  {[
+                    "App created in Dev Dashboard, named for the client",
+                    "Distribution set to Custom",
+                    "App URL, scopes, redirect URI configured",
+                    "Legacy install flow enabled",
+                    "Version released",
+                    "Client ID + Secret saved (encrypted)",
+                    "Install link sent to client",
+                    "Token exchanged and saved (encrypted)",
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm text-slate-300">
+                      <FaCheck className="text-teal-400 text-xs flex-shrink-0" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </GuideCard>
+            </div>
+          )}
+
+          {/* ── Meta Guide Tab ── */}
+          {activeNav === "Meta Guide" && (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                  <FaWhatsapp className="text-blue-400 text-lg" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg">WhatsApp (Meta) Client Onboarding</h2>
+                  <p className="text-slate-500 text-xs">Option B — fully separate per-client setup. No Meta App Review needed.</p>
+                </div>
+              </div>
+
+              <GuideCard title="Why this approach?" accent="blue">
+                <ul className="space-y-1.5 text-sm text-slate-300">
+                  <li className="flex gap-2"><span className="text-blue-400 mt-0.5">•</span>No business verification or App Review needed</li>
+                  <li className="flex gap-2"><span className="text-blue-400 mt-0.5">•</span>Everything created inside the <strong className="text-white">client&apos;s own</strong> Facebook/Business account</li>
+                  <li className="flex gap-2"><span className="text-blue-400 mt-0.5">•</span>Works immediately — zero Meta approval wait</li>
+                  <li className="flex gap-2"><span className="text-yellow-400 mt-0.5">⚠️</span>Repeat entire setup for every client (do over screen-share with client logged in)</li>
+                </ul>
+              </GuideCard>
+
+              <GuideStep num={1} title="Create a Meta App inside the client's own account">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>Log into <a href="https://developers.facebook.com" target="_blank" rel="noreferrer" className="text-blue-400 underline">developers.facebook.com</a> using the <strong className="text-white">client&apos;s</strong> Facebook account</li>
+                  <li>Click <strong className="text-white">My Apps → Create App</strong></li>
+                  <li>Choose <strong className="text-white">Other → Next → Business → Next</strong></li>
+                  <li>Name it: <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">&lt;ClientName&gt; WhatsApp</code></li>
+                  <li>Click <strong className="text-white">Create app</strong></li>
+                  <li>On products page, find <strong className="text-white">WhatsApp → Set up</strong></li>
+                </ol>
+              </GuideStep>
+
+              <GuideStep num={2} title="Add and verify the client's phone number">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>Left menu: <strong className="text-white">WhatsApp → API Setup</strong></li>
+                  <li>Scroll down, click <strong className="text-white">Add Phone Number</strong></li>
+                  <li>Fill in client&apos;s business name and details</li>
+                  <li>Enter their WhatsApp number — they&apos;ll receive OTP by SMS, verify it</li>
+                </ol>
+                <div className="flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-2 mt-2">
+                  <span className="text-yellow-400 mt-0.5">⚠️</span>
+                  <p className="text-yellow-300 text-xs">The number must NOT be active in regular WhatsApp or WhatsApp Business app. Use a fresh number or migrate their existing one first.</p>
+                </div>
+                <p className="text-slate-400 text-xs mt-2">Once verified, copy and save: <strong className="text-white">Phone Number ID</strong> and <strong className="text-white">WABA ID</strong></p>
+              </GuideStep>
+
+              <GuideStep num={3} title="Create a System User">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>Open <a href="https://business.facebook.com/settings" target="_blank" rel="noreferrer" className="text-blue-400 underline">business.facebook.com/settings</a> (still as the client)</li>
+                  <li>Left menu → <strong className="text-white">Users → System Users → Add</strong></li>
+                  <li>Name: <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">&lt;ClientName&gt;-Bot</code> | Role: <strong className="text-white">Admin</strong></li>
+                  <li>Click <strong className="text-white">Create</strong></li>
+                </ol>
+              </GuideStep>
+
+              <GuideStep num={4} title="Assign BOTH the App and WABA to the System User" accent="red">
+                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-2">
+                  <span className="text-red-400 mt-0.5">⚠️</span>
+                  <p className="text-red-300 text-xs">Most common mistake — skipping this produces a token that cannot send messages.</p>
+                </div>
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>Click the System User → <strong className="text-white">Assign Assets</strong></li>
+                  <li><strong className="text-white">Apps tab</strong> → select client&apos;s App → turn ON <strong className="text-white">Full Control</strong></li>
+                  <li><strong className="text-white">WhatsApp Accounts tab</strong> → select client&apos;s WABA → turn ON <strong className="text-white">Full Control</strong></li>
+                  <li>Click <strong className="text-white">Save Changes</strong></li>
+                </ol>
+              </GuideStep>
+
+              <GuideStep num={5} title="Generate the permanent token">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>On the System User&apos;s page, click <strong className="text-white">Generate New Token</strong></li>
+                  <li>Select the client&apos;s App</li>
+                  <li>Tick exactly these two permissions:
+                    <div className="mt-1 ml-2 space-y-1">
+                      <code className="block bg-slate-900 text-green-400 px-2 py-1 rounded text-xs">whatsapp_business_messaging</code>
+                      <code className="block bg-slate-900 text-green-400 px-2 py-1 rounded text-xs">whatsapp_business_management</code>
+                    </div>
+                  </li>
+                  <li>Click <strong className="text-white">Generate Token</strong></li>
+                </ol>
+                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mt-2">
+                  <span className="text-red-400 mt-0.5">⚠️</span>
+                  <p className="text-red-300 text-xs">Copy the token immediately (starts with <code>EAA...</code>) — Meta shows it <strong>only once</strong>.</p>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={6} title="Subscribe app to its own WABA's webhooks">
+                <p className="text-slate-400 text-xs mb-2">Run this API call:</p>
+                <code className="block bg-slate-900 text-green-400 px-3 py-2 rounded-xl text-xs font-mono break-all">
+                  POST https://graph.facebook.com/&#123;API_VERSION&#125;/&#123;WABA_ID&#125;/subscribed_apps<br/>
+                  Authorization: Bearer &#123;ACCESS_TOKEN&#125;
+                </code>
+              </GuideStep>
+
+              <GuideStep num={7} title="Point the webhook to your backend">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>Client&apos;s App Dashboard: <strong className="text-white">WhatsApp → Configuration</strong></li>
+                  <li>Set Callback URL: <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">https://api.wautomation.shop/api/webhooks/meta</code></li>
+                  <li>Set Verify Token — any string (e.g. <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">my_secret_token_123</code>)</li>
+                  <li>Subscribe to: <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">messages</code> and <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">account_update</code></li>
+                </ol>
+                <div className="flex items-start gap-2 bg-teal-500/10 border border-teal-500/20 rounded-xl px-3 py-2 mt-2">
+                  <span className="text-teal-400 mt-0.5">ℹ️</span>
+                  <p className="text-teal-300 text-xs">Webhook verification endpoint (GET + hub.challenge) must be working <strong>before</strong> setting the callback URL — otherwise Meta will refuse to save it.</p>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={8} title="Client adds a payment method">
+                <p className="text-slate-300 text-sm">Client: <strong className="text-white">Business Settings → Billing & Payments → add a credit card</strong></p>
+                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mt-2">
+                  <span className="text-red-400 mt-0.5">⚠️</span>
+                  <p className="text-red-300 text-xs">Meta will NOT deliver messages until a valid payment method is attached — even if token and webhook are working. Don&apos;t skip during screen-share.</p>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={9} title="Save everything in the database">
+                <p className="text-slate-400 text-xs mb-2">Store encrypted against this client&apos;s record:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {["App ID", "Permanent access token (EAA...)", "WABA ID", "Phone Number ID"].map((item) => (
+                    <div key={item} className="bg-slate-900 rounded-xl px-3 py-2 text-slate-300 text-xs flex items-center gap-2">
+                      <FaCheck className="text-teal-400 text-xs flex-shrink-0" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </GuideStep>
+
+              {/* 250/day limit warning */}
+              <GuideCard title="⚡ 250 messages/day limit — read this!" accent="yellow">
+                <p className="text-slate-300 text-sm leading-relaxed">Brand new unverified accounts are capped at <strong className="text-white">250 business-initiated conversations per 24 hours</strong>. Messages beyond this silently fail.</p>
+                <p className="text-slate-400 text-sm mt-2">During screen-share, get client to go to <strong className="text-white">Business Settings → Security Center</strong> and submit GST/MSME or business registration documents. Once Meta approves (usually 1–2 days), limit jumps: <strong className="text-white">250 → 1,000 → 10,000+</strong></p>
+                <p className="text-red-400 text-xs mt-2 font-bold">Flag this to every client at onboarding — otherwise they hit a silent wall and assume something is broken.</p>
+              </GuideCard>
+
+              {/* Checklist */}
+              <GuideCard title="Per-client checklist" accent="teal">
+                <div className="space-y-2 mt-1">
+                  {[
+                    "App created inside client's own Facebook account",
+                    "Phone number added and OTP-verified, WABA ID + Phone Number ID noted",
+                    "System User created (inside same client account)",
+                    "Both the App AND WABA assigned to the System User (not just App)",
+                    "Permanent token generated and copied immediately",
+                    "App subscribed to its own WABA's webhooks",
+                    "Backend webhook verification endpoint (GET + hub.challenge) working before setting callback",
+                    "Callback URL + verify token configured, subscribed to messages & account_update",
+                    "Client's payment method added (Billing & Payments)",
+                    "Client told about 250/day limit and asked to start business verification (GST/MSME)",
+                    "App ID, token, WABA ID, Phone Number ID saved (encrypted)",
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                      <FaCheck className="text-teal-400 text-xs flex-shrink-0 mt-1" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </GuideCard>
             </div>
           )}
 
