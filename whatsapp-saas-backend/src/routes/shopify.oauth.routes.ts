@@ -135,8 +135,13 @@ router.get('/shopify/callback/tokengenerate', async (req: Request, res: Response
     `);
 
   } catch (e: any) {
-    const errMsg = e.response?.data?.error_description || e.message;
+    const errMsg = e.response?.data
+      ? JSON.stringify(e.response.data)
+      : e.message;
     console.error(`❌ Shopify token exchange failed for ${shop}:`, errMsg);
+    console.error(`   → client_id used: ${merchant.shopifyClientId}`);
+    console.error(`   → client_secret set: ${merchant.shopifyClientSecret ? 'YES (len=' + merchant.shopifyClientSecret.length + ')' : 'NO'}`);
+    console.error(`   → code: ${code?.substring(0, 15)}...`);
 
     await (prisma as any).shopifyInstallLog.update({
       where: { id: installLog.id },
