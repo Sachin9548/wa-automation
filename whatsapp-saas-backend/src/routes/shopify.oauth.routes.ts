@@ -62,15 +62,15 @@ router.get('/shopify/callback/tokengenerate', async (req: Request, res: Response
     `);
   }
 
-  if (!merchant.shopifyClientId || !merchant.shopifyClientSecret) {
+  if (!merchant.shopifyClientId) {
     await (prisma as any).shopifyInstallLog.update({
       where: { id: installLog.id },
-      data: { status: 'failed', errorMsg: 'Client ID or Secret not configured for this merchant' }
+      data: { status: 'failed', errorMsg: 'Client ID not configured for this merchant — save it first via admin panel' }
     });
     return res.send(`
       <html><body style="font-family:Arial;text-align:center;padding:50px;background:#0f0f0f;color:#fff">
         <h2>⚙️ Configuration Missing</h2>
-        <p>App credentials not configured. Please contact your administrator.</p>
+        <p>App Client ID not configured. Please contact your administrator.</p>
       </body></html>
     `);
   }
@@ -81,8 +81,8 @@ router.get('/shopify/callback/tokengenerate', async (req: Request, res: Response
     const tokenResp = await axiosLib.default.post(
       `https://${shop}/admin/oauth/access_token`,
       new URLSearchParams({
-        client_id:     merchant.shopifyClientId,
-        client_secret: merchant.shopifyClientSecret,
+        client_id:     merchant.shopifyClientId!,
+        client_secret: merchant.shopifyClientSecret!,
         code,
       }),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }

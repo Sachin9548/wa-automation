@@ -130,7 +130,12 @@ export default function OverviewTab({
 }: OverviewTabProps) {
   // ── Local state for Shopify install flow ──────────────────────────────────
 
-  const [shopifyClientId, setShopifyClientId] = React.useState("");
+  const [shopifyClientId, setShopifyClientId] = React.useState(
+    merchant?.shopifyClientId || ""
+  );
+  const [shopifyClientSecret, setShopifyClientSecret] = React.useState(
+    merchant?.shopifyClientSecret || ""
+  );
   const [generatedInstallUrl, setGeneratedInstallUrl] = React.useState("");
   const [urlCopied, setUrlCopied] = React.useState(false);
 
@@ -168,13 +173,41 @@ export default function OverviewTab({
     }
   };
 
-  const generateInstallUrl = () => {
+  const [savingClientId, setSavingClientId] = React.useState(false);
+
+  const generateInstallUrl = async () => {
     const domain = merchant?.storeUrl
       ?.replace(/^https?:\/\//, "") // strip https://
       ?.replace(/\/$/, ""); // strip trailing slash
 
     if (!domain || !shopifyClientId.trim()) return;
 
+    // ── Save Client ID to DB first ────────────────────────────────────────
+    setSavingClientId(true);
+    try {
+      const adminKey =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("adminKey") || ""
+          : "";
+      await fetch(`${API_URL}/api/admin/update-credentials`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-api-key": adminKey,
+        },
+        body: JSON.stringify({
+          merchantId: merchant.id,
+          shopifyClientId: shopifyClientId.trim(),
+          shopifyClientSecret: shopifyClientSecret.trim(),
+        }),
+      });
+    } catch {
+      // non-blocking — still generate the URL
+    } finally {
+      setSavingClientId(false);
+    }
+
+    // ── Build install URL ─────────────────────────────────────────────────
     const url =
       `https://${domain}/admin/oauth/authorize` +
       `?client_id=${shopifyClientId.trim()}` +
@@ -358,7 +391,6 @@ export default function OverviewTab({
               />
             </div>
 
-            {/* App Install Link — paste & share with client */}
             {/* Generate App Install Link */}
             <div className="md:col-span-2">
               <label className="text-xs font-bold text-slate-400 mb-1 block">
@@ -375,13 +407,29 @@ export default function OverviewTab({
                   onChange={(e) => setShopifyClientId(e.target.value)}
                   className="flex-1 p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-xs font-mono"
                 />
+              </div>
+              {/* Client Secret — required by Shopify for token exchange */}
+              <label className="text-xs font-bold text-slate-400 mt-3 mb-1 block">
+                Shopify Client Secret{" "}
+                <span className="text-slate-600 font-normal">
+                  (from Shopify Partner → App credentials — needed for token exchange)
+                </span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  placeholder="shpss_..."
+                  value={shopifyClientSecret}
+                  onChange={(e) => setShopifyClientSecret(e.target.value)}
+                  className="flex-1 p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-xs font-mono"
+                />
                 <button
                   type="button"
                   onClick={generateInstallUrl}
-                  disabled={!shopifyClientId.trim()}
+                  disabled={!shopifyClientId.trim() || !shopifyClientSecret.trim() || savingClientId}
                   className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold rounded-xl transition disabled:opacity-40 whitespace-nowrap"
                 >
-                  Generate Link
+                  {savingClientId ? "Saving..." : "Generate Link"}
                 </button>
               </div>
 
