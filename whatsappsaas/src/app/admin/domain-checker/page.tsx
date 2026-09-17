@@ -15,6 +15,12 @@ export default function DomainChecker() {
     e.preventDefault();
     if (!url) return;
 
+    // 🚨 NAYA CHECK: Agar key missing hai toh pehle hi bata dega
+    const key = sessionStorage.getItem("adminKey");
+    if (!key) {
+      alert("Admin Key missing! Please login to the main Admin Console first.");
+      return;
+    }
     setLoading(true);
     setResult(null);
     setCopied(false);
