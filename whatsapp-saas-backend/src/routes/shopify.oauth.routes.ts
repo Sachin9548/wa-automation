@@ -62,15 +62,15 @@ router.get('/shopify/callback/tokengenerate', async (req: Request, res: Response
     `);
   }
 
-  if (!merchant.shopifyClientId) {
+  if (!merchant.shopifyClientId || !merchant.shopifyClientSecret) {
     await (prisma as any).shopifyInstallLog.update({
       where: { id: installLog.id },
-      data: { status: 'failed', errorMsg: 'Client ID not configured for this merchant — save it first via admin panel' }
+      data: { status: 'failed', errorMsg: 'Client ID or Secret not configured — save both via admin panel first' }
     });
     return res.send(`
       <html><body style="font-family:Arial;text-align:center;padding:50px;background:#0f0f0f;color:#fff">
         <h2>⚙️ Configuration Missing</h2>
-        <p>App Client ID not configured. Please contact your administrator.</p>
+        <p>App Client ID or Secret not configured. Please contact your administrator.</p>
       </body></html>
     `);
   }

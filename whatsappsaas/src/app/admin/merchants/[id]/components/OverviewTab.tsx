@@ -139,6 +139,12 @@ export default function OverviewTab({
   const [generatedInstallUrl, setGeneratedInstallUrl] = React.useState("");
   const [urlCopied, setUrlCopied] = React.useState(false);
 
+  // Sync when merchant data loads from API (useState only runs on mount)
+  React.useEffect(() => {
+    if (merchant?.shopifyClientId) setShopifyClientId(merchant.shopifyClientId);
+    if (merchant?.shopifyClientSecret) setShopifyClientSecret(merchant.shopifyClientSecret);
+  }, [merchant?.shopifyClientId, merchant?.shopifyClientSecret]);
+
   const [tokenStatus, setTokenStatus] = React.useState<any>(null);
   const [tokenChecking, setTokenChecking] = React.useState(false);
 
@@ -176,7 +182,8 @@ export default function OverviewTab({
   const [savingClientId, setSavingClientId] = React.useState(false);
 
   const generateInstallUrl = async () => {
-    const domain = merchant?.storeUrl
+    // Use live storeUrl prop (what admin has typed) — not stale merchant DB value
+    const domain = storeUrl
       ?.replace(/^https?:\/\//, "") // strip https://
       ?.replace(/\/$/, ""); // strip trailing slash
 
