@@ -204,7 +204,7 @@ router.post('/update-credentials', async (req: Request, res: Response): Promise<
   try {
     const { merchantId, shopifyToken, shopifySecret, storeUrl,
       metaPhoneNumberId, metaAccessToken, metaWabaId,
-      shopifyClientId, shopifyClientSecret } = req.body;
+      shopifyClientId, shopifyClientSecret, shopifyOAuthState } = req.body;
     if (!merchantId) return res.status(400).json({ message: 'merchantId required' });
 
     const data: any = {};
@@ -216,6 +216,7 @@ router.post('/update-credentials', async (req: Request, res: Response): Promise<
     if (metaWabaId !== undefined) data.metaWabaId = metaWabaId;
     if (shopifyClientId !== undefined) data.shopifyClientId = shopifyClientId;
     if (shopifyClientSecret !== undefined) data.shopifyClientSecret = shopifyClientSecret;
+    if (shopifyOAuthState !== undefined) data.shopifyOAuthState = shopifyOAuthState;
 
     await prisma.merchant.update({ where: { id: merchantId }, data });
 

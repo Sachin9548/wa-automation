@@ -189,13 +189,16 @@ export default function OverviewTab({
 
     if (!domain || !shopifyClientId.trim()) return;
 
-    // ── Save Client ID to DB first ────────────────────────────────────────
+    // ── Save credentials + state to DB in one call ────────────────────────
     setSavingClientId(true);
+    const adminKey =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("adminKey") || ""
+        : "";
+
+    const state = Math.random().toString(36).substring(2, 10);
+
     try {
-      const adminKey =
-        typeof window !== "undefined"
-          ? sessionStorage.getItem("adminKey") || ""
-          : "";
       await fetch(`${API_URL}/api/admin/update-credentials`, {
         method: "POST",
         headers: {
@@ -206,6 +209,7 @@ export default function OverviewTab({
           merchantId: merchant.id,
           shopifyClientId: shopifyClientId.trim(),
           shopifyClientSecret: shopifyClientSecret.trim(),
+          shopifyOAuthState: state,
         }),
       });
     } catch {
@@ -220,7 +224,7 @@ export default function OverviewTab({
       `?client_id=${shopifyClientId.trim()}` +
       `&scope=read_customers,read_orders,read_products,read_all_orders` +
       `&redirect_uri=https://api.wautomation.shop/shopify/callback/tokengenerate` +
-      `&state=${Math.random().toString(36).substring(2, 10)}`;
+      `&state=${state}`;
 
     setGeneratedInstallUrl(url);
     setUrlCopied(false);

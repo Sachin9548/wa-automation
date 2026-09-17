@@ -31,10 +31,11 @@ model Merchant {
   deliveryPolicy    String?
   returnPolicy      String?
 
-  // Admin Controls
-  shopifyToken      String?
-  shopifyClientId   String?   // App Client ID — for token refresh
-  shopifyClientSecret String? // App Client Secret — for token refresh
+  // Shopify Custom App credentials
+  shopifyToken        String?
+  shopifyClientId     String?   // App Client ID — for token refresh
+  shopifyClientSecret String?   // App Client Secret — for token refresh
+  shopifyOAuthState   String?   // random state saved when install link generated — used to match callback
   subscriptionExpiry DateTime?
   shopifySecret     String?
 

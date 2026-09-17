@@ -24,17 +24,23 @@ router.get('/shopify/callback/tokengenerate', async (req: Request, res: Response
     `);
   }
 
-  // ── Find merchant by shop domain ──────────────────────────────────────────
-  // storeUrl in DB should contain the shop domain
+  // ── Find merchant by shop domain first, then state fallback ─────────────
+  const { state } = req.query as Record<string, string>;
+
   const merchant = await prisma.merchant.findFirst({
     where: {
       OR: [
+        // Primary: match by shop domain in storeUrl
         { storeUrl: { contains: shop } },
         { storeUrl: shop },
         { storeUrl: `https://${shop}` },
+        // Fallback: match by OAuth state (handles domain mismatch)
+        ...(state ? [{ shopifyOAuthState: state }] : []),
       ]
     }
   });
+
+  console.log(`🔍 Merchant match: ${merchant ? merchant.brandName : 'NOT FOUND'} | state: ${state} | shop: ${shop}`);
 
   // Log the callback regardless — helps admin see what's happening
   const logData: any = {
@@ -93,10 +99,13 @@ router.get('/shopify/callback/tokengenerate', async (req: Request, res: Response
 
     console.log(`✅ Shopify token obtained for ${merchant.brandName} (${shop})`);
 
-    // ── Save token to merchant record ─────────────────────────────────────
+    // ── Save token to merchant record + clear used state ─────────────────
     await prisma.merchant.update({
       where: { id: merchant.id },
-      data: { shopifyToken: accessToken }
+      data: {
+        shopifyToken: accessToken,
+        shopifyOAuthState: null,  // clear — one-time use
+      }
     });
 
     // ── Update install log ────────────────────────────────────────────────
