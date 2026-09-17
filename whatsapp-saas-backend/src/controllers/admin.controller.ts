@@ -4,6 +4,7 @@ import prisma from '../lib/prisma';
 import { verifyShopifyToken } from '../services/shopify.service';
 import { messageQueue } from '../lib/queue';
 import { resumeWorkerIfPaused } from '../workers/message.worker';
+import { resolveShopifyDomain } from '../utils/domainFinder';
 
 // ── Activity Log helper ────────────────────────────────────────────────────────
 // Fire-and-forget — never blocks the main response
@@ -535,5 +536,34 @@ export const getPaymentHistory = async (req: Request, res: Response): Promise<an
     res.status(200).json({ payments });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching payment history' });
+  }
+};
+
+
+export const checkShopifyDomain = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ message: "URL is required" });
+    }
+
+    // Call the utility function
+    const shopifyDomain = await resolveShopifyDomain(url);
+
+    if (shopifyDomain) {
+      return res.status(200).json({ 
+        isShopify: true, 
+        shopifyDomain: shopifyDomain 
+      });
+    } else {
+      return res.status(200).json({ 
+        isShopify: false, 
+        message: "No Shopify domain detected." 
+      });
+    }
+  } catch (error) {
+    console.error('Domain Checker Error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };

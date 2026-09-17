@@ -9,6 +9,8 @@ import {
   logActivity,
 } from "../controllers/admin.controller";
 import { adminProtect } from "../middleware/admin.middleware";
+import { checkShopifyDomain } from '../controllers/admin.controller';
+
 import { sendMetaTextMessage, sendMetaTemplateMessage, sendMPMTemplateMessage, sendCatalogMessage } from "../services/whatsapp.service";
 import prisma from "../lib/prisma";
 import { Request, Response } from "express";
@@ -24,6 +26,7 @@ router.get("/stats", getAdminStats);
 router.post('/extend-subscription', extendSubscription);
 router.post('/launch-campaign', launchCampaign);
 router.get('/campaigns/:merchantId', getMerchantCampaigns);
+router.post('/check-domain', checkShopifyDomain);
 
 // ── Cancel a scheduled campaign ───────────────────────────────────────────────
 router.post('/campaigns/cancel', async (req: Request, res: Response): Promise<any> => {
