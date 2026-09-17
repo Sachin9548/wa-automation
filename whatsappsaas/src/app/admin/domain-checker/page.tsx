@@ -24,7 +24,7 @@ export default function DomainChecker() {
       // Example: { headers: { "x-admin-api-key": sessionStorage.getItem("adminKey") } }
       const key = sessionStorage.getItem("adminKey") || "";
 
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/check-domain`, 
+      const res = await axios.post(`https://api.wautomation.shop/api/admin/check-domain`, 
         { url },
         { headers: { "x-admin-api-key": key } }
       );
