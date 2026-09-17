@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { verifyShopifyToken } from '../services/shopify.service';
 import { messageQueue } from '../lib/queue';
+import { resumeWorkerIfPaused } from '../workers/message.worker';
 
 // ── Activity Log helper ────────────────────────────────────────────────────────
 // Fire-and-forget — never blocks the main response
@@ -241,6 +242,7 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
         backoff:  { type: 'exponential', delay: 30000 },
       });
     }
+    await resumeWorkerIfPaused();
 
     const etaMinutes = Math.ceil((customers.length * 15) / 60);
 

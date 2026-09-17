@@ -3,7 +3,10 @@ import { Worker } from 'bullmq';
 import prisma from '../lib/prisma';
 import { sendMetaTemplateMessage } from '../services/whatsapp.service';
 import { checkMerchantEligibility } from '../services/automation.service';
-import { messageQueueEvents } from '../lib/queue';
+
+// Exported so other modules can call resumeWorkerIfPaused() directly —
+// no QueueEvents / Redis round-trip needed.
+export let worker: Worker;
 
 // ── In-memory merchant cache — avoids repeated DB reads per job batch ─────────
 // Cache is valid for 5 minutes per merchant, clears automatically
@@ -70,8 +73,20 @@ const markPhoneAsInvalid = async (merchantId: string, phone: string, reason: str
   }
 };
 
+export const resumeWorkerIfPaused = async (): Promise<void> => {
+  try {
+    if (worker && await worker.isPaused()) {
+      await worker.resume();
+      console.log('▶ Worker resumed (direct call — no Redis round-trip)');
+    }
+  } catch (e) {
+    // non-fatal — job will still process when worker polls
+    console.warn('⚠️ Could not resume worker:', e);
+  }
+};
+
 export const initMessageWorker = () => {
-  const worker = new Worker('message-sending', async (job) => {
+  worker = new Worker('message-sending', async (job) => {
 
 
 
@@ -430,16 +445,6 @@ export const initMessageWorker = () => {
 
 
 
-
-  // Resume worker when new job added to queue
-
-  messageQueueEvents.on('waiting', async () => {
-    if (await worker.isPaused()) {
-      await worker.resume();
-      console.log('▶ Worker resumed — new job detected');
-      resetIdleTimer();
-    }
-  });
 
   resetIdleTimer(); // start timer immediately
 

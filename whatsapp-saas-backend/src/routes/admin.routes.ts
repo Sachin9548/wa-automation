@@ -1087,6 +1087,7 @@ router.post('/send-mpm', async (req: Request, res: Response): Promise<any> => {
 
     // Queue jobs with stagger
     const { messageQueue } = await import('../lib/queue');
+    const { resumeWorkerIfPaused } = await import('../workers/message.worker');
     for (let i = 0; i < customers.length; i++) {
       await messageQueue.add('send-mpm-msg', {
         merchantId,
@@ -1102,6 +1103,7 @@ router.post('/send-mpm', async (req: Request, res: Response): Promise<any> => {
         backoff: { type: 'exponential', delay: 30000 },
       });
     }
+    await resumeWorkerIfPaused();
 
     logActivity(merchantId, 'CAMPAIGN_LAUNCHED',
       `MPM product campaign queued — template: ${templateName}, ${customers.length} recipients, products: ${sections.flatMap((s: any) => s.product_items).length}`,

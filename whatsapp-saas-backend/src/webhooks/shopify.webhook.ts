@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { messageQueue } from '../lib/queue';
+import { resumeWorkerIfPaused } from '../workers/message.worker';
 import { verifyShopifyWebhook } from '../lib/shopify.security';
 
 const SKIP_VERIFY = process.env.SKIP_WEBHOOK_VERIFY === 'true';
@@ -273,6 +274,7 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
       attempts: 3,
       backoff: { type: 'exponential', delay: 60000 }
     });
+    await resumeWorkerIfPaused();
 
     console.log(`✅ Queued: flow=${flow.type} delay=${flow.delayMinutes}min phone=${phone} template=${templateName} products="${productsList}" discount=${discountCode || 'none'}`);
   }
@@ -422,6 +424,7 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
           attempts: 2,
           backoff:  { type: 'exponential', delay: 60000 },
         });
+        await resumeWorkerIfPaused();
         console.log(`🎁 Upsell queued: ${phone} | template: ${upsellFlow.metaTemplateName} | delay: ${upsellFlow.delayMinutes}min | product: ${purchasedProductName} | discount: ${discountCode || 'none'}`);
       }
     }

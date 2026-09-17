@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { messageQueue } from '../lib/queue';
+import { resumeWorkerIfPaused } from '../workers/message.worker';
 
 export const startCampaign = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -77,6 +78,7 @@ export const startCampaign = async (req: Request, res: Response): Promise<any> =
         campaignId: campaign.id
       });
     }
+    await resumeWorkerIfPaused();
 
     res.status(200).json({ 
       message: `🚀 Campaign '${campaignName}' started successfully!`, 
