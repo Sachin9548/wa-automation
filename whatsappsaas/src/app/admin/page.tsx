@@ -40,7 +40,10 @@ const NAV_ITEMS = [
   { icon: <FaStore />, label: "Shopify Installs", active: false },
   { icon: <FaBoxOpen />, label: "Shopify Guide", active: false },
   { icon: <FaWhatsapp />, label: "Meta Guide", active: false },
+  { icon: <FaBook />, label: "Domain Checker", active: false },
 ];
+
+
 
 // ── Guide helper components ───────────────────────────────────────────────────
 function GuideCard({
@@ -182,6 +185,10 @@ export default function AdminConsole() {
 
   // Close sidebar when route changes (nav click on mobile)
   const handleNavClick = (label: string) => {
+    if (label === "Domain Checker") {
+      window.location.href = "https://www.wautomation.shop/admin/domain-checker";
+      return;
+    }
     setActiveNav(label);
     setSidebarOpen(false);
     if (label === "Shopify Installs") {
