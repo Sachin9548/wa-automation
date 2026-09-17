@@ -1,5 +1,5 @@
 "use client";
-import { FaKey, FaStore, FaWhatsapp, FaLink, FaSync, FaSpinner, FaCheckCircle } from "react-icons/fa";
+import { FaKey, FaStore, FaWhatsapp, FaLink, FaSpinner, FaCheckCircle } from "react-icons/fa";
 
 interface CredentialsTabProps {
   loading: string | null;
@@ -14,7 +14,6 @@ interface CredentialsTabProps {
   webhookResults: any[];
   handleUpdateCredentials: (e: React.FormEvent) => void;
   handleRegisterWebhooks: () => void;
-  handleRefreshShopifyToken: (e?: React.FormEvent) => void;
 }
 
 export default function CredentialsTab({
@@ -23,7 +22,7 @@ export default function CredentialsTab({
   credShopifySecret, setCredShopifySecret, credClientId, setCredClientId,
   credClientSecret, setCredClientSecret, credMetaPhoneId, setCredMetaPhoneId,
   credMetaWabaId, setCredMetaWabaId, credMetaToken, setCredMetaToken,
-  webhookResults, handleUpdateCredentials, handleRegisterWebhooks, handleRefreshShopifyToken,
+  webhookResults, handleUpdateCredentials, handleRegisterWebhooks,
 }: CredentialsTabProps) {
   return (
     <div className="max-w-2xl space-y-6">
@@ -50,7 +49,7 @@ export default function CredentialsTab({
                 <label className="text-xs font-bold text-slate-400 mb-1 block">Admin Token</label>
                 <input type="text" value={credShopifyToken} onChange={(e) => setCredShopifyToken(e.target.value)}
                   className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-sm font-mono" />
-                <p className="text-slate-600 text-xs mt-1">Use "Generate" section below to refresh</p>
+                <p className="text-slate-600 text-xs mt-1">Auto-filled after client installs the app via install link</p>
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-400 mb-1 block">Webhook Secret</label>
@@ -134,27 +133,6 @@ export default function CredentialsTab({
         </div>
       </div>
 
-      {/* Token Refresh */}
-      <div className="bg-slate-800 border border-amber-500/20 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-amber-500/10 flex items-center gap-2">
-          <FaSync className="text-amber-400" />
-          <div>
-            <p className="text-white font-extrabold">Generate New Shopify Token</p>
-            <p className="text-slate-400 text-xs">Uses saved Client ID + Secret to generate a fresh access token</p>
-          </div>
-        </div>
-        <div className="p-6">
-          <div className="bg-slate-900 border border-white/5 rounded-xl p-4 mb-4 text-sm text-slate-400 space-y-1">
-            <p><span className="text-slate-300 font-bold">Client ID:</span> {credClientId ? `${credClientId.slice(0, 8)}...` : <span className="text-red-400">Not saved</span>}</p>
-            <p><span className="text-slate-300 font-bold">Client Secret:</span> {credClientSecret ? `••••••••${credClientSecret.slice(-4)}` : <span className="text-red-400">Not saved</span>}</p>
-            <p className="text-slate-600 text-xs">Save credentials above first if not set.</p>
-          </div>
-          <button onClick={handleRefreshShopifyToken as any} disabled={loading === "refresh" || !credClientId || !credClientSecret}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 transition">
-            {loading === "refresh" ? <><FaSpinner className="animate-spin" /> Generating...</> : <><FaSync /> Generate &amp; Save Token</>}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

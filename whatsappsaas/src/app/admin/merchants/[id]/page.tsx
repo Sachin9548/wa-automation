@@ -722,7 +722,6 @@ export default function MerchantControlHub() {
             webhookResults={webhookResults}
             handleUpdateCredentials={handleUpdateCredentials}
             handleRegisterWebhooks={handleRegisterWebhooks}
-            handleRefreshShopifyToken={handleRefreshShopifyToken}
           />
         )}
 
