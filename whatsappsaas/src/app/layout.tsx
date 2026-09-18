@@ -18,7 +18,9 @@ export const metadata: Metadata = {
 
   description: "Recover abandoned carts with WhatsApp instantly.",
   icons: {
-    icon: '/wa-logo.png',
+    icon: [{ url: "/wa-logo.png", type: "image/png" }],
+    shortcut: ["/wa-logo.png"],
+    apple: [{ url: "/wa-logo.png", type: "image/png" }],
   },
 };
 
