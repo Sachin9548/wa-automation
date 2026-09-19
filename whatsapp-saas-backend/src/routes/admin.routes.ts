@@ -383,7 +383,7 @@ router.post('/delete-webhooks', async (req: Request, res: Response): Promise<any
   }
 });
 
-// ── Register Shopify webhooks for a merchant ─────────────────────────────────
+// ── Register Shopify and meta app subscribe webhooks for a merchant ─────────────────────────────────
 router.post('/register-webhooks', async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId } = req.body;

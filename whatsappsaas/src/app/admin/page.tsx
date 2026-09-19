@@ -43,8 +43,6 @@ const NAV_ITEMS = [
   { icon: <FaBook />, label: "Domain Checker", active: false },
 ];
 
-
-
 // ── Guide helper components ───────────────────────────────────────────────────
 function GuideCard({
   title,
@@ -186,7 +184,8 @@ export default function AdminConsole() {
   // Close sidebar when route changes (nav click on mobile)
   const handleNavClick = (label: string) => {
     if (label === "Domain Checker") {
-      window.location.href = "https://www.wautomation.shop/admin/domain-checker";
+      window.location.href =
+        "https://www.wautomation.shop/admin/domain-checker";
       return;
     }
     setActiveNav(label);
@@ -1205,7 +1204,8 @@ export default function AdminConsole() {
                   <li>
                     Choose{" "}
                     <strong className="text-white">
-                      Other → Next → Business → Next
+                      Connect With Customer through Whatsapp → Next → Business →
+                      Next
                     </strong>
                   </li>
                   <li>
@@ -1359,17 +1359,59 @@ export default function AdminConsole() {
 
               <GuideStep
                 num={6}
-                title="Subscribe app to its own WABA's webhooks"
+                title="Subscribe App to its own WABA's webhooks (CRITICAL)"
               >
-                <p className="text-slate-400 text-xs mb-2">
-                  Run this API call:
-                </p>
-                <code className="block bg-slate-900 text-green-400 px-3 py-2 rounded-xl text-xs font-mono break-all">
-                  POST
-                  https://graph.facebook.com/&#123;API_VERSION&#125;/&#123;WABA_ID&#125;/subscribed_apps
-                  <br />
-                  Authorization: Bearer &#123;ACCESS_TOKEN&#125;
-                </code>
+                <div className="space-y-4">
+                  <p className="text-slate-400 text-xs">
+                    Without this step,{" "}
+                    <strong className="text-white">
+                      incoming messages will NOT arrive
+                    </strong>{" "}
+                    at your backend webhook, even if the callback URL is
+                    correctly configured.
+                  </p>
+
+                  {/* Automated Method Highlight Box */}
+                  <div className="bg-teal-500/10 border border-teal-500/20 p-3 rounded-xl">
+                    <p className="text-teal-400 text-xs font-bold mb-1">
+                      ✨ Automated Method (Recommended):
+                    </p>
+                    <p className="text-teal-200 text-xs leading-relaxed">
+                      Admin panel se karo — <strong>Credentials tab</strong> →{" "}
+                      <strong>"Register Webhooks in Shopify/Meta"</strong>{" "}
+                      button ke saath hi WABA subscription bhi automatically ho
+                      jaati hai. Button click karne ke baad result mein{" "}
+                      <span className="bg-teal-900 px-1 rounded">
+                        Meta WABA Subscription: success
+                      </span>{" "}
+                      dikhna chahiye.
+                    </p>
+                  </div>
+
+                  {/* Manual Method Box */}
+                  <div>
+                    <p className="text-slate-400 text-xs mb-2">
+                      Ya manually run karo:
+                    </p>
+                    <code className="block bg-slate-900 text-green-400 px-3 py-2 rounded-xl text-xs font-mono break-all">
+                      POST
+                      https://graph.facebook.com/&#123;API_VERSION&#125;/&#123;WABA_ID&#125;/subscribed_apps
+                      <br />
+                      Authorization: Bearer &#123;ACCESS_TOKEN&#125;
+                    </code>
+                  </div>
+
+                  {/* Warning Box */}
+                  <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl flex items-start gap-2">
+                    <span className="text-red-400 text-sm">⚠️</span>
+                    <p className="text-red-300 text-xs leading-relaxed">
+                      <strong>Warning:</strong> If you skip this step, the
+                      Webhook URL will be saved in the Meta dashboard and
+                      verification will succeed, but NO messages will ever reach
+                      your backend.
+                    </p>
+                  </div>
+                </div>
               </GuideStep>
 
               <GuideStep num={7} title="Point the webhook to your backend">
@@ -1389,7 +1431,7 @@ export default function AdminConsole() {
                   <li>
                     Set Verify Token — any string (e.g.{" "}
                     <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">
-                      my_secret_token_123
+                      wa_auto_verify_2026
                     </code>
                     )
                   </li>

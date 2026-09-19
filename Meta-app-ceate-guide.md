@@ -60,6 +60,21 @@ POST https://graph.facebook.com/{API_VERSION}/{WABA_ID}/subscribed_apps
 Authorization: Bearer {ACCESS_TOKEN}
 ```
 
+### 6a. Subscribe this App to its own WABA's webhooks (CRITICAL — do this before Step 7)
+
+Without this step, **incoming messages will NOT arrive** at your backend webhook, even if the callback URL is correctly configured.
+
+Admin panel se karo — Credentials tab → **"Register Webhooks in Shopify"** button ke saath hi **WABA subscription bhi automatically ho jaati hai**. Button click karne ke baad result mein "Meta WABA Subscription: SUCCESS" dikhna chahiye.
+
+Ya manually run karo:
+\```
+POST https://graph.facebook.com/{API_VERSION}/{WABA_ID}/subscribed_apps
+Authorization: Bearer {ACCESS_TOKEN}
+\```
+
+> ⚠️ If you skip this step: Webhook URL will be saved in Meta dashboard, verification will succeed, but NO messages will ever reach your backend.
+
+
 ### 7. Point the webhook to your backend
 - Back in the client's App Dashboard: **WhatsApp → Configuration**.
 - Set the **Callback URL** to your backend endpoint (can be the same URL for every client, since each client has a separate App/token — your backend identifies the client from the WABA ID in the payload either way), e.g. `https://api.wautomation.shop/api/webhooks/meta`.

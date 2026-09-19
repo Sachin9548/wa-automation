@@ -34,12 +34,38 @@ export const logActivity = async (
 export const activateMerchant = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, category, shopifyToken, storeUrl, shopifySecret,
-            metaPhoneNumberId, metaAccessToken, metaWabaId } = req.body;
+      metaPhoneNumberId, metaAccessToken, metaWabaId } = req.body;
 
     const isValid = await verifyShopifyToken(storeUrl, shopifyToken);
     if (!isValid) {
       return res.status(400).json({ message: "❌ Invalid Shopify Token or Store URL." });
     }
+
+    // ── Meta token validation (if credentials provided) ──────────────────
+    if (metaPhoneNumberId && metaAccessToken) {
+      try {
+        const axiosLib = await import('axios');
+        const metaResp = await axiosLib.default.get(
+          `https://graph.facebook.com/v23.0/${metaPhoneNumberId}?fields=id,display_phone_number`,
+          {
+            headers: { Authorization: `Bearer ${metaAccessToken}` },
+            timeout: 8000
+          }
+        );
+        if (!metaResp.data?.id) {
+          return res.status(400).json({ message: "❌ Meta token valid but Phone Number ID not found." });
+        }
+        console.log(`✅ Meta token verified for phone: ${metaResp.data.display_phone_number}`);
+      } catch (e: any) {
+        const code = e.response?.data?.error?.code;
+        const msg = e.response?.data?.error?.message || e.message;
+        // code 190 = token expired/invalid, code 100 = invalid phone number id
+        return res.status(400).json({
+          message: `❌ Meta token validation failed: ${msg} (code: ${code})`
+        });
+      }
+    }
+
 
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 30);
@@ -194,7 +220,7 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
       ]
     };
     if (customerFilter === 'abandoned') whereClause.hasAbandonedCart = true;
-    if (customerFilter === 'ordered')   whereClause.hasPlacedOrder   = true;
+    if (customerFilter === 'ordered') whereClause.hasPlacedOrder = true;
 
     const customers = await prisma.customer.findMany({
       where: whereClause,
@@ -205,9 +231,9 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ message: 'No eligible customers (all may have no phone or opted out).' });
     }
 
-    const isScheduled   = !!scheduledAt;
+    const isScheduled = !!scheduledAt;
     const scheduledDate = scheduledAt ? new Date(scheduledAt) : null;
-    const now           = Date.now();
+    const now = Date.now();
     const scheduleDelay = scheduledDate ? Math.max(0, scheduledDate.getTime() - now) : 0;
 
     if (scheduledDate && scheduledDate.getTime() <= now) {
@@ -217,30 +243,30 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
     const campaign = await prisma.campaign.create({
       data: {
         merchantId,
-        name:             campaignName,
-        template:         template || `[Template: ${metaTemplateName}]`,
+        name: campaignName,
+        template: template || `[Template: ${metaTemplateName}]`,
         metaTemplateName,
         metaTemplateLang: metaTemplateLang || 'en_US',
-        discountCode:     discountCode || null,
-        scheduledAt:      scheduledDate,
-        status:           isScheduled ? 'SCHEDULED' : 'SENDING',
-        totalRecipients:  customers.length,
+        discountCode: discountCode || null,
+        scheduledAt: scheduledDate,
+        status: isScheduled ? 'SCHEDULED' : 'SENDING',
+        totalRecipients: customers.length,
       }
     });
 
     for (let i = 0; i < customers.length; i++) {
       await messageQueue.add('send-campaign-msg', {
-        campaignId:   campaign.id,
+        campaignId: campaign.id,
         merchantId,
-        phone:        customers[i].phone,
+        phone: customers[i].phone,
         templateName: metaTemplateName,
         templateLang: metaTemplateLang || 'en_US',
-        variables:    [customers[i].name || 'there'],
+        variables: [customers[i].name || 'there'],
         discountCode: discountCode || null,
       }, {
-        delay:    scheduleDelay + (i * 15000),
+        delay: scheduleDelay + (i * 15000),
         attempts: 2,
-        backoff:  { type: 'exponential', delay: 30000 },
+        backoff: { type: 'exponential', delay: 30000 },
       });
     }
     await resumeWorkerIfPaused();
@@ -260,7 +286,7 @@ export const launchCampaign = async (req: Request, res: Response): Promise<any> 
         ? `📅 Campaign '${campaignName}' scheduled for ${scheduledDate!.toLocaleString('en-IN')}!`
         : `🚀 Campaign '${campaignName}' launched!`,
       totalQueued: customers.length,
-      campaignId:  campaign.id,
+      campaignId: campaign.id,
       scheduledAt: scheduledDate,
       etaMinutes,
     });
@@ -402,15 +428,15 @@ export const toggleMerchantFlow = async (req: Request, res: Response): Promise<a
 export const getMerchantCustomers = async (req: Request, res: Response): Promise<any> => {
   try {
     const merchantId = req.params.merchantId as string;
-    const page   = parseInt(req.query.page   as string) || 1;
-    const limit  = parseInt(req.query.limit  as string) || 50;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
     const search = (req.query.search as string) || '';
-    const skip   = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
     const where: any = { merchantId };
     if (search) {
       where.OR = [
-        { name:  { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } }
       ];
     }
@@ -486,9 +512,9 @@ export const addPayment = async (req: Request, res: Response): Promise<any> => {
     const payment = await (prisma as any).payment.create({
       data: {
         merchantId,
-        amount:   parseFloat(amount),
+        amount: parseFloat(amount),
         planDays: parseInt(planDays),
-        note:     note || null,
+        note: note || null,
       }
     });
 
@@ -543,7 +569,7 @@ export const getPaymentHistory = async (req: Request, res: Response): Promise<an
 export const checkShopifyDomain = async (req: Request, res: Response): Promise<any> => {
   try {
     const { url } = req.body;
-    
+
     if (!url) {
       return res.status(400).json({ message: "URL is required" });
     }
@@ -552,14 +578,14 @@ export const checkShopifyDomain = async (req: Request, res: Response): Promise<a
     const shopifyDomain = await resolveShopifyDomain(url);
 
     if (shopifyDomain) {
-      return res.status(200).json({ 
-        isShopify: true, 
-        shopifyDomain: shopifyDomain 
+      return res.status(200).json({
+        isShopify: true,
+        shopifyDomain: shopifyDomain
       });
     } else {
-      return res.status(200).json({ 
-        isShopify: false, 
-        message: "No Shopify domain detected." 
+      return res.status(200).json({
+        isShopify: false,
+        message: "No Shopify domain detected."
       });
     }
   } catch (error) {

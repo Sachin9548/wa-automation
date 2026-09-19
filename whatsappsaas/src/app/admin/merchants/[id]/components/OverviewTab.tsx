@@ -428,7 +428,7 @@ export default function OverviewTab({
               </label>
               <div className="flex gap-2">
                 <input
-                  type="password"
+                  type="text"
                   placeholder="shpss_..."
                   value={shopifyClientSecret}
                   onChange={(e) => setShopifyClientSecret(e.target.value)}
