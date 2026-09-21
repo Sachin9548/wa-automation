@@ -207,7 +207,9 @@ router.post('/update-credentials', async (req: Request, res: Response): Promise<
   try {
     const { merchantId, shopifyToken, shopifySecret, storeUrl,
       metaPhoneNumberId, metaAccessToken, metaWabaId,
+      metaAppId, metaAppSecret,
       shopifyClientId, shopifyClientSecret, shopifyOAuthState } = req.body;
+
     if (!merchantId) return res.status(400).json({ message: 'merchantId required' });
 
     const data: any = {};
@@ -220,6 +222,9 @@ router.post('/update-credentials', async (req: Request, res: Response): Promise<
     if (shopifyClientId !== undefined) data.shopifyClientId = shopifyClientId;
     if (shopifyClientSecret !== undefined) data.shopifyClientSecret = shopifyClientSecret;
     if (shopifyOAuthState !== undefined) data.shopifyOAuthState = shopifyOAuthState;
+    if (metaAppId !== undefined) data.metaAppId = metaAppId;
+    if (metaAppSecret !== undefined) data.metaAppSecret = metaAppSecret;
+
 
     await prisma.merchant.update({ where: { id: merchantId }, data });
 
@@ -456,7 +461,7 @@ router.post('/register-webhooks', async (req: Request, res: Response): Promise<a
     }
 
 
-    res.status(200).json({ message: '✅ Webhook registration complete!', results,wabaSubscription });
+    res.status(200).json({ message: '✅ Webhook registration complete!', results, wabaSubscription });
 
     logActivity(merchantId, 'WEBHOOKS_REGISTERED',
       `Shopify webhooks registered — ${results.filter((r: any) => r.status === 'registered').length} new, ${results.filter((r: any) => r.status === 'already_registered').length} already existed`,

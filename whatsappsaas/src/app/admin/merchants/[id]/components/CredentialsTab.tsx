@@ -30,6 +30,10 @@ interface CredentialsTabProps {
   handleUpdateCredentials: (e: React.FormEvent) => void;
   handleRegisterWebhooks: () => void;
   wabaSubResult: any;
+  credMetaAppId: string;
+  setCredMetaAppId: (v: string) => void;
+  credMetaAppSecret: string;
+  setCredMetaAppSecret: (v: string) => void;
 }
 
 export default function CredentialsTab({
@@ -54,6 +58,10 @@ export default function CredentialsTab({
   handleUpdateCredentials,
   handleRegisterWebhooks,
   wabaSubResult,
+  credMetaAppId,
+  setCredMetaAppId,
+  credMetaAppSecret,
+  setCredMetaAppSecret,
 }: CredentialsTabProps) {
   return (
     <div className="max-w-2xl space-y-6">
@@ -178,6 +186,28 @@ export default function CredentialsTab({
                 <p className="text-slate-600 text-xs mt-1">
                   System User token — never expires
                 </p>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 mb-1 block">
+                  App ID
+                </label>
+                <input
+                  type="text"
+                  value={credMetaAppId}
+                  onChange={(e) => setCredMetaAppId(e.target.value)}
+                  className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 mb-1 block">
+                  App Secret
+                </label>
+                <input
+                  type="password"
+                  value={credMetaAppSecret}
+                  onChange={(e) => setCredMetaAppSecret(e.target.value)}
+                  className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono"
+                />
               </div>
             </div>
           </div>

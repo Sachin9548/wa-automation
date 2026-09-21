@@ -1136,133 +1136,241 @@ export default function AdminConsole() {
             </div>
           )}
 
-       {/* ── Meta Guide Tab (ULTIMATE PRODUCTION SOP) ── */}
-              {activeNav === "Meta Guide" && (
-                <div className="mt-6 space-y-4">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                      <FaWhatsapp className="text-blue-400 text-lg" />
-                    </div>
-                    <div>
-                      <h2 className="text-white font-bold text-lg">
-                        WhatsApp (Meta) Client Onboarding
-                      </h2>
-                      <p className="text-slate-500 text-xs">
-                        Option B: Fully Separate Per-Client Setup (No Meta App Review needed)
-                      </p>
-                    </div>
-                  </div>
-
-                  <GuideCard title="Why this approach?" accent="blue">
-                    <ul className="space-y-1.5 text-sm text-slate-300">
-                      <li className="flex gap-2"><span className="text-blue-400 mt-0.5">•</span>No business verification or App Review needed to start.</li>
-                      <li className="flex gap-2"><span className="text-blue-400 mt-0.5">•</span>App, WABA, and token are created inside the <strong className="text-white">client's own</strong> account.</li>
-                      <li className="flex gap-2"><span className="text-yellow-400 mt-0.5">⚠️</span><strong>Trade-off:</strong> Repeat setup for every client over a screen-share call.</li>
-                    </ul>
-                  </GuideCard>
-
-                  <GuideCard title="Before you start (Backend Prerequisite)" accent="teal">
-                    <p className="text-slate-300 text-sm mb-2">Meta will refuse to save your callback URL unless your backend responds correctly to its verification request (<code className="text-teal-400">hub.challenge</code>). Make sure your backend endpoint is live and working.</p>
-                  </GuideCard>
-
-                  <GuideStep num={1} title="Create a Meta App">
-                    <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
-                      <li>Log into <strong className="text-white">developers.facebook.com</strong> using the client's Facebook account.</li>
-                      <li>Click <strong className="text-white">My Apps → Create App</strong>.</li>
-                      <li>Choose <strong className="text-white">Other → Next → Business → Next</strong>.</li>
-                      <li>Name it <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">&lt;ClientName&gt; WhatsApp</code> and click <strong>Create app</strong>.</li>
-                      <li>Under <strong>Use cases</strong>, click <strong>Customize</strong> on "Connect on WhatsApp".</li>
-                    </ol>
-                  </GuideStep>
-
-                  <GuideStep num={2} title="Publish the App (CRITICAL TO PREVENT SILENT FAILURES)" accent="red">
-                    <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-3">
-                      <span className="text-red-400 mt-0.5">⚠️</span>
-                      <p className="text-red-300 text-xs">
-                        If left in "Development" mode, Meta API silently returns "success" but <strong>messages are never actually delivered</strong> to real customers.
-                      </p>
-                    </div>
-                    <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
-                      <li>Go to <strong className="text-white">App Settings → Basic</strong>.</li>
-                      <li>Add a <strong className="text-white">Privacy Policy URL</strong> (must be a real, live page).</li>
-                      <li>Toggle the App from Development to <strong className="text-white">Live (Publish)</strong>.</li>
-                    </ol>
-                  </GuideStep>
-
-                  <GuideStep num={3} title="Complete the guided Production Setup">
-                    <p className="text-slate-400 text-xs mb-3">Go to <strong>Step 2: Production setup</strong> on the use case page.</p>
-                    <ul className="space-y-3 text-sm text-slate-300">
-                      <li><strong className="text-white">1. Configure Webhooks:</strong> Enter Callback URL (<code className="text-teal-400 text-xs">https://api.wautomation.shop/api/webhooks/meta</code>) and your Verify Token. (Required fields are pre-subscribed).</li>
-                      <li><strong className="text-white">2. Register Phone Number:</strong> Add and verify via OTP. Copy the <strong className="text-white">Phone Number ID</strong> and <strong className="text-white">WABA ID</strong>.</li>
-                      <li><strong className="text-white">3. Add Payment:</strong> Client adds their card. (Mandatory for business-initiated messages).</li>
-                      <li><strong className="text-white">4. Generate Token:</strong> Click "Generate token". Copy it immediately (<code className="text-teal-400 text-xs">EAA...</code>).</li>
-                    </ul>
-                  </GuideStep>
-
-                  <GuideStep num={4} title="Fallback: Manual System User (If guided token fails)">
-                    <p className="text-slate-400 text-xs mb-2">Only do this if the "Generate token" button errors out:</p>
-                    <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
-                      <li>Open <strong className="text-white">business.facebook.com/settings</strong> → Users → System Users → Add (Role: Admin).</li>
-                      <li>Click <strong>Assign Assets</strong> → Apps tab (Select App, Full Control) → WhatsApp Accounts tab (Select WABA, Full Control). <span className="text-red-400 font-bold">Both are mandatory!</span></li>
-                      <li>Click <strong>Generate New Token</strong> → Select App → Tick <code className="text-xs">whatsapp_business_messaging</code> & <code className="text-xs">whatsapp_business_management</code>.</li>
-                    </ol>
-                  </GuideStep>
-
-                  <GuideStep num={5} title="Verify Webhook Subscription (AVOID THE META BUG)">
-                    <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-xl mb-3">
-                      <p className="text-yellow-300 text-xs leading-relaxed">
-                        Meta's UI often shows "verified" but the subscription silently fails. <strong>Always verify it manually or incoming messages will not arrive!</strong>
-                      </p>
-                    </div>
-                    <p className="text-slate-400 text-xs mb-2">1. Verify it using GET:</p>
-                    <code className="block bg-slate-900 text-teal-400 p-2 rounded-lg text-[11px] font-mono break-all mb-3">
-                      GET https://graph.facebook.com/&#123;API_VERSION&#125;/&#123;WABA_ID&#125;/subscribed_apps<br/>
-                      Authorization: Bearer &#123;ACCESS_TOKEN&#125;
-                    </code>
-                    <p className="text-slate-400 text-xs mb-2">2. If missing, subscribe manually using POST:</p>
-                    <code className="block bg-slate-900 text-green-400 p-2 rounded-lg text-[11px] font-mono break-all">
-                      POST https://graph.facebook.com/&#123;API_VERSION&#125;/&#123;WABA_ID&#125;/subscribed_apps<br/>
-                      Authorization: Bearer &#123;ACCESS_TOKEN&#125;
-                    </code>
-                  </GuideStep>
-
-                  {/* 250 Limit Warning */}
-                  <GuideCard title="⚡ The 250-Message/Day Limit (Bottleneck)" accent="yellow">
-                    <p className="text-slate-300 text-sm leading-relaxed mb-2">
-                      Unverified accounts are capped at <strong className="text-white">250 business-initiated conversations per 24 hours</strong>. Messages beyond this silently fail.
-                    </p>
-                    <p className="text-slate-400 text-xs">
-                      <strong>Fix:</strong> Get the client to go to Business Settings → <strong>Security Center</strong> and submit their GST/MSME. Once approved (1-2 days), the limit jumps to 1,000+.
-                    </p>
-                  </GuideCard>
-
-                  {/* Checklist */}
-                  <GuideCard title="Per-client checklist" accent="teal">
-                    <div className="space-y-2 mt-1">
-                      {[
-                        "App created & 'Connect on WhatsApp' use case selected",
-                        "App PUBLISHED (Privacy Policy added, moved to Live mode)",
-                        "Webhook configured: Callback URL + Verify Token",
-                        "Phone number OTP-verified (WABA ID + Phone ID saved)",
-                        "Client's payment method added",
-                        "Permanent token generated and copied",
-                        "Webhook subscription verified via GET /subscribed_apps",
-                        "Client told to submit GST/MSME to lift the 250/day limit",
-                        "Token, WABA ID, and Phone ID saved in Admin Panel"
-                      ].map((item, i) => (
-                        <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                          <FaCheckCircle className="text-teal-400 text-xs flex-shrink-0 mt-1" />
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-                  </GuideCard>
-
+          {/* ── Meta Guide Tab (ULTIMATE PRODUCTION SOP - LATEST UI) ── */}
+          {activeNav === "Meta Guide" && (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                  <FaWhatsapp className="text-blue-400 text-lg" />
                 </div>
-              )}
+                <div>
+                  <h2 className="text-white font-bold text-lg">
+                    WhatsApp (Meta) Client Onboarding
+                  </h2>
+                  <p className="text-slate-500 text-xs">
+                    Fully Separate Per-Client Setup (New Meta UI - Ultra Fast)
+                  </p>
+                </div>
+              </div>
 
+              <GuideCard title="Why this approach?" accent="blue">
+                <ul className="space-y-1.5 text-sm text-slate-300">
+                  <li className="flex gap-2">
+                    <span className="text-blue-400 mt-0.5">•</span>No business
+                    verification or App Review needed to start.
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-blue-400 mt-0.5">•</span>App, WABA,
+                    and token are created inside the{" "}
+                    <strong className="text-white">client's own</strong>{" "}
+                    account.
+                  </li>
+                </ul>
+              </GuideCard>
 
+              <GuideStep num={1} title="Create App & Select Portfolio">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>
+                    Log into{" "}
+                    <strong className="text-white">
+                      developers.facebook.com
+                    </strong>{" "}
+                    using the client's Facebook account.
+                  </li>
+                  <li>
+                    Click <strong className="text-white">Create App</strong>.
+                  </li>
+                  <li>
+                    Name the App (e.g.{" "}
+                    <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-[11px]">
+                      &lt;ClientName&gt; WhatsApp
+                    </code>
+                    )
+                  </li>
+                  <li>
+                    Select Use case:{" "}
+                    <strong className="text-white">
+                      Connect to customer on WhatsApp
+                    </strong>
+                    .
+                  </li>
+                  <li>
+                    Select the client's{" "}
+                    <strong className="text-white">Business Portfolio</strong>.
+                  </li>
+                  <li>
+                    click <strong>Create app</strong>.
+                  </li>
+                </ol>
+              </GuideStep>
 
+              <GuideStep
+                num={2}
+                title="Publish the App (Crucial Step)"
+                accent="red"
+              >
+                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-3">
+                  <span className="text-red-400 mt-0.5">⚠️</span>
+                  <p className="text-red-300 text-xs">
+                    App must be published, otherwise Meta API returns "success"
+                    but messages are never delivered to real customers.
+                  </p>
+                </div>
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>
+                    Go to{" "}
+                    <strong className="text-white">App Settings → Basic</strong>
+                    .
+                  </li>
+                  <li>
+                    In <strong>Privacy Policy URL</strong>, enter the client's
+                    website privacy link. <br />
+                    <span className="text-xs text-slate-400">
+                      (If they don't have one, use:{" "}
+                      <code className="text-teal-400">
+                        https://www.wautomation.shop/privacy-policy
+                      </code>
+                      )
+                    </span>
+                  </li>
+                  <li>
+                    Save changes, then click the{" "}
+                    <strong className="text-white">Publish App</strong> button
+                    at the top to make the App Live.
+                  </li>
+                </ol>
+              </GuideStep>
+
+              <GuideStep num={3} title="Production Setup & Webhooks">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>
+                    Go to <strong>Use cases</strong> → click{" "}
+                    <strong className="text-white">Production setup</strong>.
+                  </li>
+                  <li>
+                    In the Webhooks section, enter the Callback URL:{" "}
+                    <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-[11px]">
+                      https://api.wautomation.shop/api/webhooks/meta
+                    </code>
+                  </li>
+                  <li>
+                    Enter your <strong>Verify Secret</strong>:{" "}
+                    <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-[11px]">
+                      wa_auto_verify_2026
+                    </code>
+                  </li>
+                  <li>
+                    When prompted to add permissions, ensure these 5 are added:
+                    <div className="mt-1 ml-2 flex flex-wrap gap-2">
+                      <code className="bg-slate-900 text-green-400 px-2 py-1 rounded text-[10px]">
+                        public_profile
+                      </code>
+                      <code className="bg-slate-900 text-green-400 px-2 py-1 rounded text-[10px]">
+                        whatsapp_business_manage_events
+                      </code>
+                      <code className="bg-slate-900 text-green-400 px-2 py-1 rounded text-[10px]">
+                        whatsapp_business_management
+                      </code>
+                      <code className="bg-slate-900 text-green-400 px-2 py-1 rounded text-[10px]">
+                        whatsapp_business_messaging
+                      </code>
+                    </div>
+                  </li>
+                </ol>
+              </GuideStep>
+
+              <GuideStep num={4} title="Register Number & Add Payment">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>
+                    Click <strong>Register your WhatsApp phone number</strong>.
+                    Enter the client's number and verify it via OTP.
+                  </li>
+                  <li>
+                    Enter the WhatsApp Business display name.
+                  </li>
+                  <li>
+                    Click{" "}
+                    <strong>
+                      Add payment to send business-initiated messages
+                    </strong>{" "}
+                    and add the client's credit/debit card (mandatory for
+                    messages to deliver).
+                  </li>
+                </ol>
+              </GuideStep>
+
+              <GuideStep
+                num={5}
+                title="Generate Permanent Token & Copy Details"
+                accent="green"
+              >
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>
+                    Under the "Send Message" section, click{" "}
+                    <strong className="text-white">Generate token</strong>.
+                    (This is your permanent token).
+                  </li>
+                  <li>
+                    You need to copy and save exactly <strong>5 things</strong>{" "}
+                    for our backend:
+                  </li>
+                </ol>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 ml-4">
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 text-xs flex items-center gap-2">
+                    <FaCheckCircle className="text-teal-400 flex-shrink-0" />{" "}
+                    Permanent Token (EAA...)
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 text-xs flex items-center gap-2">
+                    <FaCheckCircle className="text-teal-400 flex-shrink-0" />{" "}
+                    Phone Number ID
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 text-xs flex items-center gap-2">
+                    <FaCheckCircle className="text-teal-400 flex-shrink-0" />{" "}
+                    WABA ID
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 text-xs flex items-center gap-2">
+                    <FaCheckCircle className="text-teal-400 flex-shrink-0" />{" "}
+                    App ID
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 text-xs flex items-center gap-2">
+                    <FaCheckCircle className="text-teal-400 flex-shrink-0" />{" "}
+                    App Secret
+                  </div>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={6} title="Finalize in WAutomation Admin Panel">
+                <div className="space-y-2">
+                  <p className="text-slate-300 text-sm">
+                    Go to our Admin Panel's <strong>Credentials Tab</strong>.
+                  </p>
+                  <ul className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                    <li>
+                      Paste all the copied details (App ID, Secret, Phone ID,
+                      WABA ID, Token).
+                    </li>
+                    <li>
+                      Click <strong>Activate / Save</strong>.
+                    </li>
+                    <li>
+                      Click <strong>Register Webhooks in Shopify/Meta</strong>.
+                      Our backend will automatically complete the App
+                      Subscription process!
+                    </li>
+                  </ul>
+                  <div className="bg-teal-500/10 border border-teal-500/20 p-3 rounded-xl mt-3">
+                    <p className="text-teal-400 text-xs font-bold mb-1">
+                      🎉 Client is now LIVE!
+                    </p>
+                    <p className="text-teal-200 text-xs leading-relaxed">
+                      The client's dashboard will instantly unblur, and the
+                      automation engine is now active.
+                    </p>
+                  </div>
+                </div>
+              </GuideStep>
+            </div>
+          )}
         </div>
       </main>
     </div>

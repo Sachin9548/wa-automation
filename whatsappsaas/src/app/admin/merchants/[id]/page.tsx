@@ -49,6 +49,8 @@ export default function MerchantControlHub() {
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [webhookResults, setWebhookResults] = useState<any[]>([]);
   const [wabaSubResult, setWabaSubResult] = useState<any>(null);
+  const [credMetaAppId, setCredMetaAppId] = useState("");
+  const [credMetaAppSecret, setCredMetaAppSecret] = useState("");
 
   const [activeTab, setActiveTab] = useState<
     | "overview"
@@ -465,6 +467,9 @@ export default function MerchantControlHub() {
         setCredMetaPhoneId(m.metaPhoneNumberId || "");
         setCredMetaToken(m.metaAccessToken || "");
         setCredMetaWabaId(m.metaWabaId || "");
+        setCredMetaAppId(m.metaAppId || "");
+        setCredMetaAppSecret(m.metaAppSecret || "");
+
         setCredClientId(m.shopifyClientId || "");
         setCredClientSecret(m.shopifyClientSecret || "");
         if (m.storeUrl) setStoreUrl(m.storeUrl);
@@ -709,6 +714,8 @@ export default function MerchantControlHub() {
           metaWabaId: credMetaWabaId,
           shopifyClientId: credClientId,
           shopifyClientSecret: credClientSecret,
+          metaAppId: credMetaAppId,
+          metaAppSecret: credMetaAppSecret,
         },
         { headers: ah() },
       );
@@ -1403,6 +1410,10 @@ export default function MerchantControlHub() {
             setCredMetaWabaId={setCredMetaWabaId}
             credMetaToken={credMetaToken}
             setCredMetaToken={setCredMetaToken}
+            credMetaAppId={credMetaAppId}
+            setCredMetaAppId={setCredMetaAppId}
+            credMetaAppSecret={credMetaAppSecret}
+            setCredMetaAppSecret={setCredMetaAppSecret}
             webhookResults={webhookResults}
             handleUpdateCredentials={handleUpdateCredentials}
             handleRegisterWebhooks={handleRegisterWebhooks}

@@ -34,7 +34,9 @@ export const logActivity = async (
 export const activateMerchant = async (req: Request, res: Response): Promise<any> => {
   try {
     const { merchantId, category, shopifyToken, storeUrl, shopifySecret,
-      metaPhoneNumberId, metaAccessToken, metaWabaId } = req.body;
+      metaPhoneNumberId, metaAccessToken, metaWabaId,
+      metaAppId, metaAppSecret } = req.body;
+
 
     const isValid = await verifyShopifyToken(storeUrl, shopifyToken);
     if (!isValid) {
@@ -83,6 +85,9 @@ export const activateMerchant = async (req: Request, res: Response): Promise<any
         ...(metaAccessToken && { metaAccessToken }),
         ...(metaWabaId && { metaWabaId }),
         whatsappConnected: !!(metaPhoneNumberId && metaAccessToken),
+        ...(metaAppId && { metaAppId }),
+        ...(metaAppSecret && { metaAppSecret }),
+
       }
     });
 

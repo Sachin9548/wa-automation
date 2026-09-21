@@ -52,6 +52,8 @@ model Merchant {
   metaPhoneNumberId String?   // Phone Number ID from Meta app dashboard
   metaAccessToken   String?   // Permanent system user token (never expires)
   metaWabaId        String?   // WhatsApp Business Account ID
+  metaAppId         String?   // Meta App ID (for webhook verification + reference)
+  metaAppSecret     String?   // Meta App Secret (for webhook HMAC verification)
 
   // Plan (subscription only — Meta charges client directly)
   plan              String   @default("STARTER")
