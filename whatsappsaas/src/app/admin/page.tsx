@@ -975,7 +975,7 @@ export default function AdminConsole() {
                   In the Scopes field, enter exactly:
                 </p>
                 <code className="block bg-slate-900 text-green-400 px-3 py-2 rounded-xl text-xs font-mono">
-                  read_customers,read_orders,read_products,read_all_orders
+                  read_customers,read_orders,read_products,write_orders,read_all_orders
                 </code>
               </GuideStep>
 

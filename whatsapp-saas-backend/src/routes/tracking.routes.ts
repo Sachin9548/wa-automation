@@ -36,14 +36,23 @@ router.get('/click/:trackingId', async (req: Request, res: Response): Promise<an
       console.log(`🖱️ Click tracked: ${trackingId} | merchant: ${link.merchantId} | phone: ${link.customerPhone}`);
     }
 
-    // Redirect to original URL (with discount code if present)
+    // Redirect to original URL (with discount code + UTM params)
     let redirectUrl = link.originalUrl;
+
+    // Append discount code
     if (link.discountCode && !redirectUrl.includes('discount=')) {
       const sep = redirectUrl.includes('?') ? '&' : '?';
       redirectUrl = `${redirectUrl}${sep}discount=${link.discountCode}`;
     }
 
+    // Append UTM params — Shopify analytics mein WhatsApp traffic dikhega
+    if (!redirectUrl.includes('utm_source=')) {
+      const sep = redirectUrl.includes('?') ? '&' : '?';
+      redirectUrl = `${redirectUrl}${sep}utm_source=whatsapp&utm_medium=wa_automations&utm_campaign=cart_recovery`;
+    }
+
     return res.redirect(302, redirectUrl);
+
   } catch (error) {
     console.error('Tracking click error:', error);
     return res.redirect(302, 'https://wautomation.shop');

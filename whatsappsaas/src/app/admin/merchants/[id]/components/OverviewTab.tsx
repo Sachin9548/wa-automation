@@ -222,7 +222,8 @@ export default function OverviewTab({
     const url =
       `https://${domain}/admin/oauth/authorize` +
       `?client_id=${shopifyClientId.trim()}` +
-      `&scope=read_customers,read_orders,read_products,read_all_orders` +
+    setUrlCopied(false);
+      `&scope=read_customers,read_orders,read_products,write_orders,read_all_orders` +
       `&redirect_uri=https://api.wautomation.shop/shopify/callback/tokengenerate` +
       `&state=${state}`;
 

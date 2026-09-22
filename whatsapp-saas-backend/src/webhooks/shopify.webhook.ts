@@ -8,7 +8,7 @@ import { verifyShopifyWebhook } from '../lib/shopify.security';
 const SKIP_VERIFY = process.env.SKIP_WEBHOOK_VERIFY === 'true';
 
 export const handleAbandonedCartWebhook = async (req: any, res: Response): Promise<any> => {
-  const hmac    = req.headers['x-shopify-hmac-sha256'] as string;
+  const hmac = req.headers['x-shopify-hmac-sha256'] as string;
   const merchantId = (req.params.merchantId || '').trim();
 
   console.log(`📥 Shopify webhook | merchant: ${merchantId} | topic: checkouts`);
@@ -83,12 +83,12 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
     // ── 4. Parse line items from payload ───────────────────────────────────
     const lineItemsJson = shopifyData.line_items && shopifyData.line_items.length > 0
       ? JSON.stringify(shopifyData.line_items.map((li: any) => ({
-          name: li.title || li.name || li.product_title || 'Product',
-          quantity: li.quantity || 1,
-          price: li.price || '0',
-          image: li.featured_image?.url || li.image_url || null,
-          variantTitle: li.variant_title || null,
-        })))
+        name: li.title || li.name || li.product_title || 'Product',
+        quantity: li.quantity || 1,
+        price: li.price || '0',
+        image: li.featured_image?.url || li.image_url || null,
+        variantTitle: li.variant_title || null,
+      })))
       : null;
 
     // ── 5. Duplicate check ──────────────────────────────────────────────────
@@ -235,6 +235,7 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
           customerPhone: phone,
           originalUrl: cart.cartUrl,
           discountCode: discountCode,
+          templateName: templateName,
         }
       });
     }
@@ -252,11 +253,11 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
     const variables = templateName === 'hello_world'
       ? []
       : [
-          cart.customerName || 'there',          // {{1}} name
-          productsList,                           // {{2}} products
-          trackingUrl,                            // {{3}} link
-          ...(discountCode ? [discountCode] : []) // {{4}} discount (only if set)
-        ];
+        cart.customerName || 'there',          // {{1}} name
+        productsList,                           // {{2}} products
+        trackingUrl,                            // {{3}} link
+        ...(discountCode ? [discountCode] : []) // {{4}} discount (only if set)
+      ];
 
     console.log(`📤 Template variables: [${variables.join(' | ')}]`);
 
@@ -282,7 +283,7 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
 
 // ── Order Created Webhook ─────────────────────────────────────────────────────
 export const handleOrderCreatedWebhook = async (req: any, res: Response): Promise<any> => {
-  const hmac       = req.headers['x-shopify-hmac-sha256'] as string;
+  const hmac = req.headers['x-shopify-hmac-sha256'] as string;
   const merchantId = (req.params.merchantId || '').trim();
 
   try {
@@ -297,8 +298,8 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
       if (!isValid) return res.status(401).send('Forbidden');
     }
 
-    const orderData  = req.body;
-    const phone      = orderData.phone
+    const orderData = req.body;
+    const phone = orderData.phone
       || orderData.customer?.phone
       || orderData.customer?.default_address?.phone
       || orderData.billing_address?.phone
@@ -313,7 +314,7 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
       const items = orderData.line_items.map((li: any) =>
         li.title || li.name || li.product_title || 'Product'
       );
-      purchasedProductName  = items[0];
+      purchasedProductName = items[0];
       purchasedProductsList = items.join(', ');
     }
 
@@ -328,10 +329,11 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
     });
 
     // ── Recovery tracking: did our message lead to this order? ────────────
-    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentMessage = await prisma.message.findFirst({
-      where: { merchantId, customerPhone: phone, direction: 'OUTGOING', timestamp: { gte: fortyEightHoursAgo } }
+      where: { merchantId, customerPhone: phone, direction: 'OUTGOING', timestamp: { gte: sevenDaysAgo } }
     });
+
 
     if (recentMessage) {
       await prisma.merchant.update({
@@ -347,6 +349,50 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         data: { converted: true, convertedAt: new Date(), convertedRevenue: orderTotal }
       });
       console.log(`💰 Revenue recovered: ₹${orderTotal} for ${merchant.brandName}`);
+      // ── Tag Shopify order with WA-Recovered ──────────────────────────────
+      const shopifyOrderId = orderData.id; // Shopify numeric order ID
+      const cleanUrl = merchant.storeUrl?.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+      if (shopifyOrderId && cleanUrl && merchant.shopifyToken) {
+        try {
+          const axiosLib = await import('axios');
+
+          // Get existing tags first (don't overwrite them)
+          const existing = await axiosLib.default.get(
+            `https://${cleanUrl}/admin/api/2024-01/orders/${shopifyOrderId}.json?fields=id,tags,note,note_attributes`,
+            { headers: { 'X-Shopify-Access-Token': merchant.shopifyToken } }
+          );
+          const existingTags: string = existing.data?.order?.tags || '';
+          const newTags = existingTags
+            ? `${existingTags}, WA-Recovered`
+            : 'WA-Recovered';
+
+          const existingNoteAttrs: any[] = existing.data?.order?.note_attributes || [];
+
+          // Update order — add tag + note attributes
+          await axiosLib.default.put(
+            `https://${cleanUrl}/admin/api/2024-01/orders/${shopifyOrderId}.json`,
+            {
+              order: {
+                id: shopifyOrderId,
+                tags: newTags,
+                note_attributes: [
+                  ...existingNoteAttrs,
+                  { name: 'Recovered by', value: 'WA-Automations' },
+                  { name: 'Attribution', value: 'WhatsApp Cart Recovery' },
+                ]
+              }
+            },
+            { headers: { 'X-Shopify-Access-Token': merchant.shopifyToken, 'Content-Type': 'application/json' } }
+          );
+
+          console.log(`🏷️ Shopify order ${orderNumber} tagged WA-Recovered`);
+        } catch (tagErr: any) {
+          // Non-critical — don't fail the webhook if tagging fails
+          console.warn(`⚠️ Could not tag Shopify order ${orderNumber}:`, tagErr.response?.data || tagErr.message);
+        }
+      }
+
     }
 
     // ── POST_PURCHASE_UPSELL flow ─────────────────────────────────────────
@@ -362,9 +408,9 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         where: {
           merchantId,
           customerPhone: phone,
-          direction:     'OUTGOING',
-          templateName:  upsellFlow.metaTemplateName,
-          timestamp:     { gte: sevenDaysAgo },
+          direction: 'OUTGOING',
+          templateName: upsellFlow.metaTemplateName,
+          timestamp: { gte: sevenDaysAgo },
         }
       });
 
@@ -372,8 +418,8 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         console.log(`ℹ️ Upsell skipped — already sent to ${phone} within 7 days`);
       } else {
         // Build tracking link for store URL
-        const backendUrl  = process.env.BACKEND_URL || 'https://api.wautomation.shop';
-        const storeUrl    = merchant.storeUrl || '';
+        const backendUrl = process.env.BACKEND_URL || 'https://api.wautomation.shop';
+        const storeUrl = merchant.storeUrl || '';
         const discountCode = upsellFlow.discountCode || null;
 
         let trackingLink: any = null;
@@ -382,7 +428,7 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
             data: {
               merchantId,
               customerPhone: phone,
-              originalUrl:   storeUrl,
+              originalUrl: storeUrl,
               discountCode,
             }
           });
@@ -410,19 +456,19 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
 
         await messageQueue.add('send-automated-msg', {
           // Use cartId as null — this is not a cart, it's a post-purchase upsell
-          cartId:         null,
+          cartId: null,
           merchantId,
           phone,
-          templateName:   upsellFlow.metaTemplateName,
-          templateLang:   upsellFlow.metaTemplateLang || 'en_US',
+          templateName: upsellFlow.metaTemplateName,
+          templateLang: upsellFlow.metaTemplateLang || 'en_US',
           discountCode,
           trackingLinkId: trackingLink?.id,
           variables,
-          jobType:        'POST_PURCHASE_UPSELL',
+          jobType: 'POST_PURCHASE_UPSELL',
         }, {
-          delay:    upsellFlow.delayMinutes * 60 * 1000,
+          delay: upsellFlow.delayMinutes * 60 * 1000,
           attempts: 2,
-          backoff:  { type: 'exponential', delay: 60000 },
+          backoff: { type: 'exponential', delay: 60000 },
         });
         await resumeWorkerIfPaused();
         console.log(`🎁 Upsell queued: ${phone} | template: ${upsellFlow.metaTemplateName} | delay: ${upsellFlow.delayMinutes}min | product: ${purchasedProductName} | discount: ${discountCode || 'none'}`);
