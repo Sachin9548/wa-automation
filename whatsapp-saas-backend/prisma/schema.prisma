@@ -79,6 +79,9 @@ model Merchant {
   trackingLinks     TrackingLink[]
   activityLogs      ActivityLog[]
   shopifyInstalls   ShopifyInstallLog[]
+
+  blasts  WhatsAppBlast[]
+
 }
 
 model Message {
@@ -316,6 +319,23 @@ model ActivityLog {
   metadata    String?  @db.Text  // JSON: extra structured data
   actor       String   @default("Admin")
 
+  createdAt   DateTime @default(now())
+
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+}
+
+
+model WhatsAppBlast {
+  id          String   @id @default(uuid())
+  merchantId  String
+  name        String                    // "Diwali Sale Blast"
+  templateName String
+  status      String   @default("COMPLETED") // RUNNING | COMPLETED
+  totalSent   Int      @default(0)
+  totalOpened Int      @default(0)      // clicks tracked
+  totalOrders Int      @default(0)      // COD orders placed
+  revenue     Float    @default(0.0)
+  type        String   @default("ABANDONED") // ABANDONED | RETARGETING
   createdAt   DateTime @default(now())
 
   merchant    Merchant @relation(fields: [merchantId], references: [id])

@@ -26,6 +26,7 @@ import ActivityLogTab from "./components/ActivityLogTab";
 import CredentialsTab from "./components/CredentialsTab";
 import TemplatesTab from "./components/TemplatesTab";
 import ProductsTab from "./components/ProductsTab";
+import CODBlastTab from "./components/CODBlastTab";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 const ah = () => ({
@@ -63,6 +64,7 @@ export default function MerchantControlHub() {
     | "inbox"
     | "activitylog"
     | "mpm"
+    | "codblast"
   >("overview");
 
   // ── Activation ────────────────────────────────────────────────────────────
@@ -469,7 +471,7 @@ export default function MerchantControlHub() {
         setCredMetaWabaId(m.metaWabaId || "");
         setCredMetaAppId(m.metaAppId || "");
         setCredMetaAppSecret(m.metaAppSecret || "");
-
+        
         setCredClientId(m.shopifyClientId || "");
         setCredClientSecret(m.shopifyClientSecret || "");
         if (m.storeUrl) setStoreUrl(m.storeUrl);
@@ -503,6 +505,8 @@ export default function MerchantControlHub() {
       if (!wabaInfo) fetchWabaInfo();
     }
     if (activeTab === "mpm" && !catalogStatus) fetchCatalogStatus();
+    if (activeTab === "codblast" && metaTemplates.length === 0)
+      fetchMetaTemplates();
   }, [activeTab]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -1079,6 +1083,7 @@ export default function MerchantControlHub() {
     { key: "activitylog", label: "🕐 Activity Log" },
     { key: "credentials", label: "⚙️ Credentials" },
     { key: "templates", label: "📋 Templates" },
+    { key: "codblast", label: "💣 COD Blast" },
   ];
 
   return (
@@ -1445,6 +1450,10 @@ export default function MerchantControlHub() {
             handleDeleteTemplate={handleDeleteTemplate}
             fetchMetaTemplates={fetchMetaTemplates}
           />
+        )}
+
+        {activeTab === "codblast" && (
+          <CODBlastTab merchantId={merchantId} metaTemplates={metaTemplates} />
         )}
       </div>
     </div>
