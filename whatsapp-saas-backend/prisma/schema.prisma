@@ -196,7 +196,7 @@ model AutomationFlow {
   id            String   @id @default(uuid())
   merchantId    String
   
-  type          String   // ABANDONED_CART_1, ABANDONED_CART_2, ORDER_CONFIRM
+  type          String   // ABANDONED_CART_1, ABANDONED_CART_2, ORDER_CONFIRM, POST_PURCHASE_UPSELL, COD_CONVERT, STORE_ANNIVERSARY
   isActive      Boolean  @default(false) 
   
   delayMinutes      Int      

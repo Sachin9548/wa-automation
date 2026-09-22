@@ -475,6 +475,76 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
       }
     }
 
+        // ── COD to Prepaid Conversion Flow ───────────────────────────────────────
+    // Detect if this is a COD order and send prepaid offer message
+    const isCOD = orderData.financial_status === 'pending'
+      || (orderData.payment_gateway || '').toLowerCase().includes('cod')
+      || (orderData.payment_gateway || '').toLowerCase().includes('cash');
+
+    if (isCOD && phone) {
+      const codFlow = await prisma.automationFlow.findFirst({
+        where: { merchantId, type: 'COD_CONVERT', isActive: true }
+      });
+
+      if (codFlow && codFlow.metaTemplateName) {
+        const backendUrl = process.env.BACKEND_URL || 'https://api.wautomation.shop';
+        const discountCode = (codFlow as any).discountCode || null;
+
+        // Create tracking link — Shopify payment link ya store URL
+        const storeUrl = merchant.storeUrl || '';
+        let codTrackingLink: any = null;
+        if (storeUrl) {
+          codTrackingLink = await (prisma as any).trackingLink.create({
+            data: {
+              merchantId,
+              customerPhone: phone,
+              originalUrl: storeUrl,
+              discountCode,
+            }
+          });
+        }
+
+        const trackingUrl = codTrackingLink
+          ? `${backendUrl}/api/tracking/click/${codTrackingLink.id}`
+          : storeUrl;
+
+        // Template variables:
+        // {{1}} = customer name
+        // {{2}} = order number
+        // {{3}} = payment/store link
+        // {{4}} = discount code (optional)
+        const codVariables: string[] = [
+          orderData.customer?.first_name || orderData.billing_address?.first_name || 'there',
+          orderNumber,
+          trackingUrl,
+          ...(discountCode ? [discountCode] : []),
+        ];
+
+        const { messageQueue } = await import('../lib/queue');
+        const { resumeWorkerIfPaused } = await import('../workers/message.worker');
+
+        await messageQueue.add('send-automated-msg', {
+          cartId:        null,
+          merchantId,
+          phone,
+          templateName:  codFlow.metaTemplateName,
+          templateLang:  (codFlow as any).metaTemplateLang || 'en_US',
+          discountCode,
+          trackingLinkId: codTrackingLink?.id,
+          variables:     codVariables,
+          jobType:       'COD_CONVERT',
+        }, {
+          delay:    2 * 60 * 1000,  // 2 min delay — order confirm hone do pehle
+          attempts: 2,
+          backoff:  { type: 'exponential', delay: 30000 },
+        });
+
+        await resumeWorkerIfPaused();
+        console.log(`💳 COD-to-Prepaid message queued for ${phone} | order: ${orderNumber}`);
+      }
+    }
+
+
     res.status(200).send('Webhook processed');
   } catch (error) {
     console.error('Order webhook error:', error);

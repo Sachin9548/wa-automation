@@ -95,8 +95,8 @@ app.get("/api/admin/system-health", async (_req: Request, res: Response) => {
 
   // 4. Overall status — worst of all checks
   const statuses = Object.values(checks).map((c: any) => c.status);
-  const overall  = statuses.includes('error') ? 'error'
-                 : statuses.includes('warning') ? 'warning' : 'ok';
+  const overall = statuses.includes('error') ? 'error'
+    : statuses.includes('warning') ? 'warning' : 'ok';
 
   res.json({ overall, checks, checkedAt: new Date().toISOString() });
 });
@@ -119,6 +119,92 @@ app.listen(PORT, async () => {
     await prisma.$connect();
     console.log("📦 Database connected!");
     initMessageWorker();
+    // ── Daily Anniversary Check ───────────────────────────────────────────────────
+    const runAnniversaryCheck = async () => {
+      try {
+        console.log('🎂 Running daily anniversary check...');
+        const today = new Date();
+        const todayMonth = today.getMonth() + 1; // 1-12
+        const todayDay = today.getDate();       // 1-31
+
+        // Find all customers whose firstOrderDate month+day matches today
+        // We fetch all customers with firstOrderDate set and filter in JS
+        // (Prisma doesn't support month/day extraction natively)
+        const allMerchants = await prisma.merchant.findMany({
+          where: { status: 'ACTIVE', serviceActive: true },
+          select: { id: true, storeUrl: true }
+        });
+
+        for (const m of allMerchants) {
+          // Check if merchant has STORE_ANNIVERSARY flow active
+          const flow = await prisma.automationFlow.findFirst({
+            where: { merchantId: m.id, type: 'STORE_ANNIVERSARY', isActive: true }
+          });
+          if (!flow || !(flow as any).metaTemplateName) continue;
+
+          // Get customers with firstOrderDate matching today's month+day
+          const customers = await prisma.customer.findMany({
+            where: {
+              merchantId: m.id,
+              firstOrderDate: { not: null },
+              phone: { not: 'NO_PHONE' },
+              tags: { not: { contains: 'wa_invalid' } },
+            },
+            select: { phone: true, name: true, firstOrderDate: true }
+          });
+
+          const { messageQueue } = await import('./lib/queue');
+          const { resumeWorkerIfPaused } = await import('./workers/message.worker');
+
+          let queued = 0;
+          for (const c of customers) {
+            if (!c.firstOrderDate) continue;
+            const fd = new Date(c.firstOrderDate);
+            if (fd.getMonth() + 1 !== todayMonth || fd.getDate() !== todayDay) continue;
+
+            const yearsCompleted = today.getFullYear() - fd.getFullYear();
+            if (yearsCompleted < 1) continue; // less than 1 year — skip
+
+            const discountCode = (flow as any).discountCode || null;
+            const storeUrl = m.storeUrl || 'https://wautomation.shop';
+
+            const variables: string[] = [
+              c.name?.split(' ')[0] || 'there',
+              String(yearsCompleted),
+              storeUrl,
+              ...(discountCode ? [discountCode] : []),
+            ];
+
+            await messageQueue.add('send-automated-msg', {
+              cartId: null,
+              merchantId: m.id,
+              phone: c.phone,
+              templateName: (flow as any).metaTemplateName,
+              templateLang: (flow as any).metaTemplateLang || 'en_US',
+              discountCode,
+              variables,
+              jobType: 'STORE_ANNIVERSARY',
+            }, {
+              attempts: 2,
+              backoff: { type: 'exponential', delay: 30000 },
+            });
+            queued++;
+          }
+
+          if (queued > 0) {
+            await resumeWorkerIfPaused();
+            console.log(`🎂 Anniversary messages queued: ${queued} for merchant ${m.id}`);
+          }
+        }
+      } catch (e: any) {
+        console.error('❌ Anniversary check error:', e.message);
+      }
+    };
+
+    // Run once at startup (catch any missed) then every 24 hours
+    runAnniversaryCheck();
+    setInterval(runAnniversaryCheck, 24 * 60 * 60 * 1000);
+
 
     // Keep-alive ping for Render free tier
     if (process.env.BACKEND_URL && process.env.NODE_ENV === 'production') {
@@ -126,8 +212,8 @@ app.listen(PORT, async () => {
         try {
           const mod = process.env.BACKEND_URL!.startsWith('https')
             ? await import('https') : await import('http');
-          (mod as any).get(`${process.env.BACKEND_URL}/health`, () => {}).on('error', () => {});
-        } catch {}
+          (mod as any).get(`${process.env.BACKEND_URL}/health`, () => { }).on('error', () => { });
+        } catch { }
       }, 14 * 60 * 1000);
       console.log("🏓 Keep-alive enabled");
     }

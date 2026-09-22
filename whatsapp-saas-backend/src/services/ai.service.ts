@@ -17,17 +17,23 @@ IMPORTANT RULES:
 - Respond in the same language the customer used`;
 
 export interface AIReplyResult {
-  replied:    boolean;   // true = AI sent a reply, false = fallback used
-  message:    string;    // the actual text sent/to be sent
+  replied: boolean;   // true = AI sent a reply, false = fallback used
+  message: string;    // the actual text sent/to be sent
   isFallback: boolean;   // true = fallback message was used
   tokensUsed?: number;
 }
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export const generateAIReply = async (
-  customerMessage:  string,
-  knowledgeBase:    string,
-  brandName:        string,
+  customerMessage: string,
+  knowledgeBase: string,
+  brandName: string,
   fallbackMessage?: string | null,
+  conversationHistory?: ConversationMessage[],  // last N messages
 ): Promise<AIReplyResult> => {
 
   const fallback = (fallbackMessage?.trim()) || DEFAULT_FALLBACK;
@@ -62,13 +68,15 @@ export const generateAIReply = async (
     ].join('\n');
 
     const completion = await groq.chat.completions.create({
-      model:       'llama-3.1-8b-instant',   // fast + free
-      max_tokens:  200,
+      model: 'llama-3.1-8b-instant',   // fast + free
+      max_tokens: 200,
       temperature: 0.4,   // lower = more factual, less creative
       messages: [
-        { role: 'system',    content: systemPrompt },
-        { role: 'user',      content: trimmed },
+        { role: 'system', content: systemPrompt },
+        ...(conversationHistory || []),   // inject past conversation
+        { role: 'user', content: trimmed },
       ],
+
     });
 
     const aiResponse = completion.choices[0]?.message?.content?.trim() || '';

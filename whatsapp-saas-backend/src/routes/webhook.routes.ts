@@ -15,8 +15,8 @@ router.post('/shopify/order-created/:merchantId', handleOrderCreatedWebhook);
 // Meta calls this once when you register the webhook to verify the URL
 router.get('/meta', (req: Request, res: Response) => {
   const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || 'wa_auto_verify_2026';
-  const mode      = req.query['hub.mode'];
-  const token     = req.query['hub.verify_token'];
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
   console.log(`📡 Meta webhook verification: mode=${mode} token=${token}`);
@@ -46,9 +46,9 @@ router.post('/meta', async (req: Request, res: Response) => {
         // ── Incoming message from customer ──────────────────────────────
         if (value.messages) {
           for (const message of value.messages) {
-            const from          = message.from; // customer phone
+            const from = message.from; // customer phone
             const phoneNumberId = value.metadata?.phone_number_id;
-            const msgType       = message.type || 'text';
+            const msgType = message.type || 'text';
 
             // Extract content based on message type
             let content = '';
@@ -69,44 +69,44 @@ router.post('/meta', async (req: Request, res: Response) => {
               const img = message.image || {};
               content = img.caption ? `📷 ${img.caption}` : '📷 Image';
               mediaData = {
-                mediaId:       img.id,
-                mediaType:     'image',
+                mediaId: img.id,
+                mediaType: 'image',
                 mediaMimeType: img.mime_type,
-                mediaCaption:  img.caption || null,
+                mediaCaption: img.caption || null,
               };
             } else if (msgType === 'video') {
               const vid = message.video || {};
               content = vid.caption ? `🎥 ${vid.caption}` : '🎥 Video';
               mediaData = {
-                mediaId:       vid.id,
-                mediaType:     'video',
+                mediaId: vid.id,
+                mediaType: 'video',
                 mediaMimeType: vid.mime_type,
-                mediaCaption:  vid.caption || null,
+                mediaCaption: vid.caption || null,
               };
             } else if (msgType === 'audio') {
               const aud = message.audio || {};
               content = '🎤 Voice Message';
               mediaData = {
-                mediaId:       aud.id,
-                mediaType:     'audio',
+                mediaId: aud.id,
+                mediaType: 'audio',
                 mediaMimeType: aud.mime_type,
               };
             } else if (msgType === 'document') {
               const doc = message.document || {};
               content = `📄 ${doc.filename || 'Document'}`;
               mediaData = {
-                mediaId:       doc.id,
-                mediaType:     'document',
+                mediaId: doc.id,
+                mediaType: 'document',
                 mediaMimeType: doc.mime_type,
                 mediaFilename: doc.filename || null,
-                mediaCaption:  doc.caption || null,
+                mediaCaption: doc.caption || null,
               };
             } else if (msgType === 'sticker') {
               const stk = message.sticker || {};
               content = '🎭 Sticker';
               mediaData = {
-                mediaId:       stk.id,
-                mediaType:     'sticker',
+                mediaId: stk.id,
+                mediaType: 'sticker',
                 mediaMimeType: stk.mime_type,
               };
             } else if (msgType === 'location') {
@@ -114,9 +114,9 @@ router.post('/meta', async (req: Request, res: Response) => {
               const name = loc.name || loc.address || `${loc.latitude},${loc.longitude}`;
               content = `📍 ${name}`;
               mediaData = {
-                mediaType:   'location',
-                mediaLat:    loc.latitude,
-                mediaLng:    loc.longitude,
+                mediaType: 'location',
+                mediaLat: loc.latitude,
+                mediaLng: loc.longitude,
                 mediaAddress: loc.name || loc.address || null,
               };
             } else if (msgType === 'reaction') {
@@ -192,12 +192,35 @@ router.post('/meta', async (req: Request, res: Response) => {
               // Fire-and-forget — don't block webhook response
               setImmediate(async () => {
                 try {
+
+                  // Fetch last 5 messages for conversation context
+                  const recentMsgs = await prisma.message.findMany({
+                    where: {
+                      merchantId: merchant.id,
+                      customerPhone: from,
+                    },
+                    orderBy: { timestamp: 'desc' },
+                    take: 5,
+                    select: { direction: true, content: true },
+                  });
+
+                  // Reverse to chronological order, map to AI role format
+                  const conversationHistory = recentMsgs
+                    .reverse()
+                    .map((m: any) => ({
+                      role: (m.direction === 'INCOMING' ? 'user' : 'assistant') as 'user' | 'assistant',
+                      content: m.content,
+                    }));
+
                   const aiResult = await generateAIReply(
                     content,
                     (merchant as any).aiKnowledgeBase || '',
                     merchant.brandName,
                     (merchant as any).aiFallbackMessage,
+                    conversationHistory,
                   );
+
+
 
                   if (aiResult.replied || aiResult.isFallback) {
                     // Send reply via WhatsApp
@@ -240,10 +263,10 @@ router.post('/meta', async (req: Request, res: Response) => {
         if (value.statuses) {
           for (const status of value.statuses) {
             const statusMap: Record<string, string> = {
-              sent:      'SENT',
+              sent: 'SENT',
               delivered: 'DELIVERED',
-              read:      'READ',
-              failed:    'FAILED',
+              read: 'READ',
+              failed: 'FAILED',
             };
 
             const dbStatus = statusMap[status.status];
