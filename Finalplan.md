@@ -11,7 +11,8 @@ Shopify humein yeh data deta hai ki us customer ne Pehli baar aapke store se kab
 Maan lijiye kisi ne pichle saal aaj hi ke din pehla order diya tha, toh system ek saal baad automatic message bhej sakta hai: "Hi Sachin, aaj aapko humare sath 1 saal poora ho gaya! Is khushi mein ye raha aapke liye special 10% off coupon code."
 Iske liye customer ke birthday ki zaroorat hi nahi hai, kyunki Shopify ka created_at timestamp humare paas pehle se database mein save hota hai!
 
-Feature 3
+
+Feature 3 
 The COD-to-Prepaid Instant Switcher (The RTO Killer)
 Kaisay Kaam Karega: Jaise hi koi customer Shopify par COD (Cash on Delivery) order place karega, hamara webhook turant active ho jayega.
 WhatsApp Magic: 2 minute ke andar customer ke WhatsApp par message jayega: "Thanks for your order #1001! Agar aap abhi online (Prepaid) pay karte hain, toh aapko 5% Instant Discount + Free Express Shipping milegi."
