@@ -2748,4 +2748,28 @@ router.get('/blast-history/:merchantId', async (req: Request, res: Response): Pr
 });
 
 
+// ── Toggle merchant inbox access ──────────────────────────────────────────────
+router.post('/toggle-inbox', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId, enabled } = req.body;
+    if (!merchantId) return res.status(400).json({ message: 'merchantId required' });
+
+    await prisma.merchant.update({
+      where: { id: merchantId },
+      data: { inboxEnabled: enabled }
+    });
+
+    logActivity(merchantId, 'SERVICE_TOGGLED',
+      `Merchant inbox ${enabled ? 'enabled' : 'disabled'} by admin`,
+      { inboxEnabled: enabled }
+    );
+
+    res.json({ message: `✅ Inbox ${enabled ? 'enabled' : 'disabled'} for merchant` });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+
+
 export default router;

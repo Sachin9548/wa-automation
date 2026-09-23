@@ -42,6 +42,8 @@ model Merchant {
   // Service Control (admin manually manages — never auto-stops)
   serviceActive     Boolean  @default(true)   // admin toggle: ON = messages send, OFF = paused
   isFree            Boolean  @default(false)  // free merchant flag
+  inboxEnabled      Boolean  @default(false)  // admin toggle: merchant can see inbox
+
 
   // AI Auto-Reply (Point 9)
   aiAutoReply       Boolean  @default(false)  // ON = AI replies to customer messages

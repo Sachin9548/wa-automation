@@ -131,10 +131,10 @@ export default function OverviewTab({
   // ── Local state for Shopify install flow ──────────────────────────────────
 
   const [shopifyClientId, setShopifyClientId] = React.useState(
-    merchant?.shopifyClientId || ""
+    merchant?.shopifyClientId || "",
   );
   const [shopifyClientSecret, setShopifyClientSecret] = React.useState(
-    merchant?.shopifyClientSecret || ""
+    merchant?.shopifyClientSecret || "",
   );
   const [generatedInstallUrl, setGeneratedInstallUrl] = React.useState("");
   const [urlCopied, setUrlCopied] = React.useState(false);
@@ -142,7 +142,8 @@ export default function OverviewTab({
   // Sync when merchant data loads from API (useState only runs on mount)
   React.useEffect(() => {
     if (merchant?.shopifyClientId) setShopifyClientId(merchant.shopifyClientId);
-    if (merchant?.shopifyClientSecret) setShopifyClientSecret(merchant.shopifyClientSecret);
+    if (merchant?.shopifyClientSecret)
+      setShopifyClientSecret(merchant.shopifyClientSecret);
   }, [merchant?.shopifyClientId, merchant?.shopifyClientSecret]);
 
   const [tokenStatus, setTokenStatus] = React.useState<any>(null);
@@ -222,8 +223,8 @@ export default function OverviewTab({
     const url =
       `https://${domain}/admin/oauth/authorize` +
       `?client_id=${shopifyClientId.trim()}` +
-    setUrlCopied(false);
-      `&scope=read_customers,read_orders,read_products,write_orders,read_all_orders` +
+      setUrlCopied(false);
+    `&scope=read_customers,read_orders,read_products,write_orders,read_all_orders` +
       `&redirect_uri=https://api.wautomation.shop/shopify/callback/tokengenerate` +
       `&state=${state}`;
 
@@ -424,7 +425,8 @@ export default function OverviewTab({
               <label className="text-xs font-bold text-slate-400 mt-3 mb-1 block">
                 Shopify Client Secret{" "}
                 <span className="text-slate-600 font-normal">
-                  (from Shopify Partner → App credentials — needed for token exchange)
+                  (from Shopify Partner → App credentials — needed for token
+                  exchange)
                 </span>
               </label>
               <div className="flex gap-2">
@@ -438,7 +440,11 @@ export default function OverviewTab({
                 <button
                   type="button"
                   onClick={generateInstallUrl}
-                  disabled={!shopifyClientId.trim() || !shopifyClientSecret.trim() || savingClientId}
+                  disabled={
+                    !shopifyClientId.trim() ||
+                    !shopifyClientSecret.trim() ||
+                    savingClientId
+                  }
                   className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold rounded-xl transition disabled:opacity-40 whitespace-nowrap"
                 >
                   {savingClientId ? "Saving..." : "Generate Link"}
@@ -670,6 +676,54 @@ export default function OverviewTab({
                   ) : (
                     "Mark as Free"
                   )}
+                </button>
+              </div>
+            </div>
+            {/* Inbox Access Toggle */}
+            <div className="bg-slate-800 border border-white/5 rounded-2xl p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p
+                    className={`text-lg font-extrabold ${merchant?.inboxEnabled ? "text-teal-400" : "text-slate-500"}`}
+                  >
+                    {merchant?.inboxEnabled
+                      ? "💬 Inbox: Enabled"
+                      : "💬 Inbox: Disabled"}
+                  </p>
+                  <p className="text-slate-500 text-xs mt-1">
+                    Allow merchant to view & reply to customer messages
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    action(
+                      "toggle-inbox",
+                      {
+                        merchantId: merchant.id,
+                        enabled: !merchant?.inboxEnabled,
+                      },
+                      "inbox",
+                    )
+                  }
+                  disabled={loading === "inbox"}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm border transition ${
+                    merchant?.inboxEnabled
+                      ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
+                      : "bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20"
+                  }`}
+                >
+                  {loading === "inbox" ? (
+                    <FaSpinner className="animate-spin" />
+                  ) : merchant?.inboxEnabled ? (
+                    <FaToggleOn className="text-xl" />
+                  ) : (
+                    <FaToggleOff className="text-xl" />
+                  )}
+                  {loading === "inbox"
+                    ? "Updating..."
+                    : merchant?.inboxEnabled
+                      ? "Disable"
+                      : "Enable"}
                 </button>
               </div>
             </div>
