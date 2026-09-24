@@ -87,7 +87,7 @@ router.get('/shopify/callback/tokengenerate', async (req: Request, res: Response
     const tokenResp = await axiosLib.default.post(
       `https://${shop}/admin/oauth/access_token`,
       new URLSearchParams({
-        client_id:     merchant.shopifyClientId!,
+        client_id: merchant.shopifyClientId!,
         client_secret: merchant.shopifyClientSecret!,
         code,
       }),
@@ -112,9 +112,9 @@ router.get('/shopify/callback/tokengenerate', async (req: Request, res: Response
     await (prisma as any).shopifyInstallLog.update({
       where: { id: installLog.id },
       data: {
-        status:      'success',
+        status: 'success',
         accessToken: accessToken.substring(0, 12) + '...',  // partial for security
-        errorMsg:    null,
+        errorMsg: null,
       }
     });
 
@@ -139,9 +139,12 @@ router.get('/shopify/callback/tokengenerate', async (req: Request, res: Response
       ? JSON.stringify(e.response.data)
       : e.message;
     console.error(`❌ Shopify token exchange failed for ${shop}:`, errMsg);
-    console.error(`   → client_id used: ${merchant.shopifyClientId}`);
-    console.error(`   → client_secret set: ${merchant.shopifyClientSecret ? 'YES (len=' + merchant.shopifyClientSecret.length + ')' : 'NO'}`);
-    console.error(`   → code: ${code?.substring(0, 15)}...`);
+    console.error(`   → merchant: ${merchant.brandName} (${merchant.id})`);
+    console.error(`   → credentials configured: clientId=${!!merchant.shopifyClientId}, secret=${!!merchant.shopifyClientSecret}`);
+
+    // console.error(`   → client_id used: ${merchant.shopifyClientId}`);
+    // console.error(`   → client_secret set: ${merchant.shopifyClientSecret ? 'YES (len=' + merchant.shopifyClientSecret.length + ')' : 'NO'}`);
+    // console.error(`   → code: ${code?.substring(0, 15)}...`);
 
     await (prisma as any).shopifyInstallLog.update({
       where: { id: installLog.id },
@@ -172,10 +175,10 @@ router.get('/api/admin/shopify-token-status/:merchantId', adminProtect, async (r
 
     if (merchant.shopifyToken) {
       return res.json({
-        status:   'received',
-        token:    merchant.shopifyToken,
+        status: 'received',
+        token: merchant.shopifyToken,
         storeUrl: merchant.storeUrl,
-        message:  '✅ Permanent access token received and saved',
+        message: '✅ Permanent access token received and saved',
       });
     }
 
@@ -186,8 +189,8 @@ router.get('/api/admin/shopify-token-status/:merchantId', adminProtect, async (r
     });
 
     return res.json({
-      status:    'pending',
-      message:   lastLog
+      status: 'pending',
+      message: lastLog
         ? `⏳ Last callback: ${new Date(lastLog.callbackAt).toLocaleString('en-IN')} — Status: ${lastLog.status}`
         : '⏳ No install callback received yet',
       lastLog,
@@ -202,9 +205,9 @@ router.get('/api/admin/shopify-token-status/:merchantId', adminProtect, async (r
 // GET /api/admin/shopify-install-logs
 router.get('/api/admin/shopify-install-logs', adminProtect, async (req: Request, res: Response): Promise<any> => {
   try {
-    const page  = parseInt(req.query.page  as string) || 1;
+    const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
     const [logs, total] = await Promise.all([
       (prisma as any).shopifyInstallLog.findMany({

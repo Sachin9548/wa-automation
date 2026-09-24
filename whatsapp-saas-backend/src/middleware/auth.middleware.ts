@@ -2,7 +2,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is not set');
 
 // Request interface ko extend kar rahe hain taaki req.user use kar sakein
 export interface AuthRequest extends Request {
@@ -19,10 +20,10 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction): an
   if (!token) {
     return res.status(401).json({ message: 'Not authorized to access this route' });
   }
-  
+
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     req.user = decoded; // Isme merchantId hoga jo humne signup ke time daala tha
     next();
   } catch (error) {

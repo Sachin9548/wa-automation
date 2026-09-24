@@ -5,7 +5,10 @@ const nextConfig: NextConfig = {
   // Allow images from external sources used in UI
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "**" },
+      { protocol: "https", hostname: "*.shopify.com" },
+      { protocol: "https", hostname: "*.myshopify.com" },
+      { protocol: "https", hostname: "*.fbcdn.net" },
+      { protocol: "https", hostname: "*.whatsapp.net" },
     ],
   },
   // Required for Vercel / Railway deployment

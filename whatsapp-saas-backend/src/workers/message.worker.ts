@@ -3,6 +3,7 @@ import { Worker } from 'bullmq';
 import prisma from '../lib/prisma';
 import { sendMetaTemplateMessage } from '../services/whatsapp.service';
 import { checkMerchantEligibility } from '../services/automation.service';
+import redis from '../lib/redis';
 
 // Exported so other modules can call resumeWorkerIfPaused() directly —
 // no QueueEvents / Redis round-trip needed.
@@ -11,8 +12,27 @@ export let worker: Worker;
 // ── In-memory merchant cache — avoids repeated DB reads per job batch ─────────
 // Cache is valid for 5 minutes per merchant, clears automatically
 const merchantCache = new Map<string, { data: any; expiresAt: number }>();
+
+// ── Auto-cleanup expired merchantCache entries every 10 minutes ───────────────
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of merchantCache.entries()) {
+    if (val.expiresAt < now) merchantCache.delete(key);
+  }
+}, 10 * 60 * 1000);
+
 // Rate issue 
-const rateLimitedUntil = new Map<string, number>();
+const RATE_LIMIT_KEY = (merchantId: string) => `ratelimit:${merchantId}`;
+
+const isRateLimited = async (merchantId: string): Promise<number> => {
+  const val = await redis.get(RATE_LIMIT_KEY(merchantId));
+  return val ? parseInt(val) : 0;  // returns timestamp or 0
+};
+
+const setRateLimited = async (merchantId: string): Promise<void> => {
+  const until = Date.now() + 24 * 60 * 60 * 1000;
+  await redis.set(RATE_LIMIT_KEY(merchantId), String(until), 'EX', 86400); // 24h TTL
+};
 
 // ── Random delay — human-like sending (15–30 seconds) ────────────────────────
 const randomDelay = (minMs: number, maxMs: number): Promise<void> =>
@@ -281,7 +301,7 @@ export const initMessageWorker = () => {
 
 
       } else if (result.rateLimited) {
-        rateLimitedUntil.set(merchantId, Date.now() + 24 * 60 * 60 * 1000);
+await setRateLimited(merchantId);
         // ── Daily rate limit hit — reschedule after 24 hours ─────────────
         console.warn(`⏳ Rate limit hit for ${toPhone} (code ${result.errorCode}) — rescheduling after 24h`);
 
@@ -348,7 +368,7 @@ export const initMessageWorker = () => {
       }
 
       // ── Skip if merchant already rate limited ────────────────────────
-      const limitUntil = rateLimitedUntil.get(merchantId);
+      const limitUntil = await isRateLimited(merchantId);
       if (limitUntil && limitUntil > Date.now()) {
         console.warn(`⏳ [AUTOMATED] Merchant ${merchantId} rate limited — rescheduling without API call`);
         const { messageQueue } = await import('../lib/queue');
@@ -457,7 +477,7 @@ export const initMessageWorker = () => {
 
       } else if (result.rateLimited) {
         // ── Daily rate limit hit — reschedule after 24 hours ─────────────
-        rateLimitedUntil.set(merchantId, Date.now() + 24 * 60 * 60 * 1000);
+await setRateLimited(merchantId);
         console.warn(`⏳ Rate limit hit for ${toPhone} (code ${result.errorCode}) — rescheduling after 24h`);
 
         // Add a new delayed job for 24 hours later — same data, same template
@@ -494,7 +514,7 @@ export const initMessageWorker = () => {
       }
 
       // ── Skip if merchant already rate limited ────────────────────────
-      const limitUntil = rateLimitedUntil.get(merchantId);
+      const limitUntil = await isRateLimited(merchantId);
       if (limitUntil && limitUntil > Date.now()) {
         console.warn(`⏳ [AUTOMATED] Merchant ${merchantId} rate limited — rescheduling without API call`);
         const { messageQueue } = await import('../lib/queue');
@@ -539,7 +559,7 @@ export const initMessageWorker = () => {
         if (result.invalidNumber) await markPhoneAsInvalid(merchantId, toPhone, `Meta ${result.errorCode}`);
         return;
       } else if (result.rateLimited) {
-        rateLimitedUntil.set(merchantId, Date.now() + 24 * 60 * 60 * 1000);
+await setRateLimited(merchantId);
         // ── Daily rate limit hit — reschedule after 24 hours ─────────────
         console.warn(`⏳ Rate limit hit for ${toPhone} (code ${result.errorCode}) — rescheduling after 24h`);
 

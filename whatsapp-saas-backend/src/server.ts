@@ -16,14 +16,23 @@ import inboxRoutes from './routes/inbox.routes';
 import shopifyOAuthRoutes from './routes/shopify.oauth.routes';
 import { messageQueue } from './lib/queue';
 import redis from './lib/redis';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+
 dotenv.config();
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 
+app.use(helmet());
+
+
 // ── CORS first ────────────────────────────────────────────────────────────────
-app.use(cors());
+app.use(cors({
+  origin: ['https://www.wautomation.shop', 'https://api.wautomation.shop'],
+  credentials: true,
+}));
 
 // ── Shopify webhook routes: use express.raw() to get exact bytes ──────────────
 // express.raw() does NOT parse the body — gives us the exact Buffer Shopify signed
@@ -50,8 +59,26 @@ app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "OK", message: "WA-Automation Backend running!" });
 });
 
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 min
+  max: 20,                     // 20 requests per 15 min per IP
+  message: { message: 'Too many requests, please try again later' },
+});
+
+app.use('/api/auth', authLimiter);
+
+
 // ── System Health (detailed — admin only) ─────────────────────────────────────
-app.get("/api/admin/system-health", async (_req: Request, res: Response) => {
+
+
+app.get("/api/admin/system-health", (req: Request, res: Response, next: any) => {
+  const key = req.headers['x-admin-api-key'];
+  if (!key || key !== process.env.ADMIN_API_KEY) return res.status(403).json({ message: 'Forbidden' });
+  next();
+}, async (_req: Request, res: Response) => {
+
+
   const checks: Record<string, any> = {};
 
   // 1. Database ping
@@ -119,6 +146,8 @@ app.listen(PORT, async () => {
     await prisma.$connect();
     console.log("📦 Database connected!");
     initMessageWorker();
+
+    
     // ── Daily Anniversary Check ───────────────────────────────────────────────────
     const runAnniversaryCheck = async () => {
       try {
