@@ -30,8 +30,18 @@ export type MetaSendResult = {
   retryable: boolean;
   invalidNumber?: boolean;  // true = number not on WhatsApp, mark customer
   errorCode?: number;
+  rateLimited?: boolean;
   errorMessage?: string;
 };
+
+
+// Codes that mean daily/hourly rate limit hit — should retry after 24 hours
+export const RATE_LIMIT_CODES = [
+  131042, // Business account daily messaging limit reached
+  131048, // Spam rate limit — too many messages
+  131056, // Too many messages sent to phone number in short period
+];
+
 
 // ── Send a template message via Meta Cloud API ────────────────────────────────
 export const sendMetaTemplateMessage = async (
@@ -76,6 +86,8 @@ export const sendMetaTemplateMessage = async (
     const retryable = !NON_RETRYABLE_META_CODES.includes(code);
     const invalidNumber = INVALID_WHATSAPP_NUMBER_CODES.includes(code);
 
+    const rateLimited = RATE_LIMIT_CODES.includes(code);  // ← NEW
+
     console.error(`❌ Meta API error for ${toPhone}: code=${code} msg=${message}`);
 
     if (!retryable) {
@@ -85,7 +97,9 @@ export const sendMetaTemplateMessage = async (
       console.warn(`📵 Phone ${toPhone} is NOT registered on WhatsApp (code ${code})`);
     }
 
-    return { success: false, retryable, invalidNumber, errorCode: code, errorMessage: message };
+
+    return { success: false, retryable, rateLimited, invalidNumber, errorCode: code, errorMessage: message };
+
   }
 };
 
@@ -144,14 +158,14 @@ export interface MPMSection {
 }
 
 export interface MPMSendOptions {
-  phoneNumberId:              string;
-  accessToken:                string;
-  toPhone:                    string;
-  templateName:               string;   // approved MPM template name
-  languageCode?:              string;   // default 'en_US'
-  bodyVariables?:             string[]; // {{1}} {{2}} etc in template body
+  phoneNumberId: string;
+  accessToken: string;
+  toPhone: string;
+  templateName: string;   // approved MPM template name
+  languageCode?: string;   // default 'en_US'
+  bodyVariables?: string[]; // {{1}} {{2}} etc in template body
   thumbnailProductRetailerId: string;   // product shown as preview thumbnail
-  sections:                   MPMSection[]; // up to 10 sections, 30 products total
+  sections: MPMSection[]; // up to 10 sections, 30 products total
 }
 
 // ── Send MPM (Multi-Product Message) via approved template ───────────────────
@@ -181,9 +195,9 @@ export const sendMPMTemplateMessage = async (
 
     // MPM button component — this is what makes it interactive product message
     components.push({
-      type:     'button',
+      type: 'button',
       sub_type: 'mpm',
-      index:    0,
+      index: 0,
       parameters: [{
         type: 'action',
         action: {
@@ -197,11 +211,11 @@ export const sendMPMTemplateMessage = async (
       `${META_BASE_URL}/${phoneNumberId}/messages`,
       {
         messaging_product: 'whatsapp',
-        recipient_type:    'individual',
-        to:                toPhone,
-        type:              'template',
+        recipient_type: 'individual',
+        to: toPhone,
+        type: 'template',
         template: {
-          name:     templateName,
+          name: templateName,
           language: { code: languageCode },
           components,
         }
@@ -217,9 +231,11 @@ export const sendMPMTemplateMessage = async (
     const code: number = metaError?.code;
     const message: string = metaError?.message || error.message;
     const retryable = !NON_RETRYABLE_META_CODES.includes(code);
+    const rateLimited = RATE_LIMIT_CODES.includes(code);  // ← NEW
+    const invalidNumber = INVALID_WHATSAPP_NUMBER_CODES.includes(code);
 
     console.error(`❌ MPM send error for ${toPhone}: code=${code} msg=${message}`);
-    return { success: false, retryable, errorCode: code, errorMessage: message };
+    return { success: false, retryable, rateLimited, invalidNumber, errorCode: code, errorMessage: message };
   }
 };
 
@@ -228,10 +244,10 @@ export const sendMPMTemplateMessage = async (
 // Does NOT require an approved template — works within 24hr window
 export const sendCatalogMessage = async (
   phoneNumberId: string,
-  accessToken:   string,
-  toPhone:       string,
-  bodyText:      string,
-  footerText?:   string,
+  accessToken: string,
+  toPhone: string,
+  bodyText: string,
+  footerText?: string,
   thumbnailProductRetailerId?: string,
 ): Promise<boolean> => {
   try {
@@ -244,12 +260,12 @@ export const sendCatalogMessage = async (
       `${META_BASE_URL}/${phoneNumberId}/messages`,
       {
         messaging_product: 'whatsapp',
-        recipient_type:    'individual',
-        to:                toPhone,
-        type:              'interactive',
+        recipient_type: 'individual',
+        to: toPhone,
+        type: 'interactive',
         interactive: {
-          type:   'catalog_message',
-          body:   { text: bodyText },
+          type: 'catalog_message',
+          body: { text: bodyText },
           ...(footerText ? { footer: { text: footerText } } : {}),
           action,
         }

@@ -11,6 +11,8 @@ export let worker: Worker;
 // ── In-memory merchant cache — avoids repeated DB reads per job batch ─────────
 // Cache is valid for 5 minutes per merchant, clears automatically
 const merchantCache = new Map<string, { data: any; expiresAt: number }>();
+// Rate issue 
+const rateLimitedUntil = new Map<string, number>();
 
 const getCachedMerchant = async (merchantId: string) => {
   const now = Date.now();
@@ -87,8 +89,6 @@ export const resumeWorkerIfPaused = async (): Promise<void> => {
 
 export const initMessageWorker = () => {
   worker = new Worker('message-sending', async (job) => {
-
-
 
     // ── 1. ABANDONED CART / POST-PURCHASE UPSELL ──────────────────────────
     if (job.name === 'send-automated-msg') {
@@ -230,10 +230,29 @@ export const initMessageWorker = () => {
 
         return; // Do NOT throw — prevents BullMQ from retrying
 
+
+      } else if (result.rateLimited) {
+        rateLimitedUntil.set(merchantId, Date.now() + 24 * 60 * 60 * 1000);
+        // ── Daily rate limit hit — reschedule after 24 hours ─────────────
+        console.warn(`⏳ Rate limit hit for ${toPhone} (code ${result.errorCode}) — rescheduling after 24h`);
+
+        // Add a new delayed job for 24 hours later — same data, same template
+        const { messageQueue } = await import('../lib/queue');
+        await messageQueue.add(job.name, job.data, {
+          delay: 24 * 60 * 60 * 1000,  // 24 hours
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 60000 },
+          jobId: `ratelimit-retry-${job.id}-${Date.now()}`,  // unique ID — no dedup
+        });
+        console.log(`📅 Job rescheduled for 24h: ${job.name} → ${toPhone}`);
+
+        return; // Do NOT throw — current job done, new job scheduled
+
       } else {
-        // Retryable error — throw so BullMQ retries with backoff
+        // Other retryable errors (network, 5xx) — let BullMQ retry with backoff
         throw new Error(`Meta send failed (${result.errorCode}): ${result.errorMessage}`);
       }
+
     }
 
     // ── 2. BULK CAMPAIGN ───────────────────────────────────────────────────
@@ -278,6 +297,22 @@ export const initMessageWorker = () => {
         console.log(`⛔ Campaign ${campaignId} is CANCELLED — skipping job for ${toPhone}`);
         return;
       }
+
+      // ── Skip if merchant already rate limited ────────────────────────
+      const limitUntil = rateLimitedUntil.get(merchantId);
+      if (limitUntil && limitUntil > Date.now()) {
+        console.warn(`⏳ [AUTOMATED] Merchant ${merchantId} rate limited — rescheduling without API call`);
+        const { messageQueue } = await import('../lib/queue');
+        await messageQueue.add(job.name, job.data, {
+          delay: (limitUntil - Date.now()) + 60000,
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 60000 },
+          jobId: `rl-skip-${job.id}-${Date.now()}`,
+        });
+        return;
+      }
+
+
 
       // ── Use cached merchant eligibility ──────────────────────────────
       const eligibility = await getCachedMerchant(merchantId);
@@ -368,9 +403,28 @@ export const initMessageWorker = () => {
 
         return; // No throw = no BullMQ retry
 
+      } else if (result.rateLimited) {
+        // ── Daily rate limit hit — reschedule after 24 hours ─────────────
+        rateLimitedUntil.set(merchantId, Date.now() + 24 * 60 * 60 * 1000);
+        console.warn(`⏳ Rate limit hit for ${toPhone} (code ${result.errorCode}) — rescheduling after 24h`);
+
+        // Add a new delayed job for 24 hours later — same data, same template
+        const { messageQueue } = await import('../lib/queue');
+        await messageQueue.add(job.name, job.data, {
+          delay: 24 * 60 * 60 * 1000,  // 24 hours
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 60000 },
+          jobId: `ratelimit-retry-${job.id}-${Date.now()}`,  // unique ID — no dedup
+        });
+        console.log(`📅 Job rescheduled for 24h: ${job.name} → ${toPhone}`);
+
+        return; // Do NOT throw — current job done, new job scheduled
+
       } else {
+        // Other retryable errors (network, 5xx) — let BullMQ retry with backoff
         throw new Error(`Meta send failed (${result.errorCode}): ${result.errorMessage}`);
       }
+
     }
 
     // ── 3. MPM PRODUCT MESSAGE ─────────────────────────────────────────────
@@ -384,6 +438,20 @@ export const initMessageWorker = () => {
       const alreadyInvalid = await isPhoneInvalid(merchantId, toPhone);
       if (alreadyInvalid) {
         console.log(`📵 MPM skip: Phone ${toPhone} already marked WA invalid`);
+        return;
+      }
+
+      // ── Skip if merchant already rate limited ────────────────────────
+      const limitUntil = rateLimitedUntil.get(merchantId);
+      if (limitUntil && limitUntil > Date.now()) {
+        console.warn(`⏳ [AUTOMATED] Merchant ${merchantId} rate limited — rescheduling without API call`);
+        const { messageQueue } = await import('../lib/queue');
+        await messageQueue.add(job.name, job.data, {
+          delay: (limitUntil - Date.now()) + 60000,
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 60000 },
+          jobId: `rl-skip-${job.id}-${Date.now()}`,
+        });
         return;
       }
 
@@ -416,9 +484,28 @@ export const initMessageWorker = () => {
         console.error(`🚫 Non-retryable MPM error → ${toPhone}: ${result.errorCode}`);
         if (result.invalidNumber) await markPhoneAsInvalid(merchantId, toPhone, `Meta ${result.errorCode}`);
         return;
+      } else if (result.rateLimited) {
+        rateLimitedUntil.set(merchantId, Date.now() + 24 * 60 * 60 * 1000);
+        // ── Daily rate limit hit — reschedule after 24 hours ─────────────
+        console.warn(`⏳ Rate limit hit for ${toPhone} (code ${result.errorCode}) — rescheduling after 24h`);
+
+        // Add a new delayed job for 24 hours later — same data, same template
+        const { messageQueue } = await import('../lib/queue');
+        await messageQueue.add(job.name, job.data, {
+          delay: 24 * 60 * 60 * 1000,  // 24 hours
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 60000 },
+          jobId: `ratelimit-retry-${job.id}-${Date.now()}`,  // unique ID — no dedup
+        });
+        console.log(`📅 Job rescheduled for 24h: ${job.name} → ${toPhone}`);
+
+        return; // Do NOT throw — current job done, new job scheduled
+
       } else {
-        throw new Error(`MPM send failed (${result.errorCode}): ${result.errorMessage}`);
+        // Other retryable errors (network, 5xx) — let BullMQ retry with backoff
+        throw new Error(`Meta send failed (${result.errorCode}): ${result.errorMessage}`);
       }
+
     }
 
   }, {
