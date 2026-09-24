@@ -14,6 +14,37 @@ const merchantCache = new Map<string, { data: any; expiresAt: number }>();
 // Rate issue 
 const rateLimitedUntil = new Map<string, number>();
 
+// ── Random delay — human-like sending (15–30 seconds) ────────────────────────
+const randomDelay = (minMs: number, maxMs: number): Promise<void> =>
+  new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs));
+
+// ── Sending window check — only send 7am to 12am IST ─────────────────────────
+// Returns ms delay needed to reach next 7am IST if currently outside window
+// Returns 0 if currently inside window
+const getMsUntilSendingWindow = (): number => {
+  // IST = UTC+5:30
+  const nowUtc = Date.now();
+  const nowIst = new Date(nowUtc + (5.5 * 60 * 60 * 1000));
+  const hourIst = nowIst.getUTCHours();   // 0–23 in IST
+  const minIst = nowIst.getUTCMinutes();
+
+  // Window: 7:00 to 23:59 (midnight = 0 = out of window)
+  // Outside window: 0:00 (midnight) to 6:59
+  const insideWindow = hourIst >= 7; // 7am to 11:59pm = inside
+
+  if (insideWindow) return 0; // good to go
+
+  // Calculate ms until next 7am IST
+  const next7amIst = new Date(nowIst);
+  next7amIst.setUTCHours(7, 0, 0, 0); // set to 7:00:00 IST today
+  if (next7amIst.getTime() <= nowIst.getTime()) {
+    // already past 7am — means it's after midnight, add 1 day
+    next7amIst.setUTCDate(next7amIst.getUTCDate() + 1);
+  }
+  return next7amIst.getTime() - nowIst.getTime();
+};
+
+
 const getCachedMerchant = async (merchantId: string) => {
   const now = Date.now();
   const cached = merchantCache.get(merchantId);
@@ -89,6 +120,21 @@ export const resumeWorkerIfPaused = async (): Promise<void> => {
 
 export const initMessageWorker = () => {
   worker = new Worker('message-sending', async (job) => {
+
+    // ── Sending window check — only 7am to 12am IST ──────────────────────────
+    const windowDelay = getMsUntilSendingWindow();
+    if (windowDelay > 0) {
+      console.log(`🌙 Outside sending window — rescheduling job ${job.id} for ${Math.round(windowDelay / 60000)} min later (7am IST)`);
+      const { messageQueue } = await import('../lib/queue');
+      await messageQueue.add(job.name, job.data, {
+        delay: windowDelay + Math.floor(Math.random() * 5 * 60 * 1000), // + 0-5 min random buffer
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 30000 },
+        jobId: `window-delay-${job.id}-${Date.now()}`,
+      });
+      return; // current job done — new job scheduled for morning
+    }
+
 
     // ── 1. ABANDONED CART / POST-PURCHASE UPSELL ──────────────────────────
     if (job.name === 'send-automated-msg') {
@@ -193,6 +239,9 @@ export const initMessageWorker = () => {
           });
           console.log(`🎁 Post-purchase upsell sent → ${toPhone}`);
         }
+
+        await randomDelay(15000, 30000);
+
 
       } else if (!result.retryable) {
         // ── Non-retryable: save failure + maybe mark phone invalid ────────
@@ -374,6 +423,9 @@ export const initMessageWorker = () => {
           console.log(`🏁 Campaign ${campaignId} COMPLETED`);
         }
 
+        await randomDelay(15000, 30000);
+
+
       } else if (!result.retryable) {
         console.error(`🚫 Non-retryable campaign error → ${toPhone}: ${result.errorCode}`);
 
@@ -480,6 +532,8 @@ export const initMessageWorker = () => {
         });
         await prisma.merchant.update({ where: { id: merchantId }, data: { totalSent: { increment: 1 } } });
         console.log(`✅ MPM sent to ${toPhone}`);
+        await randomDelay(15000, 30000);
+
       } else if (!result.retryable) {
         console.error(`🚫 Non-retryable MPM error → ${toPhone}: ${result.errorCode}`);
         if (result.invalidNumber) await markPhoneAsInvalid(merchantId, toPhone, `Meta ${result.errorCode}`);
@@ -511,10 +565,6 @@ export const initMessageWorker = () => {
   }, {
     connection: { url: process.env.REDIS_URL, maxRetriesPerRequest: null },
     concurrency: 1,
-    limiter: {
-      max: 1,
-      duration: 15000,      // 1 msg per 15s — Meta rate limit safe
-    },
     stalledInterval: 900000,
     drainDelay: 10000,
   });
