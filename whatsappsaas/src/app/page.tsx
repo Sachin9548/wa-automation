@@ -302,7 +302,7 @@ export default function Homepage() {
           </div>
         </div>
       </section>
-
+ 
       {/* ─── FAQ ─────────────────────────────────────────────── */}
       <section id="faq" className="py-24 px-6 bg-slate-50 border-t border-gray-100">
         <div className="max-w-3xl mx-auto">
