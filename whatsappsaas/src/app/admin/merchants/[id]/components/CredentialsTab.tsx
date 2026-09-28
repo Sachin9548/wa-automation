@@ -6,6 +6,7 @@ import {
   FaLink,
   FaSpinner,
   FaCheckCircle,
+  FaInstagram,
 } from "react-icons/fa";
 
 interface CredentialsTabProps {
@@ -34,6 +35,14 @@ interface CredentialsTabProps {
   setCredMetaAppId: (v: string) => void;
   credMetaAppSecret: string;
   setCredMetaAppSecret: (v: string) => void;
+  credIgAccountId: string;
+  setCredIgAccountId: (v: string) => void;
+  credIgAccessToken: string;
+  setCredIgAccessToken: (v: string) => void;
+  credIgAppSecret: string;
+  setCredIgAppSecret: (v: string) => void;
+  credIgUsername: string;
+  setCredIgUsername: (v: string) => void;
 }
 
 export default function CredentialsTab({
@@ -62,6 +71,15 @@ export default function CredentialsTab({
   setCredMetaAppId,
   credMetaAppSecret,
   setCredMetaAppSecret,
+  credIgAccountId,
+  setCredIgAccountId,
+  credIgAccessToken,
+  setCredIgAccessToken,
+  credIgAppSecret,
+  setCredIgAppSecret,
+  credIgUsername,
+  setCredIgUsername,
+  
 }: CredentialsTabProps) {
   return (
     <div className="max-w-2xl space-y-6">
@@ -207,6 +225,62 @@ export default function CredentialsTab({
                   value={credMetaAppSecret}
                   onChange={(e) => setCredMetaAppSecret(e.target.value)}
                   className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Instagram Section */}
+          <div className="border-t border-white/5 pt-5">
+            <p className="text-pink-400 text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2">
+              <FaInstagram /> Instagram (DMs + Comments)
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 mb-1 block">
+                  Account ID (igAccountId)
+                </label>
+                <input
+                  type="text"
+                  value={credIgAccountId}
+                  onChange={(e) => setCredIgAccountId(e.target.value)}
+                  className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-pink-500 text-sm font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 mb-1 block">
+                  Username (for display)
+                </label>
+                <input
+                  type="text"
+                  value={credIgUsername}
+                  onChange={(e) => setCredIgUsername(e.target.value)}
+                  className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold text-slate-400 mb-1 block">
+                  Access Token (IGAIo...)
+                </label>
+                <input
+                  type="text"
+                  value={credIgAccessToken}
+                  onChange={(e) => setCredIgAccessToken(e.target.value)}
+                  className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-pink-500 text-sm font-mono"
+                />
+                <p className="text-slate-600 text-xs mt-1">
+                  60-day token — save as soon as generated
+                </p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold text-slate-400 mb-1 block">
+                  App Secret (igAppSecret)
+                </label>
+                <input
+                  type="password"
+                  value={credIgAppSecret}
+                  onChange={(e) => setCredIgAppSecret(e.target.value)}
+                  className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-pink-500 text-sm font-mono"
                 />
               </div>
             </div>

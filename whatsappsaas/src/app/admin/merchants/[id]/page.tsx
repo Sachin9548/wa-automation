@@ -27,6 +27,7 @@ import CredentialsTab from "./components/CredentialsTab";
 import TemplatesTab from "./components/TemplatesTab";
 import ProductsTab from "./components/ProductsTab";
 import CODBlastTab from "./components/CODBlastTab";
+import InstagramTab from "./components/InstagramTab";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 const ah = () => ({
@@ -53,6 +54,11 @@ export default function MerchantControlHub() {
   const [credMetaAppId, setCredMetaAppId] = useState("");
   const [credMetaAppSecret, setCredMetaAppSecret] = useState("");
 
+  const [credIgAccountId, setCredIgAccountId] = useState("");
+  const [credIgAccessToken, setCredIgAccessToken] = useState("");
+  const [credIgAppSecret, setCredIgAppSecret] = useState("");
+  const [credIgUsername, setCredIgUsername] = useState("");
+
   const [activeTab, setActiveTab] = useState<
     | "overview"
     | "flows"
@@ -65,6 +71,7 @@ export default function MerchantControlHub() {
     | "activitylog"
     | "mpm"
     | "codblast"
+    | "instagram"
   >("overview");
 
   // ── Activation ────────────────────────────────────────────────────────────
@@ -471,7 +478,12 @@ export default function MerchantControlHub() {
         setCredMetaWabaId(m.metaWabaId || "");
         setCredMetaAppId(m.metaAppId || "");
         setCredMetaAppSecret(m.metaAppSecret || "");
-        
+
+        setCredIgAccountId(m.igAccountId || "");
+        setCredIgAccessToken(m.igAccessToken || "");
+        setCredIgAppSecret(m.igAppSecret || "");
+        setCredIgUsername(m.igUsername || "");
+
         setCredClientId(m.shopifyClientId || "");
         setCredClientSecret(m.shopifyClientSecret || "");
         if (m.storeUrl) setStoreUrl(m.storeUrl);
@@ -720,6 +732,10 @@ export default function MerchantControlHub() {
           shopifyClientSecret: credClientSecret,
           metaAppId: credMetaAppId,
           metaAppSecret: credMetaAppSecret,
+          igAccountId: credIgAccountId,
+          igAccessToken: credIgAccessToken,
+          igAppSecret: credIgAppSecret,
+          igUsername: credIgUsername,
         },
         { headers: ah() },
       );
@@ -1084,6 +1100,7 @@ export default function MerchantControlHub() {
     { key: "credentials", label: "⚙️ Credentials" },
     { key: "templates", label: "📋 Templates" },
     { key: "codblast", label: "💣 COD Blast" },
+    { key: "instagram", label: "📸 Instagram" },
   ];
 
   return (
@@ -1418,6 +1435,14 @@ export default function MerchantControlHub() {
             credMetaAppId={credMetaAppId}
             setCredMetaAppId={setCredMetaAppId}
             credMetaAppSecret={credMetaAppSecret}
+            credIgAccountId={credIgAccountId}
+            setCredIgAccountId={setCredIgAccountId}
+            credIgAccessToken={credIgAccessToken}
+            setCredIgAccessToken={setCredIgAccessToken}
+            credIgAppSecret={credIgAppSecret}
+            setCredIgAppSecret={setCredIgAppSecret}
+            credIgUsername={credIgUsername}
+            setCredIgUsername={setCredIgUsername}
             setCredMetaAppSecret={setCredMetaAppSecret}
             webhookResults={webhookResults}
             handleUpdateCredentials={handleUpdateCredentials}
@@ -1454,6 +1479,10 @@ export default function MerchantControlHub() {
 
         {activeTab === "codblast" && (
           <CODBlastTab merchantId={merchantId} metaTemplates={metaTemplates} />
+        )}
+
+        {activeTab === "instagram" && (
+          <InstagramTab merchantId={merchantId} merchant={merchant} />
         )}
       </div>
     </div>

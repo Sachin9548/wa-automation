@@ -317,6 +317,9 @@ export const getMerchantDetail = async (req: Request, res: Response): Promise<an
         metaPhoneNumberId: true, metaWabaId: true, metaAccessToken: true,
         shopifyToken: true, shopifySecret: true, shopifyClientId: true, shopifyClientSecret: true,
         serviceActive: true, isFree: true,
+        igAccountId: true, igAccessToken: true, igTokenExpiresAt: true, igUsername: true, igAppSecret: true,
+
+
         _count: { select: { customers: true, campaigns: true, abandonedCarts: true } }
       }
     });

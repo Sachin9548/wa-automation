@@ -28,6 +28,7 @@ import {
   FaWhatsapp,
   FaBoxOpen,
   FaCheck,
+  FaInstagram,
 } from "react-icons/fa";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -40,6 +41,11 @@ const NAV_ITEMS = [
   { icon: <FaStore />, label: "Shopify Installs", active: false },
   { icon: <FaBoxOpen />, label: "Shopify Guide", active: false },
   { icon: <FaWhatsapp />, label: "Meta Guide", active: false },
+  {
+    icon: <FaCheck />,
+    label: "Instagram Guide",
+    active: false,
+  },
   { icon: <FaBook />, label: "Domain Checker", active: false },
 ];
 
@@ -1285,9 +1291,7 @@ export default function AdminConsole() {
                     Click <strong>Register your WhatsApp phone number</strong>.
                     Enter the client's number and verify it via OTP.
                   </li>
-                  <li>
-                    Enter the WhatsApp Business display name.
-                  </li>
+                  <li>Enter the WhatsApp Business display name.</li>
                   <li>
                     Click{" "}
                     <strong>
@@ -1369,6 +1373,283 @@ export default function AdminConsole() {
                   </div>
                 </div>
               </GuideStep>
+            </div>
+          )}
+
+          {/* ── Instagram Guide Tab ── */}
+          {activeNav === "Instagram Guide" && (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center">
+                  <FaInstagram className="text-pink-400 text-lg" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg">
+                    Instagram Automation Setup (Version 2)
+                  </h2>
+                  <p className="text-slate-500 text-xs">
+                    Instagram DMs + Comments auto-reply using Instagram Login
+                    (No FB Page required)
+                  </p>
+                </div>
+              </div>
+
+              {/* Overview / Why */}
+              <GuideCard title="Overview & Strategy" accent="blue">
+                <ul className="space-y-1.5 text-sm text-slate-300">
+                  <li className="flex gap-2">
+                    <span className="text-blue-400 mt-0.5">•</span>Uses{" "}
+                    <strong className="text-white">
+                      API setup with Instagram Login
+                    </strong>{" "}
+                    — no Facebook Page or System User needed.
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-blue-400 mt-0.5">•</span>Standard
+                    Access is enough for accounts you own/manage or add as
+                    testers.
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-yellow-400 mt-0.5">⚠️</span>Covers
+                    Instagram DMs, comment replies, and private replies (comment
+                    to DM).
+                  </li>
+                </ul>
+              </GuideCard>
+
+              {/* Steps */}
+              <GuideStep num={1} title="Add the Use Case">
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>
+                    Open your existing Meta App on{" "}
+                    <strong className="text-white">
+                      developers.facebook.com
+                    </strong>
+                    .
+                  </li>
+                  <li>
+                    Go to{" "}
+                    <strong className="text-white">
+                      Use cases → Add use case
+                    </strong>
+                    .
+                  </li>
+                  <li>
+                    Select{" "}
+                    <strong className="text-white">
+                      Manage messaging & content on Instagram
+                    </strong>
+                    . Meta adds "API setup with Instagram login" automatically.
+                  </li>
+                </ol>
+              </GuideStep>
+
+              <GuideStep num={2} title="Copy Instagram App Credentials">
+                <p className="text-slate-400 text-xs mb-2">
+                  On the "API setup with Instagram login" screen, copy and save
+                  these in your database:
+                </p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 bg-slate-900 rounded-xl px-3 py-2">
+                    <span className="text-slate-400 text-xs w-28">
+                      Instagram App Name
+                    </span>
+                    <span className="text-white font-mono text-xs flex-1">
+                      Save for reference
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-900 rounded-xl px-3 py-2">
+                    <span className="text-slate-400 text-xs w-28">
+                      Instagram App ID
+                    </span>
+                    <span className="text-white font-mono text-xs flex-1">
+                      Save in DB (`igAppId`)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-900 rounded-xl px-3 py-2">
+                    <span className="text-slate-400 text-xs w-28">
+                      Instagram Secret
+                    </span>
+                    <span className="text-white font-mono text-xs flex-1">
+                      Save in DB (`igAppSecret`)
+                    </span>
+                  </div>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={3} title="Add Required Permissions">
+                <p className="text-slate-400 text-xs mb-2">
+                  Click <strong>Add required messaging permissions</strong> on
+                  the screen. This adds:
+                </p>
+                <code className="block bg-slate-900 text-green-400 px-3 py-2 rounded-xl text-xs font-mono space-y-1">
+                  instagram_business_basic
+                  <br />
+                  instagram_business_manage_comments
+                  <br />
+                  instagram_business_manage_messages
+                </code>
+              </GuideStep>
+
+              <GuideStep
+                num={4}
+                title="Add Tester Role & Connect Instagram Account"
+              >
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>
+                    Go to{" "}
+                    <strong className="text-white">
+                      App roles → Roles → Add People → Instagram Tester
+                    </strong>{" "}
+                    and enter the client&apos;s Instagram username.
+                  </li>
+                  <li>
+                    Client accepts the invite in their Instagram App:{" "}
+                    <strong className="text-white">
+                      Settings → Apps and websites → Tester invites
+                    </strong>
+                    . *(Do this first!)*.
+                  </li>
+                  <li>
+                    Back on API setup with Instagram login →{" "}
+                    <strong className="text-white">
+                      Step 2 (Generate access tokens) → Add account
+                    </strong>
+                    . Sign in via the popup.
+                  </li>
+                  <li>
+                    The account must be a{" "}
+                    <strong className="text-white">Business or Creator</strong>{" "}
+                    account.
+                  </li>
+                </ol>
+              </GuideStep>
+
+              <GuideStep num={5} title="Configure the Webhook">
+                <p className="text-slate-400 text-xs mb-2">
+                  On{" "}
+                  <strong className="text-white">
+                    Step 3 (Configure webhooks)
+                  </strong>
+                  :
+                </p>
+                <ul className="space-y-1.5 text-sm text-slate-300 list-disc ml-4">
+                  <li>
+                    Callback URL:{" "}
+                    <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-xs">
+                      https://api.wautomation.shop/api/webhooks/meta
+                    </code>
+                  </li>
+                  <li>Verify token: Same value your backend checks.</li>
+                  <li>
+                    Subscribe to{" "}
+                    <strong className="text-white">messages</strong> and{" "}
+                    <strong className="text-white">comments</strong>.
+                  </li>
+                  <li>Make sure the App is Published.</li>
+                </ul>
+              </GuideStep>
+
+              <GuideStep
+                num={6}
+                title="Turn on Webhook Subscription & Generate Token"
+                accent="green"
+              >
+                <ol className="space-y-1.5 text-sm text-slate-300 list-decimal ml-4">
+                  <li>
+                    In Step 2, next to the added account, switch the{" "}
+                    <strong className="text-white">
+                      webhook subscription ON
+                    </strong>
+                    .
+                  </li>
+                  <li>
+                    Click <strong className="text-white">Generate token</strong>{" "}
+                    for the account. Copy it immediately (starts with{" "}
+                    <code className="bg-slate-900 text-green-400 px-1.5 py-0.5 rounded text-[10px]">
+                      IGAIoMM...
+                    </code>
+                    ) — Meta shows it only once!
+                  </li>
+                </ol>
+                <div className="flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-2 mt-2">
+                  <span className="text-yellow-400 mt-0.5">⚠️</span>
+                  <p className="text-yellow-300 text-xs">
+                    Instagram Login tokens last for <strong>60 days</strong>.
+                    Our backend cron job will automatically refresh them before
+                    expiry.
+                  </p>
+                </div>
+              </GuideStep>
+
+              <GuideStep num={7} title="Verify Account ID">
+                <p className="text-slate-400 text-xs mb-2">
+                  Copy the Instagram account ID shown on screen (`igAccountId`).
+                  Verify it via API call:
+                </p>
+                <code className="block bg-slate-900 text-teal-400 px-3 py-2 rounded-xl text-xs font-mono break-all">
+                  GET
+                  https://graph.instagram.com/&#123;API_VERSION&#125;/me?fields=user_id,username&amp;access_token=&#123;TOKEN&#125;
+                </code>
+                <p className="text-slate-500 text-xs mt-1">
+                  `user_id` should match the account ID. This proves the token
+                  works and is used to route incoming webhooks.
+                </p>
+              </GuideStep>
+
+              {/* Data Model / What to save */}
+              <GuideCard title="Data to Save Per Client" accent="teal">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1 text-xs text-slate-300">
+                  <div className="bg-slate-900 p-2 rounded-lg">
+                    <strong className="text-teal-400">igAppId:</strong>{" "}
+                    Instagram app ID
+                  </div>
+                  <div className="bg-slate-900 p-2 rounded-lg">
+                    <strong className="text-teal-400">igAppSecret:</strong>Save
+                    to DB
+                  </div>
+                  <div className="bg-slate-900 p-2 rounded-lg">
+                    <strong className="text-teal-400">igAccountId:</strong>{" "}
+                    Routed from webhook entry[].id
+                  </div>
+                  <div className="bg-slate-900 p-2 rounded-lg">
+                    <strong className="text-teal-400">igUsername:</strong> For
+                    display/reference
+                  </div>
+                  <div className="bg-slate-900 p-2 rounded-lg">
+                    <strong className="text-teal-400">igAccessToken:</strong>{" "}
+                    Save to Db long-lived token
+                  </div>
+                  <div className="bg-slate-900 p-2 rounded-lg">
+                    <strong className="text-teal-400">igTokenExpiresAt:</strong>{" "}
+                    Issued + 60 days
+                  </div>
+                </div>
+              </GuideCard>
+
+              {/* Checklist */}
+              <GuideCard title="Per-client Instagram checklist" accent="teal">
+                <div className="space-y-2 mt-1">
+                  {[
+                    "Manage messaging & content on Instagram use case added",
+                    "Instagram app credentials (ID & Secret) saved",
+                    "Required messaging permissions added",
+                    "Instagram account added as Tester and invite accepted",
+                    "Webhook configured (Callback URL + Verify Token + messages/comments subscribed)",
+                    "Webhook subscription switched ON next to account",
+                    "Token generated and saved in DB",
+                    "Account ID verified via /me Graph API call",
+                  ].map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 text-sm text-slate-300"
+                    >
+                      <FaCheck className="text-teal-400 text-xs flex-shrink-0" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </GuideCard>
             </div>
           )}
         </div>

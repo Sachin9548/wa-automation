@@ -318,6 +318,8 @@ router.post(
         shopifyClientId,
         shopifyClientSecret,
         shopifyOAuthState,
+        igAccountId, igAccessToken, igTokenExpiresAt,
+        igAppSecret, igUsername
       } = req.body;
 
       if (!merchantId)
@@ -338,6 +340,14 @@ router.post(
         data.shopifyOAuthState = shopifyOAuthState;
       if (metaAppId !== undefined) data.metaAppId = metaAppId;
       if (metaAppSecret !== undefined) data.metaAppSecret = metaAppSecret;
+
+
+      if (igAccountId !== undefined) data.igAccountId = igAccountId;
+      if (igAccessToken !== undefined) data.igAccessToken = igAccessToken;
+      if (igTokenExpiresAt !== undefined) data.igTokenExpiresAt = new Date(igTokenExpiresAt);
+      if (igAppSecret !== undefined) data.igAppSecret = igAppSecret;
+      if (igUsername !== undefined) data.igUsername = igUsername;
+
 
       await prisma.merchant.update({ where: { id: merchantId }, data });
 

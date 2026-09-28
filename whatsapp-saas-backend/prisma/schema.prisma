@@ -57,6 +57,15 @@ model Merchant {
   metaAppId         String?   // Meta App ID (for webhook verification + reference)
   metaAppSecret     String?   // Meta App Secret (for webhook HMAC verification)
 
+
+  // Instagram credentials (API setup with Instagram Login)
+  igAccountId      String?   // Instagram account ID — used to route webhooks
+  igAccessToken    String?   // Long-lived token (60 days — auto-refreshed)
+  igTokenExpiresAt DateTime? // When token expires — for auto-refresh cron
+  igAppSecret      String?   // Instagram App Secret — for webhook verification
+  igUsername       String?   // For display/reference only
+
+
   // Plan (subscription only — Meta charges client directly)
   plan              String   @default("STARTER")
 
@@ -107,6 +116,12 @@ model Message {
   mediaLat      Float?              // latitude for location messages
   mediaLng      Float?              // longitude for location messages
   mediaAddress  String?             // address/name for location messages
+
+  channel   String  @default("WHATSAPP")
+  // WHATSAPP | INSTAGRAM_DM | INSTAGRAM_COMMENT
+  sourceId  String?
+  // Instagram comment ID — needed for replying to comments
+
 
   timestamp     DateTime @default(now())
   

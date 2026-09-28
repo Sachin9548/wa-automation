@@ -23,10 +23,10 @@ const isStopKeyword = (text: string): boolean => {
 router.get('/conversations/:merchantId', async (req: Request, res: Response): Promise<any> => {
   try {
     const merchantId = req.params.merchantId as string;
-    const page       = parseInt(req.query.page as string) || 1;
-    const limit      = parseInt(req.query.limit as string) || 30;
-    const search     = (req.query.search as string || '').trim();
-    const skip       = (page - 1) * limit;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 30;
+    const search = (req.query.search as string || '').trim();
+    const skip = (page - 1) * limit;
 
     // Get distinct phones that have messages for this merchant
     const phoneFilter: any = { merchantId };
@@ -35,6 +35,14 @@ router.get('/conversations/:merchantId', async (req: Request, res: Response): Pr
         { customerPhone: { contains: search } },
       ];
     }
+
+    const channel = (req.query.channel as string) || 'ALL';
+
+    // Channel filter
+    if (channel !== 'ALL') {
+      phoneFilter.channel = channel;
+    }
+
 
     // Distinct phones + last message + unread count
     const distinctPhones = await prisma.message.findMany({
@@ -74,21 +82,21 @@ router.get('/conversations/:merchantId', async (req: Request, res: Response): Pr
           select: { timestamp: true },
         });
 
-        const lastIncomingAt   = lastIncoming?.timestamp ?? null;
-        const msElapsed        = lastIncomingAt ? Date.now() - new Date(lastIncomingAt).getTime() : Infinity;
-        const canSendFreeText  = msElapsed < 24 * 60 * 60 * 1000; // within 24 hours
-        const windowExpiresAt  = lastIncomingAt
+        const lastIncomingAt = lastIncoming?.timestamp ?? null;
+        const msElapsed = lastIncomingAt ? Date.now() - new Date(lastIncomingAt).getTime() : Infinity;
+        const canSendFreeText = msElapsed < 24 * 60 * 60 * 1000; // within 24 hours
+        const windowExpiresAt = lastIncomingAt
           ? new Date(new Date(lastIncomingAt).getTime() + 24 * 60 * 60 * 1000).toISOString()
           : null;
 
         return {
           customerPhone,
-          customerName:   customer?.name   ?? null,
-          customerEmail:  customer?.email  ?? null,
-          isOptedOut:     customer?.tags?.includes('wa_invalid') ?? false,
-          lastMessage:    lastMsg?.content ?? '',
-          lastDirection:  lastMsg?.direction ?? 'OUTGOING',
-          lastTimestamp:  lastMsg?.timestamp ?? null,
+          customerName: customer?.name ?? null,
+          customerEmail: customer?.email ?? null,
+          isOptedOut: customer?.tags?.includes('wa_invalid') ?? false,
+          lastMessage: lastMsg?.content ?? '',
+          lastDirection: lastMsg?.direction ?? 'OUTGOING',
+          lastTimestamp: lastMsg?.timestamp ?? null,
           unreadCount,
           canSendFreeText,
           windowExpiresAt,
@@ -117,20 +125,25 @@ router.get('/conversations/:merchantId', async (req: Request, res: Response): Pr
 // GET /api/inbox/messages/:merchantId/:customerPhone
 router.get('/messages/:merchantId/:customerPhone', async (req: Request, res: Response): Promise<any> => {
   try {
-    const merchantId    = req.params.merchantId    as string;
+    const merchantId = req.params.merchantId as string;
     const customerPhone = req.params.customerPhone as string;
-    const page  = parseInt(req.query.page as string) || 1;
+    const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
+
+    const channel = (req.query.channel as string) || 'ALL';
+    const msgWhere: any = { merchantId, customerPhone };
+    if (channel !== 'ALL') msgWhere.channel = channel;
+
 
     const [messages, total] = await Promise.all([
       prisma.message.findMany({
-        where: { merchantId, customerPhone },
+        where: msgWhere,
         orderBy: { timestamp: 'asc' },
         skip,
         take: limit,
       }),
-      prisma.message.count({ where: { merchantId, customerPhone } }),
+      prisma.message.count({ where: msgWhere }),
     ]);
 
     // 24hr window info
@@ -140,8 +153,8 @@ router.get('/messages/:merchantId/:customerPhone', async (req: Request, res: Res
       select: { timestamp: true },
     });
 
-    const lastIncomingAt  = lastIncoming?.timestamp ?? null;
-    const msElapsed       = lastIncomingAt ? Date.now() - new Date(lastIncomingAt).getTime() : Infinity;
+    const lastIncomingAt = lastIncoming?.timestamp ?? null;
+    const msElapsed = lastIncomingAt ? Date.now() - new Date(lastIncomingAt).getTime() : Infinity;
     const canSendFreeText = msElapsed < 24 * 60 * 60 * 1000;
     const windowExpiresAt = lastIncomingAt
       ? new Date(new Date(lastIncomingAt).getTime() + 24 * 60 * 60 * 1000).toISOString()
@@ -170,7 +183,7 @@ router.get('/messages/:merchantId/:customerPhone', async (req: Request, res: Res
 // POST /api/inbox/send/:merchantId
 router.post('/send/:merchantId', async (req: Request, res: Response): Promise<any> => {
   try {
-    const merchantId  = req.params.merchantId as string;
+    const merchantId = req.params.merchantId as string;
     const { customerPhone, message, templateName, templateLang, variables } = req.body;
 
     if (!customerPhone) return res.status(400).json({ message: 'customerPhone required' });
@@ -345,12 +358,12 @@ router.get('/media/:messageId', async (req: Request, res: Response): Promise<any
     const message = await prisma.message.findUnique({
       where: { id: messageId },
       select: {
-        id:            true,
-        mediaId:       true,
-        mediaType:     true,
+        id: true,
+        mediaId: true,
+        mediaType: true,
         mediaMimeType: true,
         mediaFilename: true,
-        merchantId:    true,
+        merchantId: true,
       }
     });
 

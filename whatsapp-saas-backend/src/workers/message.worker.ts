@@ -301,7 +301,7 @@ export const initMessageWorker = () => {
 
 
       } else if (result.rateLimited) {
-await setRateLimited(merchantId);
+        await setRateLimited(merchantId);
         // ── Daily rate limit hit — reschedule after 24 hours ─────────────
         console.warn(`⏳ Rate limit hit for ${toPhone} (code ${result.errorCode}) — rescheduling after 24h`);
 
@@ -477,7 +477,7 @@ await setRateLimited(merchantId);
 
       } else if (result.rateLimited) {
         // ── Daily rate limit hit — reschedule after 24 hours ─────────────
-await setRateLimited(merchantId);
+        await setRateLimited(merchantId);
         console.warn(`⏳ Rate limit hit for ${toPhone} (code ${result.errorCode}) — rescheduling after 24h`);
 
         // Add a new delayed job for 24 hours later — same data, same template
@@ -559,7 +559,7 @@ await setRateLimited(merchantId);
         if (result.invalidNumber) await markPhoneAsInvalid(merchantId, toPhone, `Meta ${result.errorCode}`);
         return;
       } else if (result.rateLimited) {
-await setRateLimited(merchantId);
+        await setRateLimited(merchantId);
         // ── Daily rate limit hit — reschedule after 24 hours ─────────────
         console.warn(`⏳ Rate limit hit for ${toPhone} (code ${result.errorCode}) — rescheduling after 24h`);
 
