@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 
+const SIGNUP_URL = "https://www.wautomation.shop/signup";
+const WHATSAPP_URL = "https://wa.me/919421095835";
+
 export default function Homepage() {
   const [activeScenario, setActiveScenario] = useState<
     "cart" | "ig" | "cod" | "ai"
   >("cart");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [gmv, setGmv] = useState(1_000_000);
   const [aov, setAov] = useState(2_500);
@@ -71,193 +73,7 @@ export default function Homepage() {
         <div className="absolute top-[65%] -left-[20%] sm:-left-[15%] w-[300px] sm:w-[650px] h-[300px] sm:h-[650px] bg-brand-pink/10 rounded-full blur-[140px] sm:blur-[190px]"></div>
       </div>
 
-      {/* ================= LUXURY STICKY NAVBAR ================= */}
-      <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-xl bg-app-950/85 border-b border-white/[0.08]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
-          {/* Logo */}
-          <a href="#" className="flex items-center gap-2.5 sm:gap-3 group">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-tr from-brand-darkWa via-brand-wa to-emerald-300 p-[1.5px] shadow-lg shadow-brand-wa/20 group-hover:scale-105 transition-transform">
-              <div className="w-full h-full bg-app-950 rounded-[7px] sm:rounded-[10px] flex items-center justify-center">
-                <i
-                  data-lucide="zap"
-                  className="w-4 h-4 sm:w-5 sm:h-5 text-brand-wa stroke-[2.5]"
-                ></i>
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-1.5">
-                WA<span className="text-brand-wa">Auto</span>
-                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-brand-wa/10 text-brand-wa border border-brand-wa/30">
-                  SHOPIFY
-                </span>
-              </span>
-              <span className="text-[9px] sm:text-[10px] text-gray-400 font-medium hidden xs:block">
-                Revenue Engine
-              </span>
-            </div>
-          </a>
-
-          {/* Navigation Links (Desktop) */}
-          <nav className="hidden lg:flex items-center gap-7 text-xs uppercase tracking-wider font-bold text-gray-300">
-            <a href="#leaks" className="hover:text-white transition-colors">
-              4 Revenue Leaks
-            </a>
-            <a
-              href="#simulator"
-              className="hover:text-brand-wa transition-colors flex items-center gap-1"
-            >
-              <span>Live Demo</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-wa animate-pulse"></span>
-            </a>
-            <a
-              href="#deep-features"
-              className="hover:text-white transition-colors"
-            >
-              All Features
-            </a>
-            <a href="#inbox" className="hover:text-white transition-colors">
-              Omnichannel Inbox
-            </a>
-            <a
-              href="#calculator"
-              className="hover:text-white transition-colors"
-            >
-              ROI Calculator
-            </a>
-            <a href="#pricing" className="hover:text-white transition-colors">
-              Pricing
-            </a>
-          </nav>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <a
-              href="#pricing"
-              className="hidden md:inline-flex items-center gap-2 text-xs font-bold text-gray-300 hover:text-white px-3.5 py-2 rounded-xl border border-white/10 hover:border-white/20 transition-all"
-            >
-              <i
-                data-lucide="calendar"
-                className="w-3.5 h-3.5 text-brand-wa"
-              ></i>
-              <span>Schedule Setup</span>
-            </a>
-            <a
-              href="#pricing"
-              className="px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-brand-wa text-black shadow-lg shadow-brand-wa/25 hover:bg-emerald-400 transition-all flex items-center gap-1"
-            >
-              <span>Start Free</span>
-              <i
-                data-lucide="arrow-right"
-                className="w-3.5 h-3.5 stroke-[3]"
-              ></i>
-            </a>
-
-            {/* Mobile Menu Trigger Button */}
-            <button
-              id="mobile-menu-toggle"
-              onClick={() => setMobileMenuOpen((open) => !open)}
-              className="lg:hidden p-2 rounded-xl bg-app-900 border border-white/10 text-gray-300 hover:text-white"
-              aria-label="Toggle Navigation"
-              aria-expanded={mobileMenuOpen}
-            >
-              <i data-lucide="menu" className="w-5 h-5"></i>
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Slide-Down Navigation Menu */}
-        <div
-          id="mobile-nav"
-          className={`${mobileMenuOpen ? "block" : "hidden"} lg:hidden border-b border-white/10 bg-app-950/95 backdrop-blur-2xl px-5 py-6 space-y-4 transition-all`}
-        >
-          <nav className="flex flex-col space-y-3.5 text-sm font-semibold text-gray-300">
-            <a
-              href="#leaks"
-              onClick={() => setMobileMenuOpen(false)}
-              className="mobile-nav-link flex items-center justify-between py-1 hover:text-brand-wa"
-            >
-              <span>4 Revenue Leaks</span>
-              <i
-                data-lucide="chevron-right"
-                className="w-4 h-4 text-gray-500"
-              ></i>
-            </a>
-            <a
-              href="#simulator"
-              onClick={() => setMobileMenuOpen(false)}
-              className="mobile-nav-link flex items-center justify-between py-1 hover:text-brand-wa"
-            >
-              <span className="flex items-center gap-2">
-                Live Demo{" "}
-                <span className="w-2 h-2 rounded-full bg-brand-wa"></span>
-              </span>
-              <i
-                data-lucide="chevron-right"
-                className="w-4 h-4 text-gray-500"
-              ></i>
-            </a>
-            <a
-              href="#deep-features"
-              onClick={() => setMobileMenuOpen(false)}
-              className="mobile-nav-link flex items-center justify-between py-1 hover:text-brand-wa"
-            >
-              <span>All Features</span>
-              <i
-                data-lucide="chevron-right"
-                className="w-4 h-4 text-gray-500"
-              ></i>
-            </a>
-            <a
-              href="#inbox"
-              onClick={() => setMobileMenuOpen(false)}
-              className="mobile-nav-link flex items-center justify-between py-1 hover:text-brand-wa"
-            >
-              <span>Omnichannel Inbox</span>
-              <i
-                data-lucide="chevron-right"
-                className="w-4 h-4 text-gray-500"
-              ></i>
-            </a>
-            <a
-              href="#calculator"
-              onClick={() => setMobileMenuOpen(false)}
-              className="mobile-nav-link flex items-center justify-between py-1 hover:text-brand-wa"
-            >
-              <span>ROI Calculator</span>
-              <i
-                data-lucide="chevron-right"
-                className="w-4 h-4 text-gray-500"
-              ></i>
-            </a>
-            <a
-              href="#pricing"
-              onClick={() => setMobileMenuOpen(false)}
-              className="mobile-nav-link flex items-center justify-between py-1 hover:text-brand-wa"
-            >
-              <span>Pricing Plans</span>
-              <i
-                data-lucide="chevron-right"
-                className="w-4 h-4 text-gray-500"
-              ></i>
-            </a>
-          </nav>
-
-          <div className="pt-4 border-t border-white/10 flex flex-col gap-2.5">
-            <a
-              href="https://wa.me/919999999999"
-              className="w-full py-3 rounded-xl bg-app-900 border border-white/10 text-center font-bold text-xs text-white flex items-center justify-center gap-2"
-            >
-              <i
-                data-lucide="message-circle"
-                className="w-4 h-4 text-brand-wa"
-              ></i>
-              <span>Chat on WhatsApp</span>
-            </a>
-          </div>
-        </div>
-      </header>
-
-      <main className="relative z-10">
+      <div className="relative z-10">
         {/* ================= HERO SECTION ================= */}
         <section className="pt-28 sm:pt-36 lg:pt-48 pb-12 sm:pb-20 lg:pb-28 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -289,7 +105,7 @@ export default function Homepage() {
             {/* Hero Actions */}
             <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
               <a
-                href="#pricing"
+                href={SIGNUP_URL}
                 className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-brand-wa text-black shadow-2xl shadow-brand-wa/30 hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 text-center"
               >
                 <span>Start 14-Day Free Trial</span>
@@ -1350,7 +1166,7 @@ export default function Homepage() {
         </section>
 
         {/* <!-- ================= 100% DONE FOR YOU PROCESS ================= --> */}
-        <section className="py-14 sm:py-20 lg:py-24 border-b border-white/[0.08] relative">
+        <section id="how-it-works" className="py-14 sm:py-20 lg:py-24 border-b border-white/[0.08] relative">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
               <span className="text-xs uppercase font-bold tracking-widest text-brand-wa">
@@ -1510,7 +1326,7 @@ export default function Homepage() {
 
                 <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-white/10">
                   <a
-                    href="https://wa.me/919999999999?text=Hi%2C%20I%20want%20Growth%20Plan"
+                    href={SIGNUP_URL}
                     className="block w-full text-center py-3.5 sm:py-4 rounded-xl bg-app-800 hover:bg-app-700 text-white font-bold text-xs sm:text-sm transition-all border border-white/10"
                   >
                     Get Started with Growth
@@ -1595,7 +1411,7 @@ export default function Homepage() {
 
                 <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-brand-wa/30">
                   <a
-                    href="https://wa.me/919999999999?text=Hi%2C%20I%20want%20Pro%20Plan"
+                    href={SIGNUP_URL}
                     className="block w-full text-center py-3.5 sm:py-4 rounded-xl bg-brand-wa hover:bg-emerald-400 text-black font-black text-xs sm:text-sm uppercase tracking-wider transition-all shadow-xl shadow-brand-wa/30"
                   >
                     Claim Pro Access & Setup Call
@@ -1681,7 +1497,7 @@ export default function Homepage() {
         </section>
 
         {/* <!-- ================= EXTENDED FAQ ACCORDION ================= --> */}
-        <section className="py-14 sm:py-20 lg:py-24 border-b border-white/[0.08] relative">
+        <section id="faq" className="py-14 sm:py-20 lg:py-24 border-b border-white/[0.08] relative">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10 sm:mb-16">
               <span className="text-xs uppercase font-bold tracking-widest text-brand-wa">
@@ -1805,13 +1621,15 @@ export default function Homepage() {
 
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
                 <a
-                  href="#pricing"
+                  href={SIGNUP_URL}
                   className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-brand-wa text-black hover:bg-emerald-400 shadow-2xl shadow-brand-wa/40 transition-all text-center"
                 >
                   Start 14-Day Free Trial
                 </a>
                 <a
-                  href="https://wa.me/919999999999"
+                  href={WHATSAPP_URL}
+                  target="_blank"
+                  rel="noreferrer"
                   className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-bold text-xs sm:text-sm bg-app-950 text-white border border-white/10 hover:border-white/20 transition-all text-center"
                 >
                   Talk to Founders on WhatsApp
@@ -1820,7 +1638,7 @@ export default function Homepage() {
             </div>
           </div>
         </section>
-      </main>
+      </div>
 
      
     </div>

@@ -44,8 +44,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         
-        {/* 1. Navbar hamesha top par rahega */}
-        {/* <Navbar /> */}
+        <Navbar />
 
         {/* 2. flex-grow lagane se ye beech ka hissa poori bachi hui screen cover kar lega */}
         <main className="flex-grow">
