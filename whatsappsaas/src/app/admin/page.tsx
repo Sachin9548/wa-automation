@@ -1540,7 +1540,8 @@ export default function AdminConsole() {
                       https://api.wautomation.shop/api/webhooks/meta
                     </code>
                   </li>
-                  <li>Verify token: Same value your backend checks.</li>
+                  <li>Verify Code:-  <code>wa_auto_verify_2026</code></li>
+                  
                   <li>
                     Subscribe to{" "}
                     <strong className="text-white">messages</strong> and{" "}
