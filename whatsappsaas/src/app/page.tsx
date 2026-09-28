@@ -2,9 +2,17 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  FaShoppingCart, FaWhatsapp, FaChartLine,
-  FaUsers, FaCheckCircle, FaStar, FaArrowRight,
-  FaShieldAlt, FaBolt, FaGift, FaRegEnvelope,
+  FaShoppingCart,
+  FaWhatsapp,
+  FaChartLine,
+  FaUsers,
+  FaCheckCircle,
+  FaStar,
+  FaArrowRight,
+  FaShieldAlt,
+  FaBolt,
+  FaGift,
+  FaRegEnvelope,
 } from "react-icons/fa";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 
@@ -68,51 +76,83 @@ export default function Homepage() {
 
   return (
     <div className="overflow-hidden font-sans">
+      {/* ─── HERO SECTION ────────────────────────────────────────────── */}
+      <section className="relative bg-slate-950 text-white px-6 pt-32 pb-24 overflow-hidden">
+        {/* Background Glowing Gradients */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-teal-500/20 blur-[140px] rounded-full pointer-events-none"></div>
+        <div className="absolute top-10 right-10 w-[300px] h-[300px] bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
 
-      {/* ─── HERO ────────────────────────────────────────────── */}
-      <section className="bg-gradient-to-br from-slate-950 via-teal-950 to-slate-950 text-white px-6 pt-24 pb-32">
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-teal-500/10 border border-teal-500/20 text-teal-300 px-4 py-1.5 rounded-full text-sm font-semibold mb-8">
-            <FaBolt className="text-teal-400" /> WhatsApp Marketing for Shopify Stores
+        <div className="max-w-6xl mx-auto text-center relative z-10">
+          {/* Top Badge */}
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500/10 to-emerald-500/10 border border-teal-500/30 text-teal-300 px-4 py-2 rounded-full text-xs font-bold mb-8 shadow-inner">
+            <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping"></span>
+            WhatsApp & Instagram Automation Suite for Shopify
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-extrabold leading-tight tracking-tight mb-6">
-            Recover Lost Sales <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-400">
-              on WhatsApp.
+          {/* Main Headline */}
+          <h1 className="text-5xl sm:text-6xl md:text-7xl font-black leading-[1.1] tracking-tight mb-8">
+            Turn Abandoned Carts Into <br className="hidden sm:inline" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 animate-gradient">
+              Instant WhatsApp Sales.
             </span>
           </h1>
 
-          <p className="text-xl text-slate-300 max-w-2xl mx-auto mb-10 leading-relaxed">
-            78% of customers abandon carts. WhatsApp has <strong className="text-white">98% open rates</strong>.
-            We connect the two — so your Shopify store recovers revenue on autopilot.
+          {/* Subtitle */}
+          <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-12 font-medium leading-relaxed">
+            Stop losing 78% of your shoppers. Automate WhatsApp recovery
+            messages, Instagram DM/Comment replies, and COD conversions on
+            complete autopilot.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
               href="/signup"
-              className="bg-teal-500 hover:bg-teal-400 text-white font-bold px-8 py-4 rounded-2xl text-lg transition shadow-lg shadow-teal-900/40 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-extrabold px-10 py-5 rounded-2xl text-lg transition duration-300 shadow-[0_0_40px_rgba(20,184,166,0.3)] hover:shadow-[0_0_60px_rgba(20,184,166,0.5)] transform hover:-translate-y-0.5 flex items-center justify-center gap-3"
             >
-              Start Free — Get a Demo <FaArrowRight />
+              Start Free Trial <FaArrowRight />
             </Link>
             <a
               href="#pricing"
-              className="border border-white/10 hover:border-white/30 bg-white/5 text-white font-semibold px-8 py-4 rounded-2xl text-lg transition flex items-center justify-center gap-2"
+              className="w-full sm:w-auto border border-white/10 hover:border-white/30 bg-white/5 hover:bg-white/10 text-white font-bold px-8 py-5 rounded-2xl text-lg transition duration-300 flex items-center justify-center"
             >
-              View Pricing
+              Explore Pricing
             </a>
           </div>
 
-          {/* Stats Row */}
-          <div className="mt-16 grid grid-cols-3 gap-6 max-w-2xl mx-auto border-t border-white/10 pt-12">
+          {/* Live Trust Metrics */}
+          <div className="mt-16 pt-10 border-t border-white/5 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto text-center">
             {[
-              { val: "98%", label: "WhatsApp Open Rate" },
-              { val: "30%+", label: "Cart Recovery Rate" },
-              { val: "₹0", label: "Setup Cost" },
+              {
+                val: "98%",
+                label: "WhatsApp Open Rate",
+                sub: "Vs 2% for emails",
+              },
+              {
+                val: "30%+",
+                label: "Average Recovery",
+                sub: "Saved from bounce",
+              },
+              {
+                val: "15 Sec",
+                label: "Smart Rate-Limit",
+                sub: "Zero ban risk",
+              },
+              {
+                val: "24/7",
+                label: "AI Sales Copilot",
+                sub: "Instant replies",
+              },
             ].map((s, i) => (
-              <div key={i}>
-                <p className="text-3xl font-extrabold text-white">{s.val}</p>
-                <p className="text-sm text-slate-400 mt-1">{s.label}</p>
+              <div
+                key={i}
+                className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-2xl"
+              >
+                <p className="text-3xl font-black text-white">{s.val}</p>
+                <p className="text-xs font-bold text-teal-400 mt-1">
+                  {s.label}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{s.sub}</p>
               </div>
             ))}
           </div>
@@ -123,44 +163,104 @@ export default function Homepage() {
       <section className="py-24 px-6 bg-white">
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-8">
           <div className="bg-red-50 border border-red-100 rounded-3xl p-10">
-            <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-500 text-xl mb-6">✗</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">What's happening right now</h3>
+            <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-500 text-xl mb-6">
+              ✗
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              What's happening right now
+            </h3>
             <ul className="space-y-3 text-gray-600">
-              <li className="flex items-start gap-3"><span className="text-red-400 mt-1">✗</span> Customers add to cart and disappear</li>
-              <li className="flex items-start gap-3"><span className="text-red-400 mt-1">✗</span> Your emails go to spam — 2% open rate</li>
-              <li className="flex items-start gap-3"><span className="text-red-400 mt-1">✗</span> No way to re-engage past buyers</li>
-              <li className="flex items-start gap-3"><span className="text-red-400 mt-1">✗</span> Festival season revenue left on table</li>
+              <li className="flex items-start gap-3">
+                <span className="text-red-400 mt-1">✗</span> Customers add to
+                cart and disappear
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-red-400 mt-1">✗</span> Your emails go to
+                spam — 2% open rate
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-red-400 mt-1">✗</span> No way to re-engage
+                past buyers
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-red-400 mt-1">✗</span> Festival season
+                revenue left on table
+              </li>
             </ul>
           </div>
           <div className="bg-teal-50 border border-teal-100 rounded-3xl p-10">
-            <div className="w-12 h-12 bg-teal-600 rounded-2xl flex items-center justify-center text-white text-xl mb-6">✓</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">With WA-Auto</h3>
+            <div className="w-12 h-12 bg-teal-600 rounded-2xl flex items-center justify-center text-white text-xl mb-6">
+              ✓
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              With WA-Auto
+            </h3>
             <ul className="space-y-3 text-gray-700">
-              <li className="flex items-start gap-3"><FaCheckCircle className="text-teal-500 mt-1 shrink-0" /> Automatic cart recovery messages on WhatsApp</li>
-              <li className="flex items-start gap-3"><FaCheckCircle className="text-teal-500 mt-1 shrink-0" /> 98% open rate — customers actually read it</li>
-              <li className="flex items-start gap-3"><FaCheckCircle className="text-teal-500 mt-1 shrink-0" /> Re-target all Shopify customers in one click</li>
-              <li className="flex items-start gap-3"><FaCheckCircle className="text-teal-500 mt-1 shrink-0" /> Festival sale campaigns sent in minutes</li>
+              <li className="flex items-start gap-3">
+                <FaCheckCircle className="text-teal-500 mt-1 shrink-0" />{" "}
+                Automatic cart recovery messages on WhatsApp
+              </li>
+              <li className="flex items-start gap-3">
+                <FaCheckCircle className="text-teal-500 mt-1 shrink-0" /> 98%
+                open rate — customers actually read it
+              </li>
+              <li className="flex items-start gap-3">
+                <FaCheckCircle className="text-teal-500 mt-1 shrink-0" />{" "}
+                Re-target all Shopify customers in one click
+              </li>
+              <li className="flex items-start gap-3">
+                <FaCheckCircle className="text-teal-500 mt-1 shrink-0" />{" "}
+                Festival sale campaigns sent in minutes
+              </li>
             </ul>
           </div>
         </div>
       </section>
 
       {/* ─── HOW IT WORKS ────────────────────────────────────── */}
-      <section id="howitworks" className="py-24 px-6 bg-slate-50 border-y border-gray-100">
+      <section
+        id="howitworks"
+        className="py-24 px-6 bg-slate-50 border-y border-gray-100"
+      >
         <div className="max-w-5xl mx-auto text-center">
-          <span className="text-teal-600 font-bold uppercase text-sm tracking-widest">Simple Process</span>
-          <h2 className="text-4xl font-extrabold text-gray-900 mt-2 mb-4">Live in under 24 hours</h2>
-          <p className="text-gray-500 text-lg mb-16 max-w-xl mx-auto">You signup, we do the rest. No tech knowledge needed.</p>
+          <span className="text-teal-600 font-bold uppercase text-sm tracking-widest">
+            Simple Process
+          </span>
+          <h2 className="text-4xl font-extrabold text-gray-900 mt-2 mb-4">
+            Live in under 24 hours
+          </h2>
+          <p className="text-gray-500 text-lg mb-16 max-w-xl mx-auto">
+            You signup, we do the rest. No tech knowledge needed.
+          </p>
 
           <div className="grid md:grid-cols-3 gap-8 text-left">
             {[
-              { n: "01", title: "Sign Up", desc: "Create your account with your brand name and email. Takes 60 seconds." },
-              { n: "02", title: "Google Meet Setup", desc: "We hop on a quick call, connect your Shopify store and WhatsApp number — all done by our team." },
-              { n: "03", title: "Revenue on Autopilot", desc: "Abandoned carts are recovered automatically. Run campaigns anytime from your dashboard." },
+              {
+                n: "01",
+                title: "Sign Up",
+                desc: "Create your account with your brand name and email. Takes 60 seconds.",
+              },
+              {
+                n: "02",
+                title: "Google Meet Setup",
+                desc: "We hop on a quick call, connect your Shopify store and WhatsApp number — all done by our team.",
+              },
+              {
+                n: "03",
+                title: "Revenue on Autopilot",
+                desc: "Abandoned carts are recovered automatically. Run campaigns anytime from your dashboard.",
+              },
             ].map((s, i) => (
-              <div key={i} className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:-translate-y-1 transition duration-300">
-                <div className="text-5xl font-extrabold text-teal-100 mb-4">{s.n}</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{s.title}</h3>
+              <div
+                key={i}
+                className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:-translate-y-1 transition duration-300"
+              >
+                <div className="text-5xl font-extrabold text-teal-100 mb-4">
+                  {s.n}
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  {s.title}
+                </h3>
                 <p className="text-gray-500 leading-relaxed">{s.desc}</p>
               </div>
             ))}
@@ -172,17 +272,28 @@ export default function Homepage() {
       <section id="features" className="py-24 px-6 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <span className="text-teal-600 font-bold uppercase text-sm tracking-widest">What You Get</span>
-            <h2 className="text-4xl font-extrabold text-gray-900 mt-2">Everything to grow revenue</h2>
+            <span className="text-teal-600 font-bold uppercase text-sm tracking-widest">
+              What You Get
+            </span>
+            <h2 className="text-4xl font-extrabold text-gray-900 mt-2">
+              Everything to grow revenue
+            </h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((f, i) => (
-              <div key={i} className="group p-8 rounded-3xl border border-gray-100 hover:border-teal-200 hover:shadow-lg transition duration-300 bg-white">
+              <div
+                key={i}
+                className="group p-8 rounded-3xl border border-gray-100 hover:border-teal-200 hover:shadow-lg transition duration-300 bg-white"
+              >
                 <div className="w-14 h-14 bg-teal-50 group-hover:bg-teal-600 rounded-2xl flex items-center justify-center text-teal-600 group-hover:text-white text-xl transition duration-300 mb-5">
                   {f.icon}
                 </div>
-                <h3 className="font-bold text-gray-900 text-lg mb-2">{f.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{f.desc}</p>
+                <h3 className="font-bold text-gray-900 text-lg mb-2">
+                  {f.title}
+                </h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  {f.desc}
+                </p>
               </div>
             ))}
           </div>
@@ -192,22 +303,32 @@ export default function Homepage() {
       {/* ─── PRICING ─────────────────────────────────────────── */}
       <section id="pricing" className="py-24 px-6 bg-slate-950 text-white">
         <div className="max-w-5xl mx-auto text-center">
-          <span className="text-teal-400 font-bold uppercase text-sm tracking-widest">Pricing</span>
-          <h2 className="text-4xl font-extrabold mt-2 mb-4">Simple, transparent plans</h2>
+          <span className="text-teal-400 font-bold uppercase text-sm tracking-widest">
+            Pricing
+          </span>
+          <h2 className="text-4xl font-extrabold mt-2 mb-4">
+            Simple, transparent plans
+          </h2>
           <p className="text-slate-400 text-lg mb-16 max-w-xl mx-auto">
-            No hidden fees. No per-message charges. Flat monthly subscription — you keep all the revenue you recover.
+            No hidden fees. No per-message charges. Flat monthly subscription —
+            you keep all the revenue you recover.
           </p>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto text-left">
-
             {/* Growth Plan */}
             <div className="bg-slate-900 border border-slate-700 hover:border-teal-500/50 rounded-3xl p-10 transition duration-300">
-              <p className="text-sm font-bold text-teal-400 uppercase tracking-widest mb-3">Growth</p>
+              <p className="text-sm font-bold text-teal-400 uppercase tracking-widest mb-3">
+                Growth
+              </p>
               <div className="flex items-end gap-2 mb-2">
-                <span className="text-5xl font-extrabold text-white">₹4,999</span>
+                <span className="text-5xl font-extrabold text-white">
+                  ₹4,999
+                </span>
                 <span className="text-slate-400 mb-2">/ month</span>
               </div>
-              <p className="text-slate-400 text-sm mb-8">Best for stores doing ₹1L–₹5L/month revenue</p>
+              <p className="text-slate-400 text-sm mb-8">
+                Best for stores doing ₹1L–₹5L/month revenue
+              </p>
 
               <ul className="space-y-3 mb-10">
                 {[
@@ -219,13 +340,19 @@ export default function Homepage() {
                   "WhatsApp setup by our team",
                   "Email support",
                 ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm">
+                  <li
+                    key={i}
+                    className="flex items-center gap-3 text-slate-300 text-sm"
+                  >
                     <FaCheckCircle className="text-teal-400 shrink-0" /> {item}
                   </li>
                 ))}
               </ul>
 
-              <Link href="/signup" className="block w-full text-center bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-2xl transition duration-300">
+              <Link
+                href="/signup"
+                className="block w-full text-center bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-2xl transition duration-300"
+              >
                 Get Started
               </Link>
             </div>
@@ -235,12 +362,18 @@ export default function Homepage() {
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-amber-500 text-black text-xs font-extrabold px-5 py-1.5 rounded-full shadow-lg">
                 MOST POPULAR
               </div>
-              <p className="text-sm font-bold text-yellow-400 uppercase tracking-widest mb-3">Pro</p>
+              <p className="text-sm font-bold text-yellow-400 uppercase tracking-widest mb-3">
+                Pro
+              </p>
               <div className="flex items-end gap-2 mb-2">
-                <span className="text-5xl font-extrabold text-white">₹6,999</span>
+                <span className="text-5xl font-extrabold text-white">
+                  ₹6,999
+                </span>
                 <span className="text-teal-300 mb-2">/ month</span>
               </div>
-              <p className="text-teal-300 text-sm mb-8">Best for stores doing ₹5L+ revenue per month</p>
+              <p className="text-teal-300 text-sm mb-8">
+                Best for stores doing ₹5L+ revenue per month
+              </p>
 
               <ul className="space-y-3 mb-10">
                 {[
@@ -254,13 +387,20 @@ export default function Homepage() {
                   "Advanced analytics & ROI tracking",
                   "Dedicated account manager",
                 ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-white text-sm">
-                    <FaCheckCircle className="text-yellow-400 shrink-0" /> {item}
+                  <li
+                    key={i}
+                    className="flex items-center gap-3 text-white text-sm"
+                  >
+                    <FaCheckCircle className="text-yellow-400 shrink-0" />{" "}
+                    {item}
                   </li>
                 ))}
               </ul>
 
-              <Link href="/signup" className="block w-full text-center bg-white hover:bg-gray-100 text-teal-900 font-extrabold py-4 rounded-2xl transition duration-300 shadow-lg">
+              <Link
+                href="/signup"
+                className="block w-full text-center bg-white hover:bg-gray-100 text-teal-900 font-extrabold py-4 rounded-2xl transition duration-300 shadow-lg"
+              >
                 Get Started — Best Value
               </Link>
             </div>
@@ -269,8 +409,10 @@ export default function Homepage() {
           {/* Negotiation note */}
           <div className="mt-10 bg-white/5 border border-white/10 rounded-2xl px-8 py-5 max-w-2xl mx-auto">
             <p className="text-slate-300 text-sm">
-              💬 <strong className="text-white">Price feel too high?</strong> Reach out directly — we work with early clients flexibly.
-              These are standard rates; we negotiate based on your store size and needs.
+              💬 <strong className="text-white">Price feel too high?</strong>{" "}
+              Reach out directly — we work with early clients flexibly. These
+              are standard rates; we negotiate based on your store size and
+              needs.
             </p>
           </div>
         </div>
@@ -280,19 +422,48 @@ export default function Homepage() {
       <section className="py-24 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-extrabold text-gray-900">Stores already winning</h2>
+            <h2 className="text-4xl font-extrabold text-gray-900">
+              Stores already winning
+            </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { name: "Priya S.", store: "FashionHub", quote: "Recovered ₹80,000 in the first month alone. The cart reminder messages actually work.", stars: 5 },
-              { name: "Rahul M.", store: "UrbanKicks", quote: "Setup was done in one Google Meet. Our festival Diwali campaign got 42% reply rate.", stars: 5 },
-              { name: "Sneha K.", store: "OrganicNest", quote: "We were losing money on abandoned carts every day. Now it just recovers on its own.", stars: 5 },
+              {
+                name: "Priya S.",
+                store: "FashionHub",
+                quote:
+                  "Recovered ₹80,000 in the first month alone. The cart reminder messages actually work.",
+                stars: 5,
+              },
+              {
+                name: "Rahul M.",
+                store: "UrbanKicks",
+                quote:
+                  "Setup was done in one Google Meet. Our festival Diwali campaign got 42% reply rate.",
+                stars: 5,
+              },
+              {
+                name: "Sneha K.",
+                store: "OrganicNest",
+                quote:
+                  "We were losing money on abandoned carts every day. Now it just recovers on its own.",
+                stars: 5,
+              },
             ].map((t, i) => (
-              <div key={i} className="bg-slate-50 border border-gray-100 rounded-3xl p-8">
+              <div
+                key={i}
+                className="bg-slate-50 border border-gray-100 rounded-3xl p-8"
+              >
                 <div className="flex gap-1 mb-4">
-                  {Array(t.stars).fill(0).map((_, j) => <FaStar key={j} className="text-yellow-400 text-sm" />)}
+                  {Array(t.stars)
+                    .fill(0)
+                    .map((_, j) => (
+                      <FaStar key={j} className="text-yellow-400 text-sm" />
+                    ))}
                 </div>
-                <p className="text-gray-700 text-sm leading-relaxed mb-6">"{t.quote}"</p>
+                <p className="text-gray-700 text-sm leading-relaxed mb-6">
+                  "{t.quote}"
+                </p>
                 <div>
                   <p className="font-bold text-gray-900 text-sm">{t.name}</p>
                   <p className="text-gray-400 text-xs">{t.store}</p>
@@ -302,22 +473,32 @@ export default function Homepage() {
           </div>
         </div>
       </section>
- 
+
       {/* ─── FAQ ─────────────────────────────────────────────── */}
-      <section id="faq" className="py-24 px-6 bg-slate-50 border-t border-gray-100">
+      <section
+        id="faq"
+        className="py-24 px-6 bg-slate-50 border-t border-gray-100"
+      >
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-4xl font-extrabold text-gray-900">Frequently Asked</h2>
+            <h2 className="text-4xl font-extrabold text-gray-900">
+              Frequently Asked
+            </h2>
           </div>
           <div className="space-y-3">
             {faqs.map((faq, i) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+              <div
+                key={i}
+                className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm"
+              >
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full px-7 py-5 text-left flex justify-between items-center hover:bg-gray-50 transition"
                 >
                   <span className="font-semibold text-gray-900">{faq.q}</span>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm transition ${openFaq === i ? "bg-teal-100 text-teal-700" : "bg-gray-100 text-gray-400"}`}>
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-sm transition ${openFaq === i ? "bg-teal-100 text-teal-700" : "bg-gray-100 text-gray-400"}`}
+                  >
                     {openFaq === i ? <FiChevronUp /> : <FiChevronDown />}
                   </div>
                 </button>
@@ -348,13 +529,18 @@ export default function Homepage() {
             Get Started Free <FaArrowRight />
           </Link>
           <div className="mt-10 flex flex-wrap justify-center gap-8 text-sm text-teal-200">
-            <div className="flex items-center gap-2"><FaShieldAlt /> No lock-in contract</div>
-            <div className="flex items-center gap-2"><FaCheckCircle /> Setup by our team</div>
-            <div className="flex items-center gap-2"><FaWhatsapp /> WhatsApp support included</div>
+            <div className="flex items-center gap-2">
+              <FaShieldAlt /> No lock-in contract
+            </div>
+            <div className="flex items-center gap-2">
+              <FaCheckCircle /> Setup by our team
+            </div>
+            <div className="flex items-center gap-2">
+              <FaWhatsapp /> WhatsApp support included
+            </div>
           </div>
         </div>
       </section>
-
     </div>
   );
 }
