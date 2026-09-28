@@ -15,8 +15,10 @@ const Footer = () => {
   ) {
     return null;
   }
+
+
   return (
-    <footer className="bg-teal-900 text-teal-100 py-12 lg:py-16">
+    <footer className="bg-app-950 text-teal-100 py-12 lg:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top Section: Grid Layout for better responsiveness */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12 lg:gap-8">

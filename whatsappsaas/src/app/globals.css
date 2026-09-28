@@ -1,11 +1,127 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-plus-jakarta-sans), -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+
+  --color-brand-wa: #25D366;
+  --color-brand-emerald: #10B981;
+  --color-brand-dark-wa: #0E7A3D;
+  --color-brand-glow: rgba(37, 211, 102, 0.22);
+  --color-brand-gold: #F59E0B;
+  --color-brand-purple: #8B5CF6;
+  --color-brand-pink: #EC4899;
+
+  --color-app-950: #030712;
+  --color-app-900: #060E1A;
+  --color-app-850: #0B1526;
+  --color-app-800: #111F36;
+  --color-app-700: #1E3252;
+
+  --animate-float-slow: float 6s ease-in-out infinite;
+  --animate-pulse-glow: pulseGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulseGlow {
+  0% { opacity: 0.3; transform: scale(0.98); }
+  100% { opacity: 0.7; transform: scale(1.02); }
+}
+
 
 /* Hide scrollbar but keep scroll functionality — used in tab bar on mobile */
 .scrollbar-hide {
-  -ms-overflow-style: none;   /* IE/Edge */
-  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
+
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;               /* Chrome/Safari */
+  display: none;
+  /* Chrome/Safari */
+}
+
+
+:root {
+  --mouse-x: 50%;
+  --mouse-y: 50%;
+}
+
+body {
+  background-color: #030712;
+  color: #F8FAFC;
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bg-grid-mesh {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+}
+
+@media (min-width: 640px) {
+  .bg-grid-mesh {
+    background-size: 50px 50px;
+  }
+}
+
+/* Premium Glassmorphic Cards */
+.pro-card {
+  position: relative;
+  background: rgba(11, 21, 38, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 640px) {
+  .pro-card {
+    border-radius: 24px;
+  }
+}
+
+.pro-card:hover {
+  border-color: rgba(37, 211, 102, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(37, 211, 102, 0.12);
+}
+
+.text-gradient-emerald {
+  background: linear-gradient(135deg, #25D366 0%, #34D399 50%, #60A5FA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Hide Scrollbar for Horizontal Swipe on Mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Touch Slider Thumb */
+input[type=range]::-webkit-slider-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 50%;
+  background: #25D366;
+  cursor: pointer;
+  -webkit-appearance: none;
+  box-shadow: 0 0 12px rgba(37, 211, 102, 0.6);
 }
