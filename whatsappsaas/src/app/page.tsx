@@ -303,7 +303,7 @@ export default function Homepage() {
                   data-lucide="play"
                   className="w-4 h-4 text-brand-wa fill-brand-wa"
                 ></i>
-                <span>Try Live Simulator</span>
+                <span className="font-bold bg-brand-wa text-black px-2 py-1 rounded">Try Live Simulator</span>
               </a>
             </div>
 
