@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FaCheckCircle, FaWhatsapp, FaArrowRight, FaShieldAlt } from "react-icons/fa";
+import { FaCheckCircle, FaArrowRight, FaShieldAlt } from "react-icons/fa";
 import axios from 'axios';
 import { signupSchema, SignupFormData } from "../../lib/validations";
 
@@ -73,43 +74,47 @@ const handleSignup = async (e: React.SyntheticEvent<HTMLFormElement>) => {
   };
 
   return (
-    <section className="relative isolate flex flex-1 items-center overflow-hidden px-4 py-10 sm:px-6 sm:py-16">
+    <section className="relative isolate flex flex-1 items-center overflow-hidden px-4 py-8 sm:px-6 sm:py-12">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-grid-mesh" />
       <div className="pointer-events-none absolute left-1/3 top-0 -z-10 h-80 w-80 rounded-full bg-brand-wa/10 blur-[130px]" />
-      <div className="mx-auto grid w-full max-w-6xl items-stretch gap-6 lg:grid-cols-2 lg:gap-8">
+      <div className="mx-auto grid w-full max-w-6xl items-start gap-5 lg:grid-cols-2 lg:items-stretch lg:gap-8">
       
       {/* Left Side - Benefits */}
-      <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl border border-brand-wa/20 bg-gradient-to-br from-brand-wa/15 via-app-900 to-app-950 p-7 text-white shadow-xl sm:p-10">
-        <div className="flex items-center space-x-2 mb-8">
-          <FaWhatsapp className="text-4xl text-brand-wa" />
-          <span className="text-2xl font-bold">WA-Auto</span>
+      <div className="order-2 relative flex flex-col justify-center overflow-hidden rounded-2xl border border-brand-wa/20 bg-gradient-to-br from-brand-wa/15 via-app-900 to-app-950 p-6 text-white shadow-xl sm:p-10 lg:order-1">
+        <div className="mb-6">
+          <span className="brand-logo-flow relative inline-flex">
+            <Image src="/wa-logo.png" alt="WA-Auto" width={260} height={86} className="relative z-10 h-12 w-auto object-contain sm:h-14" />
+          </span>
         </div>
         
         <h1 className="text-4xl font-bold mb-6 leading-tight">
           Start recovering abandoned carts today.
         </h1>
-        <p className="text-lg text-gray-300 mb-8">
+        <p className="text-base leading-7 text-gray-300 mb-7 sm:text-lg">
           Join 500+ e-commerce stores generating ₹2.5Cr+ in recovered revenue.
         </p>
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 sm:space-y-4">
           <div className="flex items-center">
             <FaCheckCircle className="text-brand-wa text-xl mr-4" />
-            <span className="text-lg">Abandoned cart recovery on autopilot</span>
+            <span className="text-sm sm:text-base">Abandoned cart recovery on autopilot</span>
           </div>
           <div className="flex items-center">
             <FaCheckCircle className="text-brand-wa text-xl mr-4" />
-            <span className="text-lg">Setup takes less than 2 minutes</span>
+            <span className="text-sm sm:text-base">Setup takes less than 2 minutes</span>
           </div>
           <div className="flex items-center">
             <FaCheckCircle className="text-brand-wa text-xl mr-4" />
-            <span className="text-lg">Festival campaigns to re-engage customers</span>
+            <span className="text-sm sm:text-base">Festival campaigns to re-engage customers</span>
           </div>
         </div>
       </div>
 
       {/* Right Side - Signup Form */}
-      <div className="rounded-2xl border border-white/10 bg-app-900/90 p-6 text-white shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8">
+      <div className="order-1 rounded-2xl border border-white/10 bg-app-900/90 p-5 text-white shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8 lg:order-2">
+        <Link href="/" className="brand-logo-flow relative mb-5 inline-flex lg:hidden" aria-label="WA-Auto home">
+          <Image src="/wa-logo.png" alt="WA-Auto" width={260} height={86} className="relative z-10 h-11 w-auto object-contain" />
+        </Link>
         <h2 className="text-3xl font-bold text-white mb-2">Create your account</h2>
         <p className="text-gray-400 mb-8">Start your free trial. No credit card required.</p>
 

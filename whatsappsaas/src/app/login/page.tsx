@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FaWhatsapp, FaArrowRight } from "react-icons/fa";
+import { FaArrowRight } from "react-icons/fa";
 import axios from "axios";
 import { loginSchema, LoginFormData } from "../../lib/validations";
 
@@ -61,18 +62,18 @@ export default function LoginPage() {
   };
 
   return (
-    <section className="relative isolate flex flex-1 items-center overflow-hidden px-4 py-14 sm:px-6 sm:py-20">
+    <section className="relative isolate flex flex-1 items-center overflow-hidden px-4 py-8 sm:px-6 sm:py-14">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-grid-mesh" />
       <div className="pointer-events-none absolute left-1/2 top-10 -z-10 h-72 w-72 -translate-x-1/2 rounded-full bg-brand-wa/10 blur-[120px]" />
-      <div className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-app-900/90 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-9">
+      <div className="mx-auto w-full max-w-md">
+      <div className="rounded-2xl border border-white/10 bg-app-900/90 p-5 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-9">
       <div className="flex flex-col items-center justify-center text-center">
         <Link
           href="/"
-          className="flex items-center justify-center space-x-2 mb-6"
+          className="brand-logo-flow relative mb-5 inline-flex"
+          aria-label="WA-Auto home"
         >
-          <div className="w-12 h-12 bg-brand-wa/15 rounded-2xl flex items-center justify-center shadow-lg">
-            <FaWhatsapp className="text-3xl text-brand-wa" />
-          </div>
+          <Image src="/wa-logo.png" alt="WA-Auto" width={260} height={86} className="relative z-10 h-12 w-auto object-contain sm:h-14" />
         </Link>
         <h1 className="text-3xl font-extrabold text-white">Welcome back</h1>
         <p className="mt-2 text-sm text-gray-400">
@@ -169,6 +170,17 @@ export default function LoginPage() {
             Start your free trial
           </Link>
         </p>
+      </div>
+      </div>
+      <div className="mt-5 grid grid-cols-2 gap-3 text-center">
+        <div className="rounded-xl border border-white/10 bg-app-900/70 px-3 py-4">
+          <p className="text-sm font-semibold text-white">Campaigns</p>
+          <p className="mt-1 text-xs leading-5 text-gray-400">Manage WhatsApp outreach and follow-ups.</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-app-900/70 px-3 py-4">
+          <p className="text-sm font-semibold text-white">Store insights</p>
+          <p className="mt-1 text-xs leading-5 text-gray-400">Track messages, customers, and recovered sales.</p>
+        </div>
       </div>
       </div>
     </section>
