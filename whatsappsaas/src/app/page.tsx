@@ -74,12 +74,12 @@ export default function Homepage() {
   const scenario = scenarios[activeScenario];
 
   return (
-    <div className="bg-app-950 bg-grid-mesh antialiased selection:bg-brand-wa selection:text-black">
+    <div className="bg-[#0B1526] bg-grid-mesh antialiased selection:bg-brand-wa selection:text-black">
       {/* ================= AMBIENT BACKGROUND GLOWS ================= */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[350px] sm:w-[650px] lg:w-[1000px] h-[350px] sm:h-[550px] bg-brand-wa/15 rounded-full blur-[120px] sm:blur-[180px] animate-pulse-glow"></div>
-        <div className="absolute top-[30%] -right-[20%] sm:-right-[15%] w-[300px] sm:w-[650px] h-[300px] sm:h-[650px] bg-brand-purple/10 rounded-full blur-[140px] sm:blur-[190px]"></div>
-        <div className="absolute top-[65%] -left-[20%] sm:-left-[15%] w-[300px] sm:w-[650px] h-[300px] sm:h-[650px] bg-brand-pink/10 rounded-full blur-[140px] sm:blur-[190px]"></div>
+        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[350px] sm:w-[650px] lg:w-[1000px] h-[350px] sm:h-[550px] bg-brand-wa/[0.08] rounded-full blur-[120px] sm:blur-[180px] animate-pulse-glow"></div>
+        <div className="absolute top-[30%] -right-[20%] sm:-right-[15%] w-[300px] sm:w-[650px] h-[300px] sm:h-[650px] bg-brand-purple/[0.08] rounded-full blur-[140px] sm:blur-[190px]"></div>
+        <div className="absolute top-[65%] -left-[20%] sm:-left-[15%] w-[300px] sm:w-[650px] h-[300px] sm:h-[650px] bg-brand-pink/[0.08] rounded-full blur-[140px] sm:blur-[190px]"></div>
       </div>
 
       <div className="relative z-10">
@@ -115,7 +115,7 @@ export default function Homepage() {
             <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
               <a
                 href={SIGNUP_URL}
-                className="btn-glass-shine relative isolate inline-flex min-h-14 w-2/5 items-center justify-center gap-2 overflow-hidden rounded-xl border border-brand-wa/70 bg-brand-wa px-6 py-4 text-center text-sm font-black uppercase text-black shadow-xl shadow-brand-wa/20 transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-brand-wa/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-wa sm:w-auto sm:min-w-52"
+                className="btn-glass-shine relative isolate inline-flex min-h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-brand-wa/70 bg-brand-wa px-6 py-4 text-center text-sm font-black uppercase text-black shadow-xl shadow-brand-wa/20 transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-brand-wa/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-wa sm:w-auto sm:min-w-52"
               >
                 <span>Get Started</span>
                 <FaArrowRight aria-hidden="true" className="h-4 w-4" />
@@ -472,7 +472,7 @@ export default function Homepage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
               {/* <!-- Leak 1: Abandoned Carts --> */}
-              <div className="pro-card p-5 sm:p-8 flex flex-col justify-between">
+              <div className="pro-card p-6 sm:p-8 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center font-black text-lg sm:text-xl">
@@ -504,7 +504,7 @@ export default function Homepage() {
               </div>
 
               {/* <!-- Leak 2: Instagram Comments --> */}
-              <div className="pro-card p-5 sm:p-8 flex flex-col justify-between">
+              <div className="pro-card p-6 sm:p-8 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-pink-500/10 text-pink-400 flex items-center justify-center font-black text-lg sm:text-xl">
@@ -536,7 +536,7 @@ export default function Homepage() {
               </div>
 
               {/* <!-- Leak 3: COD RTO Loss --> */}
-              <div className="pro-card p-5 sm:p-8 flex flex-col justify-between">
+              <div className="pro-card p-6 sm:p-8 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-500/10 text-brand-wa flex items-center justify-center font-black text-lg sm:text-xl">
@@ -569,7 +569,7 @@ export default function Homepage() {
               </div>
 
               {/* <!-- Leak 4: Dormant Customers --> */}
-              <div className="pro-card p-5 sm:p-8 flex flex-col justify-between">
+              <div className="pro-card p-6 sm:p-8 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center font-black text-lg sm:text-xl">
@@ -661,7 +661,7 @@ export default function Homepage() {
 
               {/* <!-- Visual Demonstration Card --> */}
               <div className="lg:col-span-6">
-                <div className="pro-card p-4 sm:p-8 bg-gradient-to-br from-app-900 via-app-850 to-app-950 border-brand-wa/30">
+                <div className="pro-card p-5 sm:p-8 bg-gradient-to-br from-app-900 via-app-850 to-app-950 border-brand-wa/30">
                   <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-white/10 text-[11px] sm:text-xs font-mono">
                     <span className="text-brand-wa flex items-center gap-1.5 font-bold">
                       <span className="w-2 h-2 rounded-full bg-brand-wa"></span>{" "}
@@ -821,7 +821,7 @@ export default function Homepage() {
               </p>
             </div>
 
-            <div className="pro-card p-4 sm:p-8 lg:p-10 border border-white/10 bg-app-900">
+            <div className="pro-card p-5 sm:p-8 lg:p-10 border border-white/10 bg-app-900">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
                 {/* Left Channel Selector */}
                 <div className="lg:col-span-4 space-y-2.5 sm:space-y-3 lg:border-r border-white/5 lg:pr-6">
@@ -971,7 +971,7 @@ export default function Homepage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              <div className="pro-card p-4 sm:p-6 flex flex-col justify-between">
+              <div className="pro-card p-5 sm:p-7 flex flex-col justify-between">
                 <div>
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand-wa/10 text-brand-wa flex items-center justify-center mb-3 sm:mb-4">
                     <i
@@ -992,7 +992,7 @@ export default function Homepage() {
                 </span>
               </div>
 
-              <div className="pro-card p-4 sm:p-6 flex flex-col justify-between">
+              <div className="pro-card p-5 sm:p-7 flex flex-col justify-between">
                 <div>
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-3 sm:mb-4">
                     <i data-lucide="sun" className="w-4 h-4 sm:w-5 sm:h-5"></i>
@@ -1010,7 +1010,7 @@ export default function Homepage() {
                 </span>
               </div>
 
-              <div className="pro-card p-4 sm:p-6 flex flex-col justify-between">
+              <div className="pro-card p-5 sm:p-7 flex flex-col justify-between">
                 <div>
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center mb-3 sm:mb-4">
                     <i
@@ -1031,7 +1031,7 @@ export default function Homepage() {
                 </span>
               </div>
 
-              <div className="pro-card p-4 sm:p-6 flex flex-col justify-between">
+              <div className="pro-card p-5 sm:p-7 flex flex-col justify-between">
                 <div>
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-3 sm:mb-4">
                     <i
@@ -1074,7 +1074,7 @@ export default function Homepage() {
               </p>
             </div>
 
-            <div className="pro-card p-4 sm:p-8 lg:p-12 border border-brand-wa/40">
+            <div className="pro-card p-5 sm:p-8 lg:p-12 border border-brand-wa/40">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10 items-center">
                 {/* Controls */}
                 <div className="lg:col-span-7 space-y-5 sm:space-y-6">
@@ -1264,7 +1264,7 @@ export default function Homepage() {
 
             <div className="mx-auto grid w-full max-w-5xl grid-cols-1 items-stretch gap-4 sm:gap-6 lg:grid-cols-2">
               {/* <!-- Plan 1: Growth --> */}
-              <div className="pro-card flex h-full min-w-0 flex-col rounded-2xl border border-white/10 bg-app-900/75 p-5 sm:p-7 lg:p-8">
+              <div className="pro-card flex h-full min-w-0 flex-col rounded-2xl border border-white/10 bg-app-900/75 p-6 sm:p-8 lg:p-9">
                 <div className="flex-1">
                   <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
                     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase text-gray-300">Core automation</span>
@@ -1331,7 +1331,7 @@ export default function Homepage() {
               </div>
 
               {/* <!-- Plan 2: Pro AI Suite (HIGHLIGHTED) --> */}
-              <div className="pro-card relative flex h-full min-w-0 flex-col rounded-2xl border border-brand-wa/45 bg-gradient-to-br from-brand-wa/[0.09] via-app-900 to-app-950 p-5 shadow-xl shadow-brand-wa/5 sm:p-7 lg:p-8">
+              <div className="pro-card relative flex h-full min-w-0 flex-col rounded-2xl border border-brand-wa/45 bg-gradient-to-br from-brand-wa/[0.09] via-app-900 to-app-950 p-6 shadow-xl shadow-brand-wa/5 sm:p-8 lg:p-9">
                 <div className="flex-1">
                   <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
                     <span className="rounded-full border border-brand-wa/30 bg-brand-wa/10 px-2.5 py-1 text-[10px] font-black uppercase text-brand-wa">Pro suite</span>
@@ -1416,7 +1416,7 @@ export default function Homepage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-              <div className="pro-card p-5 sm:p-6 flex flex-col justify-between">
+              <div className="pro-card p-6 sm:p-8 flex flex-col justify-between">
                 <p className="text-xs sm:text-sm text-gray-300 italic leading-relaxed">
                   &quot;Recovered{" "}
                   <strong className="text-brand-wa">₹82,400</strong> in our
@@ -1436,7 +1436,7 @@ export default function Homepage() {
                 </div>
               </div>
 
-              <div className="pro-card p-5 sm:p-6 flex flex-col justify-between border-brand-wa/30">
+              <div className="pro-card p-6 sm:p-8 flex flex-col justify-between border-brand-wa/30">
                 <p className="text-xs sm:text-sm text-gray-300 italic leading-relaxed">
                   &quot;The Instagram comment-to-DM flow added ₹1.4L during our
                   Diwali sale. Customer asks price on Reel, bot DMs checkout
@@ -1455,7 +1455,7 @@ export default function Homepage() {
                 </div>
               </div>
 
-              <div className="pro-card p-5 sm:p-6 flex flex-col justify-between">
+              <div className="pro-card p-6 sm:p-8 flex flex-col justify-between">
                 <p className="text-xs sm:text-sm text-gray-300 italic leading-relaxed">
                   &quot;We were losing money on abandoned carts every single
                   day. Now it recovers on its own. COD to Prepaid dropped RTO by
@@ -1587,7 +1587,7 @@ export default function Homepage() {
         {/* <!-- ================= FINAL GRAND CTA ================= */}
         <section className="py-14 sm:py-20 lg:py-24 relative overflow-hidden">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-            <div className="pro-card p-6 sm:p-12 lg:p-20 rounded-2xl sm:rounded-3xl border-2 border-brand-wa/40 bg-gradient-to-b from-brand-wa/15 via-app-900 to-app-950">
+            <div className="pro-card p-7 sm:p-12 lg:p-20 rounded-2xl sm:rounded-3xl border-2 border-brand-wa/40 bg-gradient-to-b from-brand-wa/15 via-app-900 to-app-950">
               <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
                 Stop Leaving 78% Of Your <br className="hidden sm:inline" />
                 <span className="text-gradient-emerald">
@@ -1605,7 +1605,7 @@ export default function Homepage() {
                   href={SIGNUP_URL}
                   className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-brand-wa text-black hover:bg-emerald-400 shadow-2xl shadow-brand-wa/40 transition-all text-center"
                 >
-                  Start 14-Day Free Trial
+                  Start Now
                 </a>
                 <a
                   href={WHATSAPP_URL}
@@ -1613,7 +1613,7 @@ export default function Homepage() {
                   rel="noreferrer"
                   className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-bold text-xs sm:text-sm bg-app-950 text-white border border-white/10 hover:border-white/20 transition-all text-center"
                 >
-                  Talk to Founders on WhatsApp
+                  Talk to Team on WhatsApp
                 </a>
               </div>
             </div>
