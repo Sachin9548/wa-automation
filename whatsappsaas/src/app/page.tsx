@@ -115,7 +115,7 @@ export default function Homepage() {
             <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
               <a
                 href={SIGNUP_URL}
-                className="btn-glass-shine relative isolate inline-flex min-h-14 items-center justify-center gap-2 overflow-hidden rounded-xl border border-brand-wa/70 bg-brand-wa px-6 py-4 text-center text-sm font-black uppercase text-black shadow-xl shadow-brand-wa/20 transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-brand-wa/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-wa sm:w-auto sm:min-w-52"
+                className="btn-glass-shine relative isolate inline-flex min-h-14 w-2/5 items-center justify-center gap-2 overflow-hidden rounded-xl border border-brand-wa/70 bg-brand-wa px-6 py-4 text-center text-sm font-black uppercase text-black shadow-xl shadow-brand-wa/20 transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-brand-wa/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-wa sm:w-auto sm:min-w-52"
               >
                 <span>Get Started</span>
                 <FaArrowRight aria-hidden="true" className="h-4 w-4" />
