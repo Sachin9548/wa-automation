@@ -1,8 +1,17 @@
 "use client";
 import { useState } from "react";
+import { FaArrowRight, FaCheck, FaWhatsapp } from "react-icons/fa";
 
 const SIGNUP_URL = "https://www.wautomation.shop/signup";
 const WHATSAPP_URL = "https://wa.me/919421095835";
+
+function PricingCheck() {
+  return (
+    <span aria-hidden="true" className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-wa/10 text-brand-wa">
+      <FaCheck className="h-2.5 w-2.5" />
+    </span>
+  );
+}
 
 export default function Homepage() {
   const [activeScenario, setActiveScenario] = useState<
@@ -106,20 +115,19 @@ export default function Homepage() {
             <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
               <a
                 href={SIGNUP_URL}
-                className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-brand-wa text-black shadow-2xl shadow-brand-wa/30 hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 text-center"
+                className="btn-glass-shine relative isolate inline-flex min-h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-brand-wa/70 bg-brand-wa px-6 py-4 text-center text-sm font-black uppercase text-black shadow-xl shadow-brand-wa/20 transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-brand-wa/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-wa sm:w-auto sm:min-w-52"
               >
-                <span>Start Now</span>
-                <i data-lucide="zap" className="w-4 h-4 fill-black"></i>
+                <span>Get Started</span>
+                <FaArrowRight aria-hidden="true" className="h-4 w-4" />
               </a>
               <a
-                href="#simulator"
-                className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-bold text-xs sm:text-sm bg-app-900 hover:bg-app-850 text-white border border-white/10 hover:border-brand-wa/40 transition-all flex items-center justify-center gap-2 text-center"
+                href={`${WHATSAPP_URL}?text=Hi%2C%20I%27d%20like%20to%20learn%20more%20about%20WA-Auto`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-glass-shine relative isolate inline-flex min-h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] px-6 py-4 text-center text-sm font-bold text-white backdrop-blur-xl transition duration-300 hover:-translate-y-0.5 hover:border-brand-wa/45 hover:bg-brand-wa/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-wa sm:w-auto sm:min-w-52"
               >
-                <i
-                  data-lucide="play"
-                  className="w-4 h-4 text-brand-wa fill-brand-wa"
-                ></i>
-                <span className="font-bold bg-brand-wa text-black px-2 py-1 rounded">Try Live Simulator</span>
+                <FaWhatsapp aria-hidden="true" className="h-4 w-4 text-brand-wa" />
+                <span>Contact Us</span>
               </a>
             </div>
 
@@ -1243,25 +1251,28 @@ export default function Homepage() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
-              <span className="text-xs uppercase font-bold tracking-widest text-brand-wa">
-                Flat Subscriptions
+              <span className="inline-flex rounded-full border border-brand-wa/25 bg-brand-wa/10 px-3 py-1 text-[10px] font-bold uppercase text-brand-wa sm:text-xs">
+                Transparent monthly plans
               </span>
               <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white mt-2.5 sm:mt-3">
-                Simple Flat Pricing. Keep 100% GMV.
+                Choose the plan that fits your store.
               </h2>
               <p className="mt-3 text-gray-400 text-xs sm:text-base">
-                We do not charge percentage commissions on your sales. Flat
-                monthly pricing with done-for-you onboarding.
+                Clear monthly pricing, practical automation, and onboarding support. No revenue-share pricing.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto">
+            <div className="mx-auto grid w-full max-w-5xl grid-cols-1 items-stretch gap-4 sm:gap-6 lg:grid-cols-2">
               {/* <!-- Plan 1: Growth --> */}
-              <div className="pro-card p-5 sm:p-8 lg:p-10 rounded-2xl sm:rounded-3xl flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-start">
+              <div className="pro-card flex h-full min-w-0 flex-col rounded-2xl border border-white/10 bg-app-900/75 p-5 sm:p-7 lg:p-8">
+                <div className="flex-1">
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase text-gray-300">Core automation</span>
+                    <span className="text-[11px] font-medium text-gray-500">For growing stores</span>
+                  </div>
+                  <div className="flex min-w-0 justify-between gap-3">
                     <div>
-                      <h3 className="text-lg sm:text-2xl font-bold text-white">
+                      <h3 className="text-xl font-bold text-white sm:text-2xl">
                         Growth Plan
                       </h3>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -1270,28 +1281,22 @@ export default function Homepage() {
                     </div>
                   </div>
 
-                  <div className="my-6 sm:my-8">
-                    <span className="text-3xl sm:text-5xl font-black text-white">
+                  <div className="my-5 flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b border-white/10 pb-5 sm:my-6">
+                    <span className="text-4xl font-black leading-none text-white sm:text-5xl">
                       ₹4,999
                     </span>
-                    <span className="text-gray-400 text-xs sm:text-sm font-medium font-mono">
+                    <span className="text-xs font-medium text-gray-400 sm:text-sm">
                       / month
                     </span>
                   </div>
 
-                  <ul className="space-y-3 sm:space-y-4 text-xs sm:text-sm text-gray-300">
-                    <li className="flex items-center gap-2.5 sm:gap-3">
-                      <i
-                        data-lucide="check"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                  <ul className="space-y-3.5 text-sm text-gray-300">
+                    <li className="flex min-w-0 items-start gap-3">
+                      <PricingCheck />
                       <span>Automated WhatsApp Cart Recovery (1-Tap Buy)</span>
                     </li>
-                    <li className="flex items-center gap-2.5 sm:gap-3">
-                      <i
-                        data-lucide="check"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                    <li className="flex min-w-0 items-start gap-3">
+                      <PricingCheck />
                       <span>
                         Shopify Sync &{" "}
                         <code className="text-white font-mono text-xs">
@@ -1300,50 +1305,41 @@ export default function Homepage() {
                         Tagging
                       </span>
                     </li>
-                    <li className="flex items-center gap-2.5 sm:gap-3">
-                      <i
-                        data-lucide="check"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                    <li className="flex min-w-0 items-start gap-3">
+                      <PricingCheck />
                       <span>Up to 5,000 WhatsApp Messages / month</span>
                     </li>
-                    <li className="flex items-center gap-2.5 sm:gap-3">
-                      <i
-                        data-lucide="check"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                    <li className="flex min-w-0 items-start gap-3">
+                      <PricingCheck />
                       <span>Live Conversion Funnel Dashboard</span>
                     </li>
-                    <li className="flex items-center gap-2.5 sm:gap-3">
-                      <i
-                        data-lucide="check"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                    <li className="flex min-w-0 items-start gap-3">
+                      <PricingCheck />
                       <span>Setup Done by Engineers on Google Meet</span>
                     </li>
                   </ul>
                 </div>
 
-                <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-white/10">
+                <div className="mt-7 border-t border-white/10 pt-5">
                   <a
                     href={SIGNUP_URL}
-                    className="block w-full text-center py-3.5 sm:py-4 rounded-xl bg-app-800 hover:bg-app-700 text-white font-bold text-xs sm:text-sm transition-all border border-white/10"
+                    className="btn-glass-shine relative isolate inline-flex min-h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3 text-center text-sm font-bold text-white backdrop-blur-xl transition hover:border-brand-wa/40 hover:bg-brand-wa/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-wa"
                   >
-                    Get Started with Growth
+                    <span>Get Started with Growth</span>
                   </a>
                 </div>
               </div>
 
               {/* <!-- Plan 2: Pro AI Suite (HIGHLIGHTED) --> */}
-              <div className="pro-card p-5 sm:p-8 lg:p-10 rounded-2xl sm:rounded-3xl border-2 border-brand-wa bg-gradient-to-b from-brand-wa/15 via-app-900 to-app-950 shadow-2xl shadow-brand-wa/10 flex flex-col justify-between relative">
-                <div className="absolute -top-3.5 right-6 sm:right-8 px-3 sm:px-4 py-1 rounded-full bg-brand-wa text-black font-black text-[10px] sm:text-[11px] uppercase tracking-wider shadow-lg">
-                  MOST POPULAR &bull; BEST ROI
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-start">
+              <div className="pro-card relative flex h-full min-w-0 flex-col rounded-2xl border border-brand-wa/45 bg-gradient-to-br from-brand-wa/[0.09] via-app-900 to-app-950 p-5 shadow-xl shadow-brand-wa/5 sm:p-7 lg:p-8">
+                <div className="flex-1">
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-full border border-brand-wa/30 bg-brand-wa/10 px-2.5 py-1 text-[10px] font-black uppercase text-brand-wa">Pro suite</span>
+                    <span className="inline-flex items-center rounded-full bg-brand-wa px-2.5 py-1 text-[10px] font-black uppercase text-black">Most popular</span>
+                  </div>
+                  <div className="flex min-w-0 justify-between gap-3">
                     <div>
-                      <h3 className="text-lg sm:text-2xl font-bold text-white">
+                      <h3 className="text-xl font-bold text-white sm:text-2xl">
                         Pro AI Revenue Suite
                       </h3>
                       <p className="text-xs text-brand-wa mt-0.5">
@@ -1352,69 +1348,54 @@ export default function Homepage() {
                     </div>
                   </div>
 
-                  <div className="my-6 sm:my-8">
-                    <span className="text-3xl sm:text-5xl font-black text-white">
+                  <div className="my-5 flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b border-white/10 pb-5 sm:my-6">
+                    <span className="text-4xl font-black leading-none text-white sm:text-5xl">
                       ₹6,999
                     </span>
-                    <span className="text-gray-400 text-xs sm:text-sm font-medium font-mono">
+                    <span className="text-xs font-medium text-gray-400 sm:text-sm">
                       / month
                     </span>
                   </div>
 
-                  <ul className="space-y-3 sm:space-y-4 text-xs sm:text-sm text-gray-200">
-                    <li className="flex items-center gap-2.5 sm:gap-3 font-semibold text-white">
-                      <i
-                        data-lucide="sparkles"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                  <ul className="space-y-3.5 text-sm text-gray-200">
+                    <li className="flex min-w-0 items-start gap-3 font-semibold text-white">
+                      <PricingCheck />
                       <span>Everything in Growth + AI Automation</span>
                     </li>
-                    <li className="flex items-center gap-2.5 sm:gap-3">
-                      <i
-                        data-lucide="check"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                    <li className="flex min-w-0 items-start gap-3">
+                      <PricingCheck />
                       <span>
                         <strong>24/7 AI Sales Concierge:</strong> Answers size &
                         delivery
                       </span>
                     </li>
-                    <li className="flex items-center gap-2.5 sm:gap-3">
-                      <i
-                        data-lucide="check"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                    <li className="flex min-w-0 items-start gap-3">
+                      <PricingCheck />
                       <span>
                         <strong>Instagram Comments ➔ DMs:</strong> Auto-send
                         checkout link
                       </span>
                     </li>
-                    <li className="flex items-center gap-2.5 sm:gap-3">
-                      <i
-                        data-lucide="check"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                    <li className="flex min-w-0 items-start gap-3">
+                      <PricingCheck />
                       <span>
                         <strong>RTO Killer Flow:</strong> Converts risky COD to
                         Prepaid UPI
                       </span>
                     </li>
-                    <li className="flex items-center gap-2.5 sm:gap-3">
-                      <i
-                        data-lucide="check"
-                        className="w-4 h-4 text-brand-wa shrink-0"
-                      ></i>
+                    <li className="flex min-w-0 items-start gap-3">
+                      <PricingCheck />
                       <span>1-Click VIP Festival & Sale Campaign Blasts</span>
                     </li>
                   </ul>
                 </div>
 
-                <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-brand-wa/30">
+                <div className="mt-7 border-t border-brand-wa/20 pt-5">
                   <a
                     href={SIGNUP_URL}
-                    className="block w-full text-center py-3.5 sm:py-4 rounded-xl bg-brand-wa hover:bg-emerald-400 text-black font-black text-xs sm:text-sm uppercase tracking-wider transition-all shadow-xl shadow-brand-wa/30"
+                    className="btn-glass-shine relative isolate inline-flex min-h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-brand-wa/70 bg-brand-wa px-4 py-3 text-center text-sm font-black uppercase text-black shadow-lg shadow-brand-wa/15 transition hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-brand-wa/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-wa"
                   >
-                    Claim Pro Access & Setup Call
+                    <span>Claim Pro Access &amp; Setup Call</span>
                   </a>
                 </div>
               </div>

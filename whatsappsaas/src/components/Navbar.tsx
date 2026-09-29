@@ -78,7 +78,7 @@ const Navbar = () => {
               width={240}
               height={80}
               priority
-              className="relative z-10 h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03] sm:h-14"
+              className="relative z-10 h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03] sm:h-16"
             />
           </span>
         </Link>

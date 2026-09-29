@@ -83,7 +83,7 @@ const handleSignup = async (e: React.SyntheticEvent<HTMLFormElement>) => {
       <div className="order-2 relative flex flex-col justify-center overflow-hidden rounded-2xl border border-brand-wa/20 bg-gradient-to-br from-brand-wa/15 via-app-900 to-app-950 p-6 text-white shadow-xl sm:p-10 lg:order-1">
         <div className="mb-6">
           <span className="brand-logo-flow relative inline-flex">
-            <Image src="/wa-logo.png" alt="WA-Auto" width={260} height={86} className="relative z-10 h-12 w-auto object-contain sm:h-14" />
+            <Image src="/wa-logo.png" alt="WA-Auto" width={260} height={86} className="relative z-10 h-14 w-auto object-contain sm:h-16" />
           </span>
         </div>
         
@@ -113,7 +113,7 @@ const handleSignup = async (e: React.SyntheticEvent<HTMLFormElement>) => {
       {/* Right Side - Signup Form */}
       <div className="order-1 rounded-2xl border border-white/10 bg-app-900/90 p-5 text-white shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8 lg:order-2">
         <Link href="/" className="brand-logo-flow relative mb-5 inline-flex lg:hidden" aria-label="WA-Auto home">
-          <Image src="/wa-logo.png" alt="WA-Auto" width={260} height={86} className="relative z-10 h-11 w-auto object-contain" />
+          <Image src="/wa-logo.png" alt="WA-Auto" width={260} height={86} className="relative z-10 h-12 w-auto object-contain" />
         </Link>
         <h2 className="text-3xl font-bold text-white mb-2">Create your account</h2>
         <p className="text-gray-400 mb-8">Start your free trial. No credit card required.</p>

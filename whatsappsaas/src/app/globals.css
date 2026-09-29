@@ -52,8 +52,34 @@
   50% { background-position: 0% 50%; opacity: 0.9; }
 }
 
+.btn-glass-shine::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: -60%;
+  left: -55%;
+  width: 38%;
+  height: 220%;
+  transform: skewX(-22deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+  animation: glassShine 4.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.btn-glass-shine > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes glassShine {
+  0%, 58% { left: -55%; opacity: 0; }
+  68% { opacity: 0.8; }
+  86%, 100% { left: 125%; opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .brand-logo-flow::before {
+  .brand-logo-flow::before,
+  .btn-glass-shine::after {
     animation: none;
     opacity: 0.55;
   }

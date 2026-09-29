@@ -42,7 +42,7 @@ const Footer = () => {
                 alt="WA-Auto"
                 width={260}
                 height={86}
-                className="relative z-10 h-12 w-auto object-contain sm:h-14"
+                className="relative z-10 h-14 w-auto object-contain sm:h-16"
               />
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-6 text-gray-400">

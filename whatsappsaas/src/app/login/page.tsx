@@ -73,7 +73,7 @@ export default function LoginPage() {
           className="brand-logo-flow relative mb-5 inline-flex"
           aria-label="WA-Auto home"
         >
-          <Image src="/wa-logo.png" alt="WA-Auto" width={260} height={86} className="relative z-10 h-12 w-auto object-contain sm:h-14" />
+          <Image src="/wa-logo.png" alt="WA-Auto" width={260} height={86} className="relative z-10 h-14 w-auto object-contain sm:h-16" />
         </Link>
         <h1 className="text-3xl font-extrabold text-white">Welcome back</h1>
         <p className="mt-2 text-sm text-gray-400">
