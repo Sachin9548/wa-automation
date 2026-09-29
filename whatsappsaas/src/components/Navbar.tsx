@@ -1,12 +1,27 @@
 "use client";
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
-import { FaBars, FaTimes } from "react-icons/fa";
+import {
+  FaArrowRight,
+  FaBars,
+  FaBolt,
+  FaCalendarAlt,
+  FaChevronRight,
+  FaTimes,
+  FaWhatsapp,
+} from "react-icons/fa";
 import { usePathname, useRouter } from "next/navigation";
 
 const SIGNUP_URL = "https://www.wautomation.shop/signup";
 const WHATSAPP_URL = "https://wa.me/919421095835";
+const navigationItems = [
+  { label: "4 Revenue Leaks", href: "#leaks" },
+  { label: "Live Demo", href: "#simulator" },
+  { label: "All Features", href: "#deep-features" },
+  { label: "Omnichannel Inbox", href: "#inbox" },
+  { label: "ROI Calculator", href: "#calculator" },
+  { label: "Pricing", href: "#pricing" },
+];
 
 const Navbar = () => {
   const pathname = usePathname();
@@ -21,183 +36,117 @@ const Navbar = () => {
     return null;
   }
 
-  // Handler to scroll smoothly to the target section based on the anchor's href
-  const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleSectionClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    const targetId = e.currentTarget.getAttribute("href");
-    if (targetId === "#") {
-      if (pathname !== "/") {
-        router.push("/");
-      } else {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    } else if (targetId) {
-      if (pathname !== "/") {
-        router.push(`/${targetId}`);
-      } else {
-        const element = document.querySelector(targetId);
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth" });
-        }
-      }
+    const target = e.currentTarget.getAttribute("href");
+    if (!target) return;
+
+    if (pathname !== "/") {
+      router.push(`/${target}`);
+    } else {
+      document.querySelector(target)?.scrollIntoView({ behavior: "smooth" });
     }
-    setIsMenuOpen(false); // Close mobile menu after clicking
+    setIsMenuOpen(false);
   };
 
+  const sectionLinks = (mobile = false) =>
+    navigationItems.map((item) => (
+      <a
+        key={item.href}
+        href={item.href}
+        onClick={handleSectionClick}
+        className={
+          mobile
+            ? "flex items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-gray-300 transition hover:bg-white/5 hover:text-brand-wa"
+            : "whitespace-nowrap text-[11px] font-bold uppercase text-gray-300 transition hover:text-brand-wa"
+        }
+      >
+        {item.label}
+        {mobile && <FaChevronRight aria-hidden="true" className="h-3 w-3 text-gray-500" />}
+      </a>
+    ));
+
   return (
-    // Sticky aur Glassmorphism (blur) effect lagaya hai taaki scroll karne par achha dikhe
-    <nav className="sticky top-0 z-50 bg-app-950/90 backdrop-blur-xl border-b border-white/10 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
-          {/* Left Side: Logo */}
-          <div className="flex-shrink-0 flex items-center">
-            <Link href="/" className="flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
-              <Image
-                src="/wa-logo.png"
-                alt="WA-Automations"
-                width={240}
-                height={72}
-                className="h-12 w-auto"
-              />
-            </Link>
-          </div>
+    <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-app-950/90 text-white backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-6 lg:px-8">
+        <Link href="/" className="group flex shrink-0 items-center gap-2.5" onClick={() => setIsMenuOpen(false)}>
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-brand-wa/30 bg-brand-wa/10 text-brand-wa transition group-hover:bg-brand-wa group-hover:text-black sm:h-10 sm:w-10">
+            <FaBolt aria-hidden="true" className="h-4 w-4" />
+          </span>
+          <span className="flex flex-col leading-tight">
+            <span className="flex items-center gap-1.5 text-lg font-black sm:text-xl">
+              WA<span className="text-brand-wa">Auto</span>
+              <span className="rounded-full border border-brand-wa/25 bg-brand-wa/10 px-1.5 py-0.5 text-[8px] font-bold text-brand-wa">SHOPIFY</span>
+            </span>
+            <span className="text-[9px] font-medium text-gray-500">Revenue Engine</span>
+          </span>
+        </Link>
 
-          {/* Center: Desktop Menu */}
-          <div className="hidden md:flex space-x-8">
-            <a
-              href="#"
-              onClick={handleSmoothScroll}
-              className="text-gray-300 hover:text-brand-wa font-medium transition"
-            >
-              Home
-            </a>
-            <a
-              href="#deep-features"
-              onClick={handleSmoothScroll}
-              className="text-gray-300 hover:text-brand-wa font-medium transition"
-            >
-              Features
-            </a>
-            <a
-              href="#how-it-works"
-              onClick={handleSmoothScroll}
-              className="text-gray-300 hover:text-brand-wa font-medium transition"
-            >
-              How it Works
-            </a>
-            <a
-              href="#faq"
-              onClick={handleSmoothScroll}
-              className="text-gray-300 hover:text-brand-wa font-medium transition"
-            >
-              Pricing
-            </a>
-            <a
-              href="#pricing"
-              onClick={handleSmoothScroll}
-              className="text-gray-300 hover:text-brand-wa font-medium transition"
-            >
-              FAQ
-            </a>
-          </div>
+        <nav aria-label="Main navigation" className="hidden items-center gap-5 xl:flex">
+          {sectionLinks()}
+        </nav>
 
-          {/* Right Side: Desktop Login/Signup Buttons (Wrapped in a div) */}
-          <div className="hidden md:flex items-center space-x-4">
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="text-gray-300 font-semibold hover:text-brand-wa transition px-2"
-            >
-              WhatsApp
-            </a>
+        <div className="hidden shrink-0 items-center gap-3 lg:flex">
+          <a
+            href="#pricing"
+            onClick={handleSectionClick}
+            className="hidden items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-brand-wa/30 hover:text-white xl:inline-flex"
+          >
+            <FaCalendarAlt aria-hidden="true" className="h-3.5 w-3.5 text-brand-wa" />
+            Schedule Setup
+          </a>
+          <Link
+            href={SIGNUP_URL}
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-wa px-4 py-2.5 text-xs font-black uppercase text-black shadow-lg shadow-brand-wa/15 transition hover:bg-emerald-400 sm:px-5"
+          >
+            Start Free <FaArrowRight aria-hidden="true" className="h-3 w-3" />
+          </Link>
+        </div>
+
+        <button
+          type="button"
+          className="rounded-lg border border-white/10 p-2 text-gray-200 transition hover:border-brand-wa/40 hover:text-brand-wa lg:hidden"
+          onClick={() => setIsMenuOpen((open) => !open)}
+          aria-label={isMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={isMenuOpen}
+          aria-controls="mobile-navigation"
+        >
+          {isMenuOpen ? <FaTimes aria-hidden="true" className="h-5 w-5" /> : <FaBars aria-hidden="true" className="h-5 w-5" />}
+        </button>
+      </div>
+
+      {isMenuOpen && (
+        <div id="mobile-navigation" className="border-t border-white/10 bg-app-950 px-4 py-4 shadow-xl lg:hidden">
+          <nav aria-label="Mobile navigation" className="flex flex-col">
+            {sectionLinks(true)}
+          </nav>
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-4">
             <Link
               href="/login"
-              className="text-gray-200 font-bold hover:text-brand-wa transition px-2"
+              onClick={() => setIsMenuOpen(false)}
+              className="rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-bold text-gray-100 transition hover:bg-white/5"
             >
               Login
             </Link>
             <Link
               href={SIGNUP_URL}
-              className="bg-brand-wa text-black font-bold rounded-xl px-6 py-2.5 hover:bg-emerald-400 shadow-md transition duration-300"
+              onClick={() => setIsMenuOpen(false)}
+              className="rounded-xl bg-brand-wa px-4 py-3 text-center text-sm font-black text-black transition hover:bg-emerald-400"
             >
               Sign Up
             </Link>
-          </div>
-
-          {/* Mobile Menu Button (Hamburger) */}
-          <div className="md:hidden flex items-center">
-            <button
-              className="text-gray-200 hover:text-brand-wa focus:outline-none transition"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <FaTimes size={28} /> : <FaBars size={28} />}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Menu Dropdown */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-app-950 border-t border-white/10 shadow-xl absolute w-full left-0">
-          <div className="px-4 pt-2 pb-6 space-y-1 flex flex-col">
             <a
-              href="#"
-              onClick={handleSmoothScroll}
-              className="block px-4 py-3 text-base font-medium text-gray-200 hover:text-brand-wa hover:bg-white/5 rounded-lg"
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="col-span-2 inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-gray-300 transition hover:border-brand-wa/30 hover:text-brand-wa"
             >
-              Home
+              <FaWhatsapp aria-hidden="true" className="h-4 w-4" /> Chat on WhatsApp
             </a>
-            <a
-              href="#deep-features"
-              onClick={handleSmoothScroll}
-              className="block px-4 py-3 text-base font-medium text-gray-200 hover:text-brand-wa hover:bg-white/5 rounded-lg"
-            >
-              Features
-            </a>
-            <a
-              href="#how-it-works"
-              onClick={handleSmoothScroll}
-              className="block px-4 py-3 text-base font-medium text-gray-200 hover:text-brand-wa hover:bg-white/5 rounded-lg"
-            >
-              How it Works
-            </a>
-            <a
-              href="#faq"
-              onClick={handleSmoothScroll}
-              className="block px-4 py-3 text-base font-medium text-gray-200 hover:text-brand-wa hover:bg-white/5 rounded-lg"
-            >
-              Pricing
-            </a>
-            <a
-              href="#pricing"
-              onClick={handleSmoothScroll}
-              className="block px-4 py-3 text-base font-medium text-gray-200 hover:text-brand-wa hover:bg-white/5 rounded-lg"
-            >
-              FAQ
-            </a>
-
-            {/* Mobile Login & Signup Buttons */}
-            <div className="mt-4 pt-4 border-t border-white/10 flex flex-col gap-3 px-2">
-              <Link
-                href="/login"
-                onClick={() => setIsMenuOpen(false)}
-                className="w-full border border-white/15 text-gray-100 font-bold rounded-xl px-5 py-3 text-center hover:bg-white/5 transition"
-              >
-                Login
-              </Link>
-              <Link
-                href={SIGNUP_URL}
-                onClick={() => setIsMenuOpen(false)}
-                className="w-full bg-brand-wa text-black font-bold rounded-xl px-5 py-3 text-center hover:bg-emerald-400 shadow-md transition"
-              >
-                Sign Up
-              </Link>
-            </div>
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 };
 

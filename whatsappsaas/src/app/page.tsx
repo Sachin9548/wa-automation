@@ -108,7 +108,7 @@ export default function Homepage() {
                 href={SIGNUP_URL}
                 className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-brand-wa text-black shadow-2xl shadow-brand-wa/30 hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 text-center"
               >
-                <span>Start 14-Day Free Trial</span>
+                <span>Start Now</span>
                 <i data-lucide="zap" className="w-4 h-4 fill-black"></i>
               </a>
               <a
