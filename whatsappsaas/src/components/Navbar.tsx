@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import {
   FaArrowRight,
   FaBars,
-  FaBolt,
   FaCalendarAlt,
   FaChevronRight,
   FaTimes,
@@ -15,12 +15,13 @@ import { usePathname, useRouter } from "next/navigation";
 const SIGNUP_URL = "https://www.wautomation.shop/signup";
 const WHATSAPP_URL = "https://wa.me/919421095835";
 const navigationItems = [
-  { label: "4 Revenue Leaks", href: "#leaks" },
+  { label: "Revenue Leaks", href: "#leaks" },
   { label: "Live Demo", href: "#simulator" },
-  { label: "All Features", href: "#deep-features" },
-  { label: "Omnichannel Inbox", href: "#inbox" },
-  { label: "ROI Calculator", href: "#calculator" },
+  { label: "Features", href: "#deep-features" },
+  { label: "Inbox", href: "#inbox" },
+  { label: "ROI", href: "#calculator" },
   { label: "Pricing", href: "#pricing" },
+  { label: "FAQ", href: "#faq" },
 ];
 
 const Navbar = () => {
@@ -58,7 +59,7 @@ const Navbar = () => {
         className={
           mobile
             ? "flex items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-gray-300 transition hover:bg-white/5 hover:text-brand-wa"
-            : "whitespace-nowrap text-[11px] font-bold uppercase text-gray-300 transition hover:text-brand-wa"
+            : "whitespace-nowrap text-[10px] font-bold uppercase text-gray-300 transition hover:text-brand-wa 2xl:text-[11px]"
         }
       >
         {item.label}
@@ -67,22 +68,22 @@ const Navbar = () => {
     ));
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-app-950/90 text-white backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-app-950/90 text-white shadow-lg shadow-black/10 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-6 lg:px-8">
-        <Link href="/" className="group flex shrink-0 items-center gap-2.5" onClick={() => setIsMenuOpen(false)}>
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-brand-wa/30 bg-brand-wa/10 text-brand-wa transition group-hover:bg-brand-wa group-hover:text-black sm:h-10 sm:w-10">
-            <FaBolt aria-hidden="true" className="h-4 w-4" />
-          </span>
-          <span className="flex flex-col leading-tight">
-            <span className="flex items-center gap-1.5 text-lg font-black sm:text-xl">
-              WA<span className="text-brand-wa">Auto</span>
-              <span className="rounded-full border border-brand-wa/25 bg-brand-wa/10 px-1.5 py-0.5 text-[8px] font-bold text-brand-wa">SHOPIFY</span>
-            </span>
-            <span className="text-[9px] font-medium text-gray-500">Revenue Engine</span>
+        <Link href="/" className="group flex h-12 shrink-0 items-center" onClick={() => setIsMenuOpen(false)} aria-label="WA-Auto home">
+          <span className="brand-logo-flow relative inline-flex items-center">
+            <Image
+              src="/wa-logo.png"
+              alt="WA-Auto"
+              width={240}
+              height={80}
+              priority
+              className="relative z-10 h-9 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03] sm:h-11"
+            />
           </span>
         </Link>
 
-        <nav aria-label="Main navigation" className="hidden items-center gap-5 xl:flex">
+        <nav aria-label="Main navigation" className="hidden items-center gap-3 xl:flex 2xl:gap-4">
           {sectionLinks()}
         </nav>
 
@@ -90,7 +91,7 @@ const Navbar = () => {
           <a
             href="#pricing"
             onClick={handleSectionClick}
-            className="hidden items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-brand-wa/30 hover:text-white xl:inline-flex"
+            className="hidden items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-brand-wa/30 hover:text-white 2xl:inline-flex"
           >
             <FaCalendarAlt aria-hidden="true" className="h-3.5 w-3.5 text-brand-wa" />
             Schedule Setup
@@ -116,7 +117,7 @@ const Navbar = () => {
       </div>
 
       {isMenuOpen && (
-        <div id="mobile-navigation" className="border-t border-white/10 bg-app-950 px-4 py-4 shadow-xl lg:hidden">
+          <div id="mobile-navigation" className="border-t border-white/10 bg-app-950 px-4 py-4 shadow-xl lg:hidden">
           <nav aria-label="Mobile navigation" className="flex flex-col">
             {sectionLinks(true)}
           </nav>

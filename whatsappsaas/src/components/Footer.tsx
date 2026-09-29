@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FaBolt, FaWhatsapp } from "react-icons/fa";
+import Image from "next/image";
+import { FaArrowRight, FaWhatsapp } from "react-icons/fa";
 import { usePathname } from "next/navigation";
 
 const WHATSAPP_URL = "https://wa.me/919421095835";
@@ -19,34 +20,68 @@ const Footer = () => {
 
 
   return (
-    <footer className="border-t border-white/[0.08] bg-app-950 py-7 text-gray-400 sm:py-9">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
-          <Link href="/" className="flex items-center gap-2.5 text-white">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-wa text-black">
-              <FaBolt aria-hidden="true" className="h-3.5 w-3.5" />
-            </span>
-            <span className="text-sm font-bold">WA-Auto Suite</span>
-            <span className="hidden text-xs text-gray-500 sm:inline">Built for Indian Shopify Stores</span>
-          </Link>
-
-          <nav aria-label="Footer navigation" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs sm:gap-6">
-            <Link href="/#pricing" className="transition hover:text-brand-wa">Pricing</Link>
-            <Link href="/privacy-policy" className="transition hover:text-brand-wa">Privacy Policy</Link>
-            <Link href="/login" className="transition hover:text-brand-wa">Login</Link>
+    <footer className="border-t border-white/[0.08] bg-app-950 text-gray-400">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
+          <div className="sm:col-span-2 lg:col-span-5">
+            <Link href="/" className="brand-logo-flow relative inline-flex" aria-label="WA-Auto home">
+              <Image
+                src="/wa-logo.png"
+                alt="WA-Auto"
+                width={260}
+                height={86}
+                className="relative z-10 h-10 w-auto object-contain sm:h-12"
+              />
+            </Link>
+            <p className="mt-4 max-w-sm text-sm leading-6 text-gray-400">
+              Recover Shopify revenue with WhatsApp automation, customer messaging, and campaign tools built for growing stores.
+            </p>
             <a
               href={WHATSAPP_URL}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-brand-wa transition hover:text-emerald-300"
+              className="mt-5 inline-flex items-center gap-2 rounded-lg border border-brand-wa/25 bg-brand-wa/5 px-3.5 py-2.5 text-sm font-semibold text-brand-wa transition hover:border-brand-wa/50 hover:bg-brand-wa/10"
             >
-              <FaWhatsapp aria-hidden="true" className="h-3.5 w-3.5" /> Contact
+              <FaWhatsapp aria-hidden="true" className="h-4 w-4" /> Chat with our team
             </a>
-          </nav>
+          </div>
+
+          <div className="lg:col-span-2">
+            <h2 className="mb-4 text-xs font-bold uppercase text-white">Platform</h2>
+            <nav aria-label="Platform links" className="flex flex-col items-start gap-3 text-sm">
+              <Link href="/#deep-features" className="transition hover:text-brand-wa">Features</Link>
+              <Link href="/#simulator" className="transition hover:text-brand-wa">Live simulator</Link>
+              <Link href="/#inbox" className="transition hover:text-brand-wa">Omnichannel inbox</Link>
+              <Link href="/#calculator" className="transition hover:text-brand-wa">ROI calculator</Link>
+            </nav>
+          </div>
+
+          <div className="lg:col-span-2">
+            <h2 className="mb-4 text-xs font-bold uppercase text-white">Explore</h2>
+            <nav aria-label="Explore links" className="flex flex-col items-start gap-3 text-sm">
+              <Link href="/#leaks" className="transition hover:text-brand-wa">Revenue leaks</Link>
+              <Link href="/#how-it-works" className="transition hover:text-brand-wa">How it works</Link>
+              <Link href="/#pricing" className="transition hover:text-brand-wa">Pricing</Link>
+              <Link href="/#faq" className="transition hover:text-brand-wa">FAQs</Link>
+            </nav>
+          </div>
+
+          <div className="lg:col-span-3">
+            <h2 className="mb-4 text-xs font-bold uppercase text-white">Get Started</h2>
+            <nav aria-label="Account and policy links" className="flex flex-col items-start gap-3 text-sm">
+              <Link href="https://www.wautomation.shop/signup" className="inline-flex items-center gap-2 text-brand-wa transition hover:text-emerald-300">
+                Create an account <FaArrowRight aria-hidden="true" className="h-3 w-3" />
+              </Link>
+              <Link href="/login" className="transition hover:text-brand-wa">Log in</Link>
+              <Link href="/privacy-policy" className="transition hover:text-brand-wa">Privacy policy</Link>
+              <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="transition hover:text-brand-wa">Contact support</a>
+            </nav>
+          </div>
         </div>
 
-        <div className="mt-6 border-t border-white/[0.08] pt-5 text-center text-[11px] text-gray-500 sm:text-left">
-          &copy; {new Date().getFullYear()} WA-Auto. All rights reserved.
+        <div className="mt-10 flex flex-col gap-3 border-t border-white/[0.08] pt-5 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>&copy; {new Date().getFullYear()} WA-Auto. All rights reserved.</p>
+          <p>Built for Indian Shopify stores.</p>
         </div>
       </div>
     </footer>

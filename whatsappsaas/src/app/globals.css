@@ -34,6 +34,31 @@
   100% { opacity: 0.7; transform: scale(1.02); }
 }
 
+.brand-logo-flow::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 18% 8%;
+  border-radius: 999px;
+  background: linear-gradient(105deg, transparent 5%, rgba(37, 211, 102, 0.08) 35%, rgba(37, 211, 102, 0.42) 52%, rgba(16, 185, 129, 0.08) 70%, transparent 95%);
+  background-size: 220% 100%;
+  filter: blur(12px);
+  animation: logoFlow 4.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes logoFlow {
+  0%, 100% { background-position: 100% 50%; opacity: 0.45; }
+  50% { background-position: 0% 50%; opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo-flow::before {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
 
 /* Hide scrollbar but keep scroll functionality — used in tab bar on mobile */
 .scrollbar-hide {
