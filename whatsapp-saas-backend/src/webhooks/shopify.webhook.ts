@@ -241,7 +241,7 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
           customerPhone: phone,
           originalUrl: cart.cartUrl,
           discountCode: discountCode,
-          templateName: templateName,
+          // templateName: templateName,
         }
       });
     }
