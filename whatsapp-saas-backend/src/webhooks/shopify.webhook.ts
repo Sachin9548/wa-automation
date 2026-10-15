@@ -50,6 +50,12 @@ export const handleAbandonedCartWebhook = async (req: any, res: Response): Promi
       const isValid = verifyShopifyWebhook(req.rawBody, hmac, signingSecret);
       if (!isValid) {
         console.error(`🚨 HMAC verification failed for merchant: ${merchant.brandName}`);
+        console.error(`🚨 HMAC verification failed for merchant: ${merchant.brandName}`);
+        console.error(`   → HMAC header: ${hmac}`);
+        console.error(`   → Secret used: ${signingSecret.substring(0, 8)}... (len=${signingSecret.length})`);
+        console.error(`   → rawBody length: ${req.rawBody?.length}`);
+        console.error(`   → rawBody first 50 chars: ${req.rawBody?.toString('utf8').substring(0, 50)}`);
+
         return res.status(401).send('Forbidden: Invalid Signature');
       }
       console.log(`✅ HMAC verified for ${merchant.brandName}`);
@@ -475,7 +481,7 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
       }
     }
 
-        // ── COD to Prepaid Conversion Flow ───────────────────────────────────────
+    // ── COD to Prepaid Conversion Flow ───────────────────────────────────────
     // Detect if this is a COD order and send prepaid offer message
     const isCOD = orderData.financial_status === 'pending'
       || (orderData.payment_gateway || '').toLowerCase().includes('cod')
@@ -524,19 +530,19 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         const { resumeWorkerIfPaused } = await import('../workers/message.worker');
 
         await messageQueue.add('send-automated-msg', {
-          cartId:        null,
+          cartId: null,
           merchantId,
           phone,
-          templateName:  codFlow.metaTemplateName,
-          templateLang:  (codFlow as any).metaTemplateLang || 'en_US',
+          templateName: codFlow.metaTemplateName,
+          templateLang: (codFlow as any).metaTemplateLang || 'en_US',
           discountCode,
           trackingLinkId: codTrackingLink?.id,
-          variables:     codVariables,
-          jobType:       'COD_CONVERT',
+          variables: codVariables,
+          jobType: 'COD_CONVERT',
         }, {
-          delay:    2 * 60 * 1000,  // 2 min delay — order confirm hone do pehle
+          delay: 2 * 60 * 1000,  // 2 min delay — order confirm hone do pehle
           attempts: 2,
-          backoff:  { type: 'exponential', delay: 30000 },
+          backoff: { type: 'exponential', delay: 30000 },
         });
 
         await resumeWorkerIfPaused();

@@ -397,7 +397,7 @@ export default function OverviewTab({
               </label>
               <input
                 type="text"
-                placeholder="https://yourstore.myshopify.com"
+                placeholder="yourstore.myshopify.com"
                 value={storeUrl}
                 onChange={(e) => setStoreUrl(e.target.value)}
                 className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-teal-500"
