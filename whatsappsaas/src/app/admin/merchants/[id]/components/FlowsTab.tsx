@@ -80,7 +80,8 @@ export interface FlowDraftItem {
   lang: string;
   discount: string;
   customMessage?: string;
-  variableMapping: string[]; // 👈 Add this
+  variableMapping: string[];
+  variableSources?: string[];
 }
 
 const VARIABLE_OPTIONS = [
@@ -109,6 +110,7 @@ interface FlowsTabProps {
       discount: string;
       variableMapping: string[];
       customMessage?: string;
+      variableSources?: string[];
     }
   >;
   setFlowDrafts: React.Dispatch<
@@ -123,6 +125,7 @@ interface FlowsTabProps {
           discount: string;
           variableMapping: string[];
           customMessage?: string;
+          variableSources?: string[];
         }
       >
     >
@@ -183,6 +186,7 @@ export default function FlowsTab({
             discount: string;
             variableMapping: string[];
             customMessage?: string;
+            variableSources:string[];
           }>,
         ) => {
           setFlowDrafts((prev) => ({
@@ -203,6 +207,10 @@ export default function FlowsTab({
                 patch.customMessage !== undefined
                   ? patch.customMessage
                   : (draft?.customMessage ?? ""),
+              variableSources:
+                patch.variableSources !== undefined
+                  ? patch.variableSources
+                  : (draft?.variableSources ?? []),
             },
           }));
         };
@@ -222,7 +230,8 @@ export default function FlowsTab({
                 delayMinutes: currentDelay,
                 template: "",
                 metaTemplateName: currentTemplate,
-                variableMapping: JSON.stringify(draft?.variableMapping || []), // 👈 Zaroori!
+                variableMapping: JSON.stringify(draft?.variableMapping || []),
+                variableSources: JSON.stringify(draft?.variableSources || []),
                 metaTemplateLang: currentLang,
                 discountCode: currentDiscount || null,
                 customMessage: draft?.customMessage || null,
@@ -310,19 +319,71 @@ export default function FlowsTab({
                           (t: any) => t.name === selected,
                         );
 
-                        // Meta template ke body text se {{1}}, {{2}} count karo
+                        // Body variables
                         const bodyText =
                           tmpl?.components?.find((c: any) => c.type === "BODY")
                             ?.text || "";
-                        const matches = bodyText.match(/\{\{\d+\}\}/g) || [];
+                        const bodyMatches =
+                          bodyText.match(/\{\{\d+\}\}/g) || [];
 
-                        // Utne hi dropdown slots banao
-                        const newMapping = matches.map(() => "customer_name");
+                        // Header variables (text header with {{1}})
+                        const headerComp = tmpl?.components?.find(
+                          (c: any) => c.type === "HEADER",
+                        );
+                        const headerText =
+                          headerComp?.format === "TEXT"
+                            ? headerComp?.text || ""
+                            : "";
+                        const headerMatches =
+                          headerText.match(/\{\{\d+\}\}/g) || [];
+
+                        // Button URL variables (buttons with example/url containing {{1}})
+                        const buttonsComp = tmpl?.components?.find(
+                          (c: any) => c.type === "BUTTONS",
+                        );
+                        const buttonMatches: string[] = [];
+                        if (buttonsComp?.buttons) {
+                          buttonsComp.buttons.forEach(
+                            (btn: any, btnIdx: number) => {
+                              if (
+                                btn.type === "URL" &&
+                                btn.url &&
+                                btn.url.includes("{{")
+                              ) {
+                                // URL button with variable
+                                (btn.url.match(/\{\{\d+\}\}/g) || []).forEach(
+                                  () => {
+                                    buttonMatches.push(`button_url_${btnIdx}`);
+                                  },
+                                );
+                              }
+                            },
+                          );
+                        }
+
+                        // Combine all — body first, then header, then button slots
+                        const allSlots = [
+                          ...bodyMatches.map(() => ({
+                            source: "body",
+                            default: "customer_name",
+                          })),
+                          ...headerMatches.map(() => ({
+                            source: "header",
+                            default: "customer_name",
+                          })),
+                          ...buttonMatches.map((btnKey) => ({
+                            source: btnKey,
+                            default: "cart_url",
+                          })),
+                        ];
+
+                        const newMapping = allSlots.map((s) => s.default);
 
                         updateDraft({
                           template: selected,
                           lang: tmpl?.language || "en_US",
-                          variableMapping: newMapping, // 👈 Auto-create slots
+                          variableMapping: newMapping,
+                          variableSources: allSlots.map((s) => s.source),
                         });
                       }}
                       className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"

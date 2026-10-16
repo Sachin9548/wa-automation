@@ -158,7 +158,7 @@ export const initMessageWorker = () => {
 
     // ── 1. ABANDONED CART / POST-PURCHASE UPSELL ──────────────────────────
     if (job.name === 'send-automated-msg') {
-      const { cartId, merchantId, phone, templateName, templateLang, discountCode, trackingLinkId, variables, jobType } = job.data;
+      const { cartId, merchantId, phone, templateName, templateLang, discountCode, trackingLinkId, variables, jobType, variableSources } = job.data;
       const isUpsell = jobType === 'POST_PURCHASE_UPSELL' || !cartId;
       console.log(`🤖 Job: ${job.id} | Type: ${isUpsell ? 'UPSELL' : 'CART'} | Cart: ${cartId || 'N/A'} | Phone: ${phone} | Template: ${templateName}`);
 
@@ -207,7 +207,9 @@ export const initMessageWorker = () => {
         toPhone,
         templateName || 'hello_world',
         variables || [],
-        templateLang || 'en_US'
+        templateLang || 'en_US',
+        variableSources || []  // NEW
+
       );
 
       if (result.success) {

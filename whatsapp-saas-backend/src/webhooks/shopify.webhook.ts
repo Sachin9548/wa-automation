@@ -514,6 +514,14 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         // ── 4. Build exact variables array ────────────────────────────────
         const variables = upsellMapping.map(key => upsellValueMap[key] !== undefined ? upsellValueMap[key] : '');
 
+        let variableSources: string[] = [];
+        try {
+          if ((upsellFlow as any).variableSources) {
+            variableSources = JSON.parse((upsellFlow as any).variableSources);
+          }
+        } catch { }
+
+
         await messageQueue.add('send-automated-msg', {
           // Use cartId as null — this is not a cart, it's a post-purchase upsell
           cartId: null,
@@ -523,7 +531,7 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
           templateLang: upsellFlow.metaTemplateLang || 'en_US',
           discountCode,
           trackingLinkId: trackingLink?.id,
-          variables,
+          variables, variableSources,
           jobType: 'POST_PURCHASE_UPSELL',
         }, {
           delay: upsellFlow.delayMinutes * 60 * 1000,

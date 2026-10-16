@@ -224,6 +224,8 @@ model AutomationFlow {
   
 
   variableMapping  String?  @db.Text
+  variableSources  String?  @db.Text
+
 
 
   updatedAt     DateTime @updatedAt

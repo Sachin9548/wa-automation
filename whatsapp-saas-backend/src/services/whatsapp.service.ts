@@ -50,10 +50,46 @@ export const sendMetaTemplateMessage = async (
   toPhone: string,
   templateName: string,
   variables: string[],
-  languageCode: string = 'en_US'
+  languageCode: string = 'en_US',
+  variableSources?: string[],
+
 ): Promise<MetaSendResult> => {
   try {
     const parameters = variables.map(v => ({ type: 'text', text: String(v) }));
+
+
+    // Parse sources — tells us which variable goes to body vs button
+    const sources: string[] = variableSources || variables.map(() => 'body');
+
+    // Separate by component type
+    const bodyParams: any[] = [];
+    const buttonParams: Record<number, any[]> = {}; // key = button index
+
+    variables.forEach((v, i) => {
+      const source = sources[i] || 'body';
+      if (source === 'body' || source === 'header') {
+        bodyParams.push({ type: 'text', text: String(v) });
+      } else if (source.startsWith('button_url_')) {
+        const btnIdx = parseInt(source.replace('button_url_', '')) || 0;
+        if (!buttonParams[btnIdx]) buttonParams[btnIdx] = [];
+        buttonParams[btnIdx].push({ type: 'text', text: String(v) });
+      }
+    });
+
+    // Build components array
+    const components: any[] = [];
+    if (bodyParams.length > 0) {
+      components.push({ type: 'body', parameters: bodyParams });
+    }
+    Object.entries(buttonParams).forEach(([idx, params]) => {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: String(idx),
+        parameters: params,
+      });
+    });
+
 
     await axios.post(
       `${META_BASE_URL}/${phoneNumberId}/messages`,
@@ -64,10 +100,9 @@ export const sendMetaTemplateMessage = async (
         template: {
           name: templateName,
           language: { code: languageCode },
-          components: parameters.length > 0
-            ? [{ type: 'body', parameters }]
-            : []
+          components: components.length > 0 ? components : []
         }
+
       },
       {
         headers: {
@@ -290,9 +325,9 @@ export const getMetaTemplateDetails = async (wabaId: string, accessToken: string
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const template = response.data.data.find((t: any) => t.name === templateName);
-    
+
     // Yahan hum poora component return karenge
-    return template; 
+    return template;
   } catch (error) {
     return null;
   }
