@@ -63,13 +63,17 @@ export const sendMetaTemplateMessage = async (
 
     // Separate by component type
     const bodyParams: any[] = [];
-    const buttonParams: Record<number, any[]> = {}; // key = button index
+    const headerParams: any[] = [];
+    const buttonParams: Record<number, any[]> = {};
 
     variables.forEach((v, i) => {
       const source = sources[i] || 'body';
-      if (source === 'body' || source === 'header') {
+      if (source === 'body') {
         bodyParams.push({ type: 'text', text: String(v) });
-      } else if (source.startsWith('button_url_')) {
+      } else if (source === 'header') {
+        headerParams.push({ type: 'text', text: String(v) });
+      }
+      else if (source.startsWith('button_url_')) {
         const btnIdx = parseInt(source.replace('button_url_', '')) || 0;
         if (!buttonParams[btnIdx]) buttonParams[btnIdx] = [];
         buttonParams[btnIdx].push({ type: 'text', text: String(v) });
@@ -81,6 +85,10 @@ export const sendMetaTemplateMessage = async (
     if (bodyParams.length > 0) {
       components.push({ type: 'body', parameters: bodyParams });
     }
+    if (headerParams.length > 0) {
+      components.push({ type: 'header', parameters: headerParams });
+    }
+
     Object.entries(buttonParams).forEach(([idx, params]) => {
       components.push({
         type: 'button',

@@ -293,7 +293,14 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
 
     console.log(`📤 Dynamic variables for ${templateName}: [${variables.join(' | ')}]`);
 
-    console.log(`📤 Template variables: [${variables.join(' | ')}]`);
+
+    let variableSources: string[] = [];
+    try {
+      if ((flow as any).variableSources) {
+        variableSources = JSON.parse((flow as any).variableSources);
+      }
+    } catch { }
+
 
     await messageQueue.add('send-automated-msg', {
       cartId: cart.id,
@@ -304,6 +311,7 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
       discountCode,
       trackingLinkId: trackingLink?.id,
       variables,
+      variableSources
     }, {
       delay: flow.delayMinutes * 60 * 1000,
       attempts: 3,
@@ -581,12 +589,37 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         // {{2}} = order number
         // {{3}} = payment/store link
         // {{4}} = discount code (optional)
-        const codVariables: string[] = [
-          orderData.customer?.first_name || orderData.billing_address?.first_name || 'there',
-          orderNumber,
-          trackingUrl,
-          ...(discountCode ? [discountCode] : []),
-        ];
+        // valueMap for COD
+        const codValueMap: Record<string, string> = {
+          customer_name: orderData.customer?.first_name || orderData.billing_address?.first_name || 'there',
+          order_number: orderNumber,
+          cart_url: trackingUrl,
+          discount_code: discountCode || '',
+          store_name: merchant.brandName || '',
+          total_price: `₹${orderTotal}`,
+        };
+
+        // Read mapping from DB
+        let codMapping: string[] = [];
+        let codVariableSources: string[] = [];
+        try {
+          if ((codFlow as any).variableMapping) {
+            const parsed = JSON.parse((codFlow as any).variableMapping);
+            if (Array.isArray(parsed) && parsed.length > 0) codMapping = parsed;
+          }
+          if ((codFlow as any).variableSources) {
+            codVariableSources = JSON.parse((codFlow as any).variableSources);
+          }
+        } catch { }
+
+        // Fallback
+        if (codMapping.length === 0) {
+          codMapping = ['customer_name', 'order_number', 'cart_url'];
+          if (discountCode) codMapping.push('discount_code');
+        }
+
+        const codVariables = codMapping.map(key => codValueMap[key] ?? '');
+
 
         const { messageQueue } = await import('../lib/queue');
         const { resumeWorkerIfPaused } = await import('../workers/message.worker');
@@ -600,6 +633,7 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
           discountCode,
           trackingLinkId: codTrackingLink?.id,
           variables: codVariables,
+          variableSources: codVariableSources,   // ADD
           jobType: 'COD_CONVERT',
         }, {
           delay: 2 * 60 * 1000,  // 2 min delay — order confirm hone do pehle

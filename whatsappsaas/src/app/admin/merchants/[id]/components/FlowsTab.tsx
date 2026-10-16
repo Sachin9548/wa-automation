@@ -186,7 +186,7 @@ export default function FlowsTab({
             discount: string;
             variableMapping: string[];
             customMessage?: string;
-            variableSources:string[];
+            variableSources: string[];
           }>,
         ) => {
           setFlowDrafts((prev) => ({
@@ -532,59 +532,67 @@ export default function FlowsTab({
                 </div>
               )}
 
-              {draft?.variableMapping?.length > 0 && (
-                <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5 space-y-2">
-                  <label className="text-xs font-bold text-teal-400 block">
-                    Map Template Variables
-                  </label>
-                  {draft.variableMapping.map((val, idx) => (
-                    <div key={idx} className="space-y-1.5">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-mono text-slate-400 w-10">
-                          {`{{${idx + 1}}}`}
-                        </span>
-                        <select
-                          value={val}
-                          onChange={(e) => {
-                            const newMap = [...draft.variableMapping];
-                            newMap[idx] = e.target.value;
-                            updateDraft({ variableMapping: newMap });
-                          }}
-                          className="flex-1 p-2 bg-slate-800 border border-white/10 rounded-lg text-xs text-white"
-                        >
-                          {VARIABLE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Discount code input — sirf jab discount_code select ho */}
-                      {val === "discount_code" && (
-                        <div className="ml-14">
-                          <input
-                            type="text"
-                            placeholder="Enter discount code e.g. VIP10"
-                            value={currentDiscount}
-                            onChange={(e) =>
-                              updateDraft({
-                                discount: e.target.value.toUpperCase(),
-                              })
-                            }
-                            className="w-full p-2 bg-slate-900 border border-teal-500/30 text-white placeholder-slate-600 rounded-lg text-xs font-mono focus:ring-1 focus:ring-teal-500 outline-none"
-                          />
-                          {currentDiscount && (
-                            <p className="text-teal-400 text-[10px] mt-0.5 font-bold">
-                              🎟️ {currentDiscount} will be sent
-                            </p>
-                          )}
+              {(() => {
+                const activeMapping =
+                  draft?.variableMapping?.length > 0
+                    ? draft.variableMapping
+                    : (() => {
+                        try {
+                          return JSON.parse(db?.variableMapping || "[]");
+                        } catch {
+                          return [];
+                        }
+                      })();
+                return activeMapping.length > 0 ? (
+                  <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5 space-y-2">
+                    <label className="text-xs font-bold text-teal-400 block">
+                      Map Template Variables
+                    </label>
+                    {activeMapping.map((val: string, idx: number) => (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-mono text-slate-400 w-10">{`{{${idx + 1}}}`}</span>
+                          <select
+                            value={val}
+                            onChange={(e) => {
+                              const newMap = [...activeMapping];
+                              newMap[idx] = e.target.value;
+                              updateDraft({ variableMapping: newMap });
+                            }}
+                            className="flex-1 p-2 bg-slate-800 border border-white/10 rounded-lg text-xs text-white"
+                          >
+                            {VARIABLE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                        {val === "discount_code" && (
+                          <div className="ml-14">
+                            <input
+                              type="text"
+                              placeholder="Enter discount code e.g. VIP10"
+                              value={currentDiscount}
+                              onChange={(e) =>
+                                updateDraft({
+                                  discount: e.target.value.toUpperCase(),
+                                })
+                              }
+                              className="w-full p-2 bg-slate-900 border border-teal-500/30 text-white placeholder-slate-600 rounded-lg text-xs font-mono focus:ring-1 focus:ring-teal-500 outline-none"
+                            />
+                            {currentDiscount && (
+                              <p className="text-teal-400 text-[10px] mt-0.5 font-bold">
+                                🎟️ {currentDiscount} will be sent
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
 
               {/* Upsell hint */}
               {ft.type === "POST_PURCHASE_UPSELL" && (

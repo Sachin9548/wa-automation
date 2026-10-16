@@ -225,6 +225,8 @@ model AutomationFlow {
 
   variableMapping  String?  @db.Text
   variableSources  String?  @db.Text
+  customMessage    String?  @db.Text
+
 
 
 

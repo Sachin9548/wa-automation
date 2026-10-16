@@ -41,6 +41,7 @@ interface FlowDraftItem {
   lang: string;
   discount: string;
   variableMapping: any[];
+  variableSources?: string[];
   customMessage?: string;
 }
 

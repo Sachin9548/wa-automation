@@ -547,7 +547,7 @@ export const saveMerchantFlow = async (
         metaTemplateLang: metaTemplateLang || "en_US",
         variableMapping: formattedMapping,
         variableSources: formattedSources,
-        customMessage:customMessage,
+        customMessage: customMessage,
         discountCode: discountCode || null,
         isActive,
       },
@@ -559,6 +559,8 @@ export const saveMerchantFlow = async (
         metaTemplateName: metaTemplateName || null,
         metaTemplateLang: metaTemplateLang || "en_US",
         variableMapping: formattedMapping,
+        variableSources: formattedSources,
+        customMessage: customMessage || null,
 
         discountCode: discountCode || null,
         isActive,

@@ -208,7 +208,7 @@ export const initMessageWorker = () => {
         templateName || 'hello_world',
         variables || [],
         templateLang || 'en_US',
-        variableSources || []  // NEW
+        job.data.variableSources || []  // ADD
 
       );
 
@@ -408,7 +408,9 @@ export const initMessageWorker = () => {
         toPhone,
         templateName || 'hello_world',
         variables || [],
-        templateLang || 'en_US'
+        templateLang || 'en_US',
+        job.data.variableSources || []   // ADD this line
+
       );
 
       if (result.success) {
