@@ -281,3 +281,33 @@ export const sendCatalogMessage = async (
     return false;
   }
 };
+
+
+
+export const getMetaTemplateDetails = async (wabaId: string, accessToken: string, templateName: string) => {
+  try {
+    // Meta se saare approved templates fetch karo
+    const response = await axios.get(
+      `https://graph.facebook.com/v23.0/${wabaId}/message_templates?fields=name,components,language`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    
+    const templates = response.data.data;
+    const template = templates.find((t: any) => t.name === templateName);
+    
+    if (!template) return null;
+
+    // Body component dhoondo jisme variable hote hain
+    const bodyComponent = template.components.find((c: any) => c.type === 'BODY');
+    if (!bodyComponent) return { variablesCount: 0 };
+
+    // Regex se {{1}}, {{2}} count karo
+    const matches = bodyComponent.text.match(/\{\{\d+\}\}/g);
+    const variablesCount = matches ? matches.length : 0;
+
+    return { variablesCount };
+  } catch (error) {
+    console.error("❌ Failed to fetch template details:", error);
+    return null;
+  }
+};

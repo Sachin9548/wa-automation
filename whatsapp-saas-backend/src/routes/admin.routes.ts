@@ -19,6 +19,7 @@ import {
   addPayment,
   getPaymentHistory,
   logActivity,
+  getTemplateVariables,
 } from "../controllers/admin.controller";
 import { adminProtect } from "../middleware/admin.middleware";
 import { checkShopifyDomain } from "../controllers/admin.controller";
@@ -109,12 +110,10 @@ router.post("/full-sync", async (req: Request, res: Response): Promise<any> => {
     if (!merchant?.shopifyToken)
       return res.status(400).json({ message: "Shopify token not set" });
 
-    res
-      .status(200)
-      .json({
-        message:
-          "🔄 Full sync started in background. Check sync status for progress.",
-      });
+    res.status(200).json({
+      message:
+        "🔄 Full sync started in background. Check sync status for progress.",
+    });
 
     logActivity(
       merchantId,
@@ -318,8 +317,11 @@ router.post(
         shopifyClientId,
         shopifyClientSecret,
         shopifyOAuthState,
-        igAccountId, igAccessToken, igTokenExpiresAt,
-        igAppSecret, igUsername
+        igAccountId,
+        igAccessToken,
+        igTokenExpiresAt,
+        igAppSecret,
+        igUsername,
       } = req.body;
 
       if (!merchantId)
@@ -341,13 +343,12 @@ router.post(
       if (metaAppId !== undefined) data.metaAppId = metaAppId;
       if (metaAppSecret !== undefined) data.metaAppSecret = metaAppSecret;
 
-
       if (igAccountId !== undefined) data.igAccountId = igAccountId;
       if (igAccessToken !== undefined) data.igAccessToken = igAccessToken;
-      if (igTokenExpiresAt !== undefined) data.igTokenExpiresAt = new Date(igTokenExpiresAt);
+      if (igTokenExpiresAt !== undefined)
+        data.igTokenExpiresAt = new Date(igTokenExpiresAt);
       if (igAppSecret !== undefined) data.igAppSecret = igAppSecret;
       if (igUsername !== undefined) data.igUsername = igUsername;
-
 
       await prisma.merchant.update({ where: { id: merchantId }, data });
 
@@ -389,11 +390,9 @@ router.post(
       const clientId = bodyClientId || merchant.shopifyClientId;
       const clientSecret = bodyClientSecret || merchant.shopifyClientSecret;
       if (!clientId || !clientSecret) {
-        return res
-          .status(400)
-          .json({
-            message: "Client ID and Secret required — not saved in DB yet",
-          });
+        return res.status(400).json({
+          message: "Client ID and Secret required — not saved in DB yet",
+        });
       }
 
       const cleanUrl = merchant.storeUrl
@@ -422,12 +421,10 @@ router.post(
         { storeUrl: merchant.storeUrl },
       );
 
-      res
-        .status(200)
-        .json({
-          message: "✅ Shopify token refreshed!",
-          token: newToken.slice(0, 10) + "...",
-        });
+      res.status(200).json({
+        message: "✅ Shopify token refreshed!",
+        token: newToken.slice(0, 10) + "...",
+      });
     } catch (e: any) {
       res
         .status(500)
@@ -549,12 +546,10 @@ router.post(
         { name, language, category, buttonCount: buttons?.length || 0 },
       );
 
-      res
-        .status(200)
-        .json({
-          message: "✅ Template submitted for review!",
-          data: resp.data,
-        });
+      res.status(200).json({
+        message: "✅ Template submitted for review!",
+        data: resp.data,
+      });
     } catch (e: any) {
       res
         .status(500)
@@ -706,13 +701,11 @@ router.post(
         }
       }
 
-      res
-        .status(200)
-        .json({
-          message: "✅ Webhook registration complete!",
-          results,
-          wabaSubscription,
-        });
+      res.status(200).json({
+        message: "✅ Webhook registration complete!",
+        results,
+        wabaSubscription,
+      });
 
       logActivity(
         merchantId,
@@ -1312,10 +1305,10 @@ router.get(
             : `last ${days} days`;
       const expiryStr = merchant.subscriptionExpiry
         ? new Date(merchant.subscriptionExpiry).toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
         : "N/A";
 
       const whatsappMessage = `📊 *WA-Automation Monthly Report*
@@ -1409,12 +1402,10 @@ router.get(
         !merchant?.metaAccessToken ||
         !merchant?.metaWabaId
       ) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Meta credentials not fully configured (need PhoneNumberId, AccessToken, WabaId)",
-          });
+        return res.status(400).json({
+          message:
+            "Meta credentials not fully configured (need PhoneNumberId, AccessToken, WabaId)",
+        });
       }
 
       const axios = await import("axios");
@@ -1491,7 +1482,6 @@ router.get(
     }
   },
 );
-
 // ── MPM: Send Multi-Product Message via approved MPM template ─────────────────
 // POST /api/admin/send-mpm
 // Requires: Facebook Catalog linked to WABA, products synced with retailer IDs
@@ -1509,19 +1499,15 @@ router.post("/send-mpm", async (req: Request, res: Response): Promise<any> => {
     } = req.body;
 
     if (!merchantId || !templateName || !sections?.length) {
-      return res
-        .status(400)
-        .json({
-          message: "merchantId, templateName, and sections are required",
-        });
+      return res.status(400).json({
+        message: "merchantId, templateName, and sections are required",
+      });
     }
     if (!thumbnailProductRetailerId) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "thumbnailProductRetailerId is required — the product shown as preview",
-        });
+      return res.status(400).json({
+        message:
+          "thumbnailProductRetailerId is required — the product shown as preview",
+      });
     }
 
     const merchant = await prisma.merchant.findUnique({
@@ -1576,13 +1562,11 @@ router.post("/send-mpm", async (req: Request, res: Response): Promise<any> => {
           message: `✅ MPM sent to ${toPhone}`,
         });
       } else {
-        return res
-          .status(500)
-          .json({
-            success: false,
-            message: result.errorMessage,
-            code: result.errorCode,
-          });
+        return res.status(500).json({
+          success: false,
+          message: result.errorMessage,
+          code: result.errorCode,
+        });
       }
     }
 
@@ -1734,11 +1718,9 @@ router.post(
         });
         return res.json({ success: true, message: "✅ Catalog message sent!" });
       } else {
-        return res
-          .status(500)
-          .json({
-            message: "Failed to send catalog message — check Meta credentials",
-          });
+        return res.status(500).json({
+          message: "Failed to send catalog message — check Meta credentials",
+        });
       }
     } catch (e: any) {
       res.status(500).json({ message: e.message });
@@ -2073,12 +2055,12 @@ router.get(
         ...log,
         metadata: log.metadata
           ? (() => {
-            try {
-              return JSON.parse(log.metadata);
-            } catch {
-              return null;
-            }
-          })()
+              try {
+                return JSON.parse(log.metadata);
+              } catch {
+                return null;
+              }
+            })()
           : null,
       }));
 
@@ -2238,7 +2220,7 @@ router.get(
       if (merchant.subscriptionExpiry) {
         const daysLeft = Math.ceil(
           (merchant.subscriptionExpiry.getTime() - now.getTime()) /
-          (1000 * 60 * 60 * 24),
+            (1000 * 60 * 60 * 24),
         );
         if (daysLeft < 0) {
           flags.push({
@@ -2364,10 +2346,10 @@ router.get(
           : qualityFlag?.code === "META_QUALITY_YELLOW"
             ? "YELLOW"
             : flags.some(
-              (f) =>
-                f.code === "META_CREDS_MISSING" ||
-                f.code === "META_TOKEN_EXPIRED",
-            )
+                  (f) =>
+                    f.code === "META_CREDS_MISSING" ||
+                    f.code === "META_TOKEN_EXPIRED",
+                )
               ? "UNKNOWN"
               : "GREEN";
 
@@ -2385,210 +2367,255 @@ router.get(
 );
 
 // ── COD Blast: Get customers list (abandoned or ordered) ─────────────────────
-router.get('/blast-customers/:merchantId', async (req: Request, res: Response): Promise<any> => {
-  try {
-    const merchantId = req.params.merchantId as string;
-    const type = (req.query.type as string) || 'abandoned'; // abandoned | ordered
-    const days = parseInt(req.query.days as string) || 30;
-    const search = (req.query.search as string) || '';
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
-    const skip = (page - 1) * limit;
+router.get(
+  "/blast-customers/:merchantId",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const merchantId = req.params.merchantId as string;
+      const type = (req.query.type as string) || "abandoned"; // abandoned | ordered
+      const days = parseInt(req.query.days as string) || 30;
+      const search = (req.query.search as string) || "";
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const skip = (page - 1) * limit;
 
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-    if (type === 'abandoned') {
-      // Fetch from AbandonedCart — group by phone, latest cart per phone
-      const carts = await prisma.abandonedCart.findMany({
-        where: {
-          merchantId,
-          status: { in: ['PENDING', 'SENT'] },  // not yet recovered
-          createdAt: { gte: since },
-          customerPhone: { not: 'NO_PHONE' },
-          ...(search ? {
-            OR: [
-              { customerName: { contains: search, mode: 'insensitive' as const } },
-              { customerPhone: { contains: search } },
-            ]
-          } : {})
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      });
-
-      const total = await prisma.abandonedCart.count({
-        where: {
-          merchantId,
-          status: { in: ['PENDING', 'SENT'] },
-          createdAt: { gte: since },
-          customerPhone: { not: 'NO_PHONE' },
-        }
-      });
-
-      const customers = carts.map((c: any) => {
-        // Parse lineItems for product display
-        let products = 'Unknown product';
-        try {
-          if (c.lineItems) {
-            const items = JSON.parse(c.lineItems);
-            if (Array.isArray(items) && items.length > 0) {
-              products = items
-                .map((li: any) => {
-                  const qty = li.quantity && li.quantity > 1 ? ` (x${li.quantity})` : '';
-                  return `${li.name || 'Product'}${qty}`;
-                })
-                .join(', ');
-            }
-          }
-        } catch { }
-
-        return {
-          phone: c.customerPhone,
-          name: c.customerName || 'Customer',
-          cartId: c.id,
-          products,
-          lineItems: c.lineItems,  // raw JSON — for order placement
-          cartUrl: c.cartUrl,
-          totalPrice: c.totalPrice,
-          status: c.status,
-          lastActivity: c.createdAt,
-        };
-      });
-
-      return res.json({ customers, total, page, pages: Math.ceil(total / limit) });
-    }
-
-    if (type === 'ordered') {
-      // Fetch from Customer table — hasPlacedOrder = true
-      const where: any = {
-        merchantId,
-        hasPlacedOrder: true,
-        lastOrderDate: { gte: since },
-        phone: { not: 'NO_PHONE' },
-        ...(search ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' as const } },
-            { phone: { contains: search } },
-          ]
-        } : {})
-      };
-
-      const [customersList, total] = await Promise.all([
-        prisma.customer.findMany({
-          where,
-          orderBy: { lastOrderDate: 'desc' },
+      if (type === "abandoned") {
+        // Fetch from AbandonedCart — group by phone, latest cart per phone
+        const carts = await prisma.abandonedCart.findMany({
+          where: {
+            merchantId,
+            status: { in: ["PENDING", "SENT"] }, // not yet recovered
+            createdAt: { gte: since },
+            customerPhone: { not: "NO_PHONE" },
+            ...(search
+              ? {
+                  OR: [
+                    {
+                      customerName: {
+                        contains: search,
+                        mode: "insensitive" as const,
+                      },
+                    },
+                    { customerPhone: { contains: search } },
+                  ],
+                }
+              : {}),
+          },
+          orderBy: { createdAt: "desc" },
           skip,
           take: limit,
-          select: {
-            id: true, phone: true, name: true,
-            totalOrders: true, totalSpent: true,
-            lastOrderDate: true, city: true,
-          }
-        }),
-        prisma.customer.count({ where }),
-      ]);
+        });
 
-      const customers = customersList.map((c: any) => ({
-        phone: c.phone,
-        name: c.name || 'Customer',
-        cartId: null,
-        products: null,   // no specific product — retargeting blast
-        lineItems: null,
-        cartUrl: null,
-        totalPrice: c.totalSpent,
-        status: 'ordered',
-        lastActivity: c.lastOrderDate,
-      }));
+        const total = await prisma.abandonedCart.count({
+          where: {
+            merchantId,
+            status: { in: ["PENDING", "SENT"] },
+            createdAt: { gte: since },
+            customerPhone: { not: "NO_PHONE" },
+          },
+        });
 
-      return res.json({ customers, total, page, pages: Math.ceil(total / limit) });
+        const customers = carts.map((c: any) => {
+          // Parse lineItems for product display
+          let products = "Unknown product";
+          try {
+            if (c.lineItems) {
+              const items = JSON.parse(c.lineItems);
+              if (Array.isArray(items) && items.length > 0) {
+                products = items
+                  .map((li: any) => {
+                    const qty =
+                      li.quantity && li.quantity > 1
+                        ? ` (x${li.quantity})`
+                        : "";
+                    return `${li.name || "Product"}${qty}`;
+                  })
+                  .join(", ");
+              }
+            }
+          } catch {}
+
+          return {
+            phone: c.customerPhone,
+            name: c.customerName || "Customer",
+            cartId: c.id,
+            products,
+            lineItems: c.lineItems, // raw JSON — for order placement
+            cartUrl: c.cartUrl,
+            totalPrice: c.totalPrice,
+            status: c.status,
+            lastActivity: c.createdAt,
+          };
+        });
+
+        return res.json({
+          customers,
+          total,
+          page,
+          pages: Math.ceil(total / limit),
+        });
+      }
+
+      if (type === "ordered") {
+        // Fetch from Customer table — hasPlacedOrder = true
+        const where: any = {
+          merchantId,
+          hasPlacedOrder: true,
+          lastOrderDate: { gte: since },
+          phone: { not: "NO_PHONE" },
+          ...(search
+            ? {
+                OR: [
+                  { name: { contains: search, mode: "insensitive" as const } },
+                  { phone: { contains: search } },
+                ],
+              }
+            : {}),
+        };
+
+        const [customersList, total] = await Promise.all([
+          prisma.customer.findMany({
+            where,
+            orderBy: { lastOrderDate: "desc" },
+            skip,
+            take: limit,
+            select: {
+              id: true,
+              phone: true,
+              name: true,
+              totalOrders: true,
+              totalSpent: true,
+              lastOrderDate: true,
+              city: true,
+            },
+          }),
+          prisma.customer.count({ where }),
+        ]);
+
+        const customers = customersList.map((c: any) => ({
+          phone: c.phone,
+          name: c.name || "Customer",
+          cartId: null,
+          products: null, // no specific product — retargeting blast
+          lineItems: null,
+          cartUrl: null,
+          totalPrice: c.totalSpent,
+          status: "ordered",
+          lastActivity: c.lastOrderDate,
+        }));
+
+        return res.json({
+          customers,
+          total,
+          page,
+          pages: Math.ceil(total / limit),
+        });
+      }
+
+      return res
+        .status(400)
+        .json({ message: "type must be abandoned or ordered" });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
     }
-
-    return res.status(400).json({ message: 'type must be abandoned or ordered' });
-
-  } catch (e: any) {
-    res.status(500).json({ message: e.message });
-  }
-});
-
+  },
+);
 
 // ── COD Blast: Send WhatsApp message to selected customers ───────────────────
-router.post('/cod-blast', async (req: Request, res: Response): Promise<any> => {
+router.post("/cod-blast", async (req: Request, res: Response): Promise<any> => {
   try {
     const {
-      merchantId, templateName, templateLang,
-      customers,   // [{ phone, name, products, cartUrl, cartId, lineItems }]
+      merchantId,
+      templateName,
+      templateLang,
+      customers, // [{ phone, name, products, cartUrl, cartId, lineItems }]
       blastName,
       discountCode,
     } = req.body;
 
     if (!merchantId || !templateName || !customers?.length) {
-      return res.status(400).json({ message: 'merchantId, templateName, customers required' });
+      return res
+        .status(400)
+        .json({ message: "merchantId, templateName, customers required" });
     }
 
-    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
-    if (!merchant) return res.status(404).json({ message: 'Merchant not found' });
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: merchantId },
+    });
+    if (!merchant)
+      return res.status(404).json({ message: "Merchant not found" });
     if (!merchant.metaPhoneNumberId || !merchant.metaAccessToken) {
-      return res.status(400).json({ message: 'Meta credentials not configured' });
+      return res
+        .status(400)
+        .json({ message: "Meta credentials not configured" });
     }
 
-    const backendUrl = process.env.BACKEND_URL || 'https://api.wautomation.shop';
+    const backendUrl =
+      process.env.BACKEND_URL || "https://api.wautomation.shop";
 
     // Create blast record
     const blast = await (prisma as any).whatsAppBlast.create({
       data: {
         merchantId,
-        name: blastName || `COD Blast ${new Date().toLocaleDateString('en-IN')}`,
+        name:
+          blastName || `COD Blast ${new Date().toLocaleDateString("en-IN")}`,
         templateName,
-        status: 'RUNNING',
+        status: "RUNNING",
         totalSent: customers.length,
-        type: customers[0]?.cartId ? 'ABANDONED' : 'RETARGETING',
-      }
+        type: customers[0]?.cartId ? "ABANDONED" : "RETARGETING",
+      },
     });
 
-    const { messageQueue } = await import('../lib/queue');
-    const { resumeWorkerIfPaused } = await import('../workers/message.worker');
+    const { messageQueue } = await import("../lib/queue");
+    const { resumeWorkerIfPaused } = await import("../workers/message.worker");
 
     for (let i = 0; i < customers.length; i++) {
       const c = customers[i];
-      if (!c.phone || c.phone === 'NO_PHONE') continue;
+      if (!c.phone || c.phone === "NO_PHONE") continue;
 
       // Create tracking link
       const trackingLink = await (prisma as any).trackingLink.create({
         data: {
           merchantId,
           customerPhone: c.phone,
-          originalUrl: c.cartUrl || merchant.storeUrl || 'https://wautomation.shop',
+          originalUrl:
+            c.cartUrl || merchant.storeUrl || "https://wautomation.shop",
           discountCode: discountCode || null,
-        }
+        },
       });
 
       const trackingUrl = `${backendUrl}/api/tracking/click/${trackingLink.id}`;
 
       // Template variables: {{1}} name, {{2}} products, {{3}} link, {{4}} discount (optional)
       const variables: string[] = [
-        c.name || 'there',
-        c.products || 'your items',
+        c.name || "there",
+        c.products || "your items",
         trackingUrl,
         ...(discountCode ? [discountCode] : []),
       ];
 
-      await messageQueue.add('send-automated-msg', {
-        cartId: c.cartId || null,
-        merchantId,
-        phone: c.phone,
-        templateName,
-        templateLang: templateLang || 'en_US',
-        discountCode: discountCode || null,
-        trackingLinkId: trackingLink.id,
-        variables,
-        blastId: blast.id,
-        jobType: 'COD_BLAST',
-      }, {
-        delay: i * 15000,  // 15s stagger — Meta rate limit safe
-        attempts: 2,
-        backoff: { type: 'exponential', delay: 30000 },
-      });
+      await messageQueue.add(
+        "send-automated-msg",
+        {
+          cartId: c.cartId || null,
+          merchantId,
+          phone: c.phone,
+          templateName,
+          templateLang: templateLang || "en_US",
+          discountCode: discountCode || null,
+          trackingLinkId: trackingLink.id,
+          variables,
+          blastId: blast.id,
+          jobType: "COD_BLAST",
+        },
+        {
+          delay: i * 15000, // 15s stagger — Meta rate limit safe
+          attempts: 2,
+          backoff: { type: "exponential", delay: 30000 },
+        },
+      );
     }
 
     await resumeWorkerIfPaused();
@@ -2596,12 +2623,14 @@ router.post('/cod-blast', async (req: Request, res: Response): Promise<any> => {
     // Update blast status to COMPLETED
     await (prisma as any).whatsAppBlast.update({
       where: { id: blast.id },
-      data: { status: 'COMPLETED' }
+      data: { status: "COMPLETED" },
     });
 
-    logActivity(merchantId, 'CAMPAIGN_LAUNCHED',
+    logActivity(
+      merchantId,
+      "CAMPAIGN_LAUNCHED",
       `COD Blast "${blast.name}" — ${customers.length} customers, template: ${templateName}`,
-      { blastId: blast.id, count: customers.length, templateName }
+      { blastId: blast.id, count: customers.length, templateName },
     );
 
     return res.json({
@@ -2610,176 +2639,208 @@ router.post('/cod-blast', async (req: Request, res: Response): Promise<any> => {
       message: `✅ COD Blast queued for ${customers.length} customers`,
       etaMinutes: Math.ceil((customers.length * 15) / 60),
     });
-
   } catch (e: any) {
     res.status(500).json({ message: e.message });
   }
 });
-
 
 // ── COD Blast: Place Shopify order for a customer ────────────────────────────
-router.post('/place-cod-order', async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { merchantId, phone, name, lineItemsJson, cartId, blastId } = req.body;
-    // lineItemsJson: JSON string from AbandonedCart.lineItems
-    // e.g. [{ name: "Nike Air", quantity: 1, price: "2499.00" }]
-
-    if (!merchantId || !phone) {
-      return res.status(400).json({ message: 'merchantId and phone required' });
-    }
-
-    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
-    if (!merchant?.shopifyToken || !merchant?.storeUrl) {
-      return res.status(400).json({ message: 'Shopify credentials not configured' });
-    }
-
-    const cleanUrl = merchant.storeUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-
-    // Parse line items
-    let lineItems: any[] = [];
+router.post(
+  "/place-cod-order",
+  async (req: Request, res: Response): Promise<any> => {
     try {
-      const parsed = JSON.parse(lineItemsJson || '[]');
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        lineItems = parsed.map((li: any) => ({
-          title: li.name || li.title || 'Product',
-          quantity: li.quantity || 1,
-          price: li.price ? String(li.price) : '0.00',
-        }));
+      const { merchantId, phone, name, lineItemsJson, cartId, blastId } =
+        req.body;
+      // lineItemsJson: JSON string from AbandonedCart.lineItems
+      // e.g. [{ name: "Nike Air", quantity: 1, price: "2499.00" }]
+
+      if (!merchantId || !phone) {
+        return res
+          .status(400)
+          .json({ message: "merchantId and phone required" });
       }
-    } catch { }
 
-    // Fallback if no line items
-    if (lineItems.length === 0) {
-      lineItems = [{ title: 'Product (from WhatsApp)', quantity: 1, price: '0.00' }];
-    }
-
-    // Placeholder shipping address — merchant confirms via call
-    const shippingAddress = {
-      first_name: name?.split(' ')[0] || 'Customer',
-      last_name: name?.split(' ').slice(1).join(' ') || '',
-      address1: 'Address to be confirmed via WhatsApp call',
-      city: 'Pending',
-      province: 'Pending',
-      zip: '000000',
-      country: 'India',
-      phone: phone,
-    };
-
-    const axiosLib = await import('axios');
-    const headers = {
-      'X-Shopify-Access-Token': merchant.shopifyToken,
-      'Content-Type': 'application/json',
-    };
-
-    const orderPayload = {
-      order: {
-        line_items: lineItems,
-        customer: { phone },
-        shipping_address: shippingAddress,
-        billing_address: shippingAddress,
-        financial_status: 'pending',
-        tags: 'WA-Automations, WhatsApp-COD',
-        note: 'COD order placed via WhatsApp bot. Address to be confirmed via call.',
-        send_receipt: false,
-        send_fulfillment_receipt: false,
+      const merchant = await prisma.merchant.findUnique({
+        where: { id: merchantId },
+      });
+      if (!merchant?.shopifyToken || !merchant?.storeUrl) {
+        return res
+          .status(400)
+          .json({ message: "Shopify credentials not configured" });
       }
-    };
 
-    const resp = await axiosLib.default.post(
-      `https://${cleanUrl}/admin/api/2024-01/orders.json`,
-      orderPayload,
-      { headers }
-    );
+      const cleanUrl = merchant.storeUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/\/$/, "");
 
-    const shopifyOrder = resp.data?.order;
-    const orderNumber = shopifyOrder?.name || String(shopifyOrder?.id);
-    const orderTotal = parseFloat(shopifyOrder?.total_price || '0');
-
-    // Mark cart as RECOVERED
-    if (cartId) {
-      await prisma.abandonedCart.update({
-        where: { id: cartId },
-        data: { status: 'RECOVERED' }
-      }).catch(() => { }); // ignore if not found
-    }
-
-    // Update blast stats
-    if (blastId) {
-      await (prisma as any).whatsAppBlast.update({
-        where: { id: blastId },
-        data: {
-          totalOrders: { increment: 1 },
-          revenue: { increment: orderTotal },
+      // Parse line items
+      let lineItems: any[] = [];
+      try {
+        const parsed = JSON.parse(lineItemsJson || "[]");
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          lineItems = parsed.map((li: any) => ({
+            title: li.name || li.title || "Product",
+            quantity: li.quantity || 1,
+            price: li.price ? String(li.price) : "0.00",
+          }));
         }
-      }).catch(() => { });
-    }
+      } catch {}
 
-    // Update merchant recovered revenue
-    await prisma.merchant.update({
-      where: { id: merchantId },
-      data: {
-        totalConverted: { increment: 1 },
-        recoveredRevenue: { increment: orderTotal },
+      // Fallback if no line items
+      if (lineItems.length === 0) {
+        lineItems = [
+          { title: "Product (from WhatsApp)", quantity: 1, price: "0.00" },
+        ];
       }
-    });
 
-    logActivity(merchantId, 'CAMPAIGN_LAUNCHED',
-      `COD Order placed via WhatsApp — Order ${orderNumber}, ₹${orderTotal}, Phone: ${phone}`,
-      { orderNumber, orderTotal, phone, cartId, blastId }
-    );
+      // Placeholder shipping address — merchant confirms via call
+      const shippingAddress = {
+        first_name: name?.split(" ")[0] || "Customer",
+        last_name: name?.split(" ").slice(1).join(" ") || "",
+        address1: "Address to be confirmed via WhatsApp call",
+        city: "Pending",
+        province: "Pending",
+        zip: "000000",
+        country: "India",
+        phone: phone,
+      };
 
-    return res.json({
-      success: true,
-      orderNumber,
-      orderId: shopifyOrder?.id,
-      message: `✅ Order ${orderNumber} placed successfully`,
-    });
+      const axiosLib = await import("axios");
+      const headers = {
+        "X-Shopify-Access-Token": merchant.shopifyToken,
+        "Content-Type": "application/json",
+      };
 
-  } catch (e: any) {
-    const errMsg = e.response?.data?.errors || e.message;
-    console.error('❌ COD order placement failed:', errMsg);
-    res.status(500).json({ message: `Order placement failed: ${JSON.stringify(errMsg)}` });
-  }
-});
+      const orderPayload = {
+        order: {
+          line_items: lineItems,
+          customer: { phone },
+          shipping_address: shippingAddress,
+          billing_address: shippingAddress,
+          financial_status: "pending",
+          tags: "WA-Automations, WhatsApp-COD",
+          note: "COD order placed via WhatsApp bot. Address to be confirmed via call.",
+          send_receipt: false,
+          send_fulfillment_receipt: false,
+        },
+      };
+
+      const resp = await axiosLib.default.post(
+        `https://${cleanUrl}/admin/api/2024-01/orders.json`,
+        orderPayload,
+        { headers },
+      );
+
+      const shopifyOrder = resp.data?.order;
+      const orderNumber = shopifyOrder?.name || String(shopifyOrder?.id);
+      const orderTotal = parseFloat(shopifyOrder?.total_price || "0");
+
+      // Mark cart as RECOVERED
+      if (cartId) {
+        await prisma.abandonedCart
+          .update({
+            where: { id: cartId },
+            data: { status: "RECOVERED" },
+          })
+          .catch(() => {}); // ignore if not found
+      }
+
+      // Update blast stats
+      if (blastId) {
+        await (prisma as any).whatsAppBlast
+          .update({
+            where: { id: blastId },
+            data: {
+              totalOrders: { increment: 1 },
+              revenue: { increment: orderTotal },
+            },
+          })
+          .catch(() => {});
+      }
+
+      // Update merchant recovered revenue
+      await prisma.merchant.update({
+        where: { id: merchantId },
+        data: {
+          totalConverted: { increment: 1 },
+          recoveredRevenue: { increment: orderTotal },
+        },
+      });
+
+      logActivity(
+        merchantId,
+        "CAMPAIGN_LAUNCHED",
+        `COD Order placed via WhatsApp — Order ${orderNumber}, ₹${orderTotal}, Phone: ${phone}`,
+        { orderNumber, orderTotal, phone, cartId, blastId },
+      );
+
+      return res.json({
+        success: true,
+        orderNumber,
+        orderId: shopifyOrder?.id,
+        message: `✅ Order ${orderNumber} placed successfully`,
+      });
+    } catch (e: any) {
+      const errMsg = e.response?.data?.errors || e.message;
+      console.error("❌ COD order placement failed:", errMsg);
+      res
+        .status(500)
+        .json({ message: `Order placement failed: ${JSON.stringify(errMsg)}` });
+    }
+  },
+);
 
 // ── COD Blast: Get blast history ─────────────────────────────────────────────
-router.get('/blast-history/:merchantId', async (req: Request, res: Response): Promise<any> => {
-  try {
-    const merchantId = req.params.merchantId as string;
-    const blasts = await (prisma as any).whatsAppBlast.findMany({
-      where: { merchantId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-    res.json({ blasts });
-  } catch (e: any) {
-    res.status(500).json({ message: e.message });
-  }
-});
-
+router.get(
+  "/blast-history/:merchantId",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const merchantId = req.params.merchantId as string;
+      const blasts = await (prisma as any).whatsAppBlast.findMany({
+        where: { merchantId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+      res.json({ blasts });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  },
+);
 
 // ── Toggle merchant inbox access ──────────────────────────────────────────────
-router.post('/toggle-inbox', async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { merchantId, enabled } = req.body;
-    if (!merchantId) return res.status(400).json({ message: 'merchantId required' });
+router.post(
+  "/toggle-inbox",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const { merchantId, enabled } = req.body;
+      if (!merchantId)
+        return res.status(400).json({ message: "merchantId required" });
 
-    await prisma.merchant.update({
-      where: { id: merchantId },
-      data: { inboxEnabled: enabled }
-    });
+      await prisma.merchant.update({
+        where: { id: merchantId },
+        data: { inboxEnabled: enabled },
+      });
 
-    logActivity(merchantId, 'SERVICE_TOGGLED',
-      `Merchant inbox ${enabled ? 'enabled' : 'disabled'} by admin`,
-      { inboxEnabled: enabled }
-    );
+      logActivity(
+        merchantId,
+        "SERVICE_TOGGLED",
+        `Merchant inbox ${enabled ? "enabled" : "disabled"} by admin`,
+        { inboxEnabled: enabled },
+      );
 
-    res.json({ message: `✅ Inbox ${enabled ? 'enabled' : 'disabled'} for merchant` });
-  } catch (e: any) {
-    res.status(500).json({ message: e.message });
-  }
-});
+      res.json({
+        message: `✅ Inbox ${enabled ? "enabled" : "disabled"} for merchant`,
+      });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  },
+);
 
-
+router.get(
+  "/templates/:merchantId/:templateName/variables",
+  getTemplateVariables,
+);
 
 export default router;

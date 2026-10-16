@@ -298,15 +298,36 @@ export default function FlowsTab({
                   ) : (
                     <select
                       value={currentTemplate}
-                      onChange={(e) => {
+                      // onChange={(e) => {
+                      //   const selected = e.target.value;
+                      //   const tmpl = metaTemplates.find(
+                      //     (t: any) => t.name === selected,
+                      //   );
+                      //   updateDraft({
+                      //     template: selected,
+                      //     lang: tmpl?.language || "en_US",
+                      //   });
+                      // }}
+
+                      onChange={async (e) => {
                         const selected = e.target.value;
-                        const tmpl = metaTemplates.find(
-                          (t: any) => t.name === selected,
-                        );
-                        updateDraft({
-                          template: selected,
-                          lang: tmpl?.language || "en_US",
-                        });
+                        updateDraft({ template: selected });
+
+                        // 1. Backend se pucho is template mein kitne variables hain
+                        try {
+                          const token = localStorage.getItem("token");
+                          const r = await axios.get(
+                            `${API_URL}/admin/templates/${merchantId}/${selected}/variables`,
+                            { headers: ah() },
+                          );
+
+                          // 2. Dynamic Array banao (e.g., if variablesCount is 3, array banega length 3 ka)
+                          const count = r.data.variablesCount || 0;
+                          const newMapping = Array(count).fill("custom_text"); // Default set kar do
+                          updateDraft({ variableMapping: newMapping });
+                        } catch (e) {
+                          console.log("No variables detected");
+                        }
                       }}
                       className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                     >
@@ -382,6 +403,49 @@ export default function FlowsTab({
                     <FaPlus className="text-[10px]" /> Add Variable
                   </button>
                 </div>
+
+                {/* Dynamic Variable Mapping UI */}
+                {currentMapping.length > 0 && (
+                  <div className="mt-4 bg-slate-900 p-4 rounded-xl">
+                    <label className="text-xs font-bold text-teal-400 mb-3 block">
+                      Map Template Variables
+                    </label>
+                    {currentMapping.map((mapVal, idx) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <span className="text-xs font-mono text-slate-400 pt-3">
+                          {"{{"}
+                          {idx + 1}
+                          {"}}"}
+                        </span>
+                        <select
+                          value={mapVal}
+                          onChange={(e) => {
+                            const newMap = [...currentMapping];
+                            newMap[idx] = e.target.value;
+                            updateDraft({ variableMapping: newMap });
+                          }}
+                          className="flex-1 p-2 bg-slate-800 border rounded-lg text-xs text-white"
+                        >
+                          {VARIABLE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                          <option value="custom_text">✎ Custom Text</option>
+                        </select>
+
+                        {/* Agar 'custom_text' select ho toh manual input dikhao */}
+                        {mapVal === "custom_text" && (
+                          <input
+                            type="text"
+                            placeholder="Enter custom value..."
+                            className="w-1/3 p-2 bg-slate-800 border rounded-lg text-xs text-white"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {currentMapping.length === 0 ? (
                   <p className="text-xs text-slate-500 italic py-1">
