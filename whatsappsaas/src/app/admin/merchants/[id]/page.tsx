@@ -34,6 +34,15 @@ const ah = () => ({
   "x-admin-api-key": sessionStorage.getItem("adminKey") || "",
 });
 
+interface FlowDraftItem {
+  template: string;
+  delay: number;
+  active: boolean;
+  lang: string;
+  discount: string;
+  variableMapping: any[];
+}
+
 export default function MerchantControlHub() {
   const { id } = useParams();
   const router = useRouter();
@@ -102,18 +111,9 @@ export default function MerchantControlHub() {
   const [addCustEmail, setAddCustEmail] = useState("");
 
   // ── Flow drafts ───────────────────────────────────────────────────────────
-  const [flowDrafts, setFlowDrafts] = useState<
-    Record<
-      string,
-      {
-        template: string;
-        delay: number;
-        active: boolean;
-        lang: string;
-        discount: string;
-      }
-    >
-  >({});
+  const [flowDrafts, setFlowDrafts] = useState<Record<string, FlowDraftItem>>(
+    {},
+  );
 
   // ── Analytics ─────────────────────────────────────────────────────────────
   const [analytics, setAnalytics] = useState<any>(null);
