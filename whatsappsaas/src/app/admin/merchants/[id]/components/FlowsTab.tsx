@@ -182,7 +182,8 @@ export default function FlowsTab({
                   : currentMapping,
             },
           }));
-        };
+        }; 
+        
 
         const handleTemplateSelect = (templateName: string) => {
           const tmpl = metaTemplates.find((t: any) => t.name === templateName);
