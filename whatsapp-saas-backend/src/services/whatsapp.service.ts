@@ -79,18 +79,32 @@ export const sendMetaTemplateMessage = async (
 
     const bodyParams:   any[] = [];
     const headerParams: any[] = [];
-    const buttonParams: Record<number, any[]> = {};
+    const buttonParams: Record<string, { sub_type: string; params: any[] }> = {};
 
     variables.forEach((v, i) => {
       const source = sources[i] || 'body';
       if (source === 'header') {
         headerParams.push({ type: 'text', text: String(v) });
       } else if (source.startsWith('button_url_')) {
-        const btnIdx = parseInt(source.replace('button_url_', '')) || 0;
-        if (!buttonParams[btnIdx]) buttonParams[btnIdx] = [];
-        buttonParams[btnIdx].push({ type: 'text', text: String(v) });
+        // URL button — send only the SUFFIX after the base URL
+        // Template URL example: "https://api.wautomation.shop/api/tracking/{{1}}"
+        // We need to extract just the suffix part from the full URL
+        const btnIdx = source.replace('button_url_', '');
+        if (!buttonParams[btnIdx]) buttonParams[btnIdx] = { sub_type: 'url', params: [] };
+        // Extract suffix: remove the base URL portion that's already in the template
+        // If value is a full URL, Meta expects only the dynamic part after the base
+        const urlValue = String(v);
+        // Check if it looks like a full URL — if so, extract path after last known base
+        const suffix = urlValue.startsWith('http')
+          ? urlValue.replace(/^https?:\/\/[^/]+\//, '') // strip scheme+host, keep path
+          : urlValue;
+        buttonParams[btnIdx].params.push({ type: 'text', text: suffix });
+      } else if (source.startsWith('button_coupon_')) {
+        // COPY_CODE button — send the coupon code
+        const btnIdx = source.replace('button_coupon_', '');
+        if (!buttonParams[btnIdx]) buttonParams[btnIdx] = { sub_type: 'copy_code', params: [] };
+        buttonParams[btnIdx].params.push({ type: 'coupon_code', coupon_code: String(v) });
       } else {
-        // 'body' or anything else → body
         bodyParams.push({ type: 'text', text: String(v) });
       }
     });
@@ -102,12 +116,12 @@ export const sendMetaTemplateMessage = async (
     if (bodyParams.length > 0) {
       components.push({ type: 'body', parameters: bodyParams });
     }
-    Object.entries(buttonParams).forEach(([idx, params]) => {
+    Object.entries(buttonParams).forEach(([idx, btn]) => {
       components.push({
         type: 'button',
-        sub_type: 'url',
+        sub_type: btn.sub_type,
         index: String(idx),
-        parameters: params,
+        parameters: btn.params,
       });
     });
 

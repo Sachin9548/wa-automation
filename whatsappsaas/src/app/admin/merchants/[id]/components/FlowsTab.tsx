@@ -347,15 +347,20 @@ export default function FlowsTab({
                           newSources.push("body");
                         });
 
-                        // 3. Button URL variables (dynamic suffix only)
+                        // 3. Button variables
                         const buttonsComp = tmpl?.components?.find((c: any) => c.type === "BUTTONS");
                         if (buttonsComp?.buttons) {
                           buttonsComp.buttons.forEach((btn: any, btnIdx: number) => {
                             if (btn.type === "URL" && btn.url && btn.url.includes("{{")) {
+                              // URL button with dynamic suffix
                               (btn.url.match(/\{\{\d+\}\}/g) || []).forEach(() => {
                                 newMapping.push("cart_url");
                                 newSources.push(`button_url_${btnIdx}`);
                               });
+                            } else if (btn.type === "COPY_CODE") {
+                              // Copy code button — needs discount code
+                              newMapping.push("discount_code");
+                              newSources.push(`button_coupon_${btnIdx}`);
                             }
                           });
                         }
@@ -529,10 +534,25 @@ export default function FlowsTab({
                     <label className="text-xs font-bold text-teal-400 block">
                       Map Template Variables
                     </label>
-                    {activeMapping.map((val: string, idx: number) => (
+                    {activeMapping.map((val: string, idx: number) => {
+                      const activeSources = (draft?.variableSources ?? []).length > 0
+                        ? (draft?.variableSources ?? [])
+                        : (() => { try { return JSON.parse(db?.variableSources || '[]'); } catch { return []; } })();
+                      const src = activeSources[idx] || 'body';
+                      const isButton = src.startsWith('button_');
+                      const isCoupon = src.startsWith('button_coupon_');
+                      const isUrl    = src.startsWith('button_url_');
+                      return (
                       <div key={idx} className="space-y-1.5">
                         <div className="flex items-center gap-3">
-                          <span className="text-[10px] font-mono text-slate-400 w-10">{`{{${idx + 1}}}`}</span>
+                          <div className="flex flex-col items-center w-14 shrink-0">
+                            <span className="text-[10px] font-mono text-slate-400">{`{{${idx + 1}}}`}</span>
+                            {isButton && (
+                              <span className={`text-[8px] font-bold px-1 rounded mt-0.5 ${isCoupon ? 'bg-yellow-500/20 text-yellow-400' : 'bg-teal-500/20 text-teal-400'}`}>
+                                {isCoupon ? 'BTN COUPON' : 'BTN URL'}
+                              </span>
+                            )}
+                          </div>
                           <select
                             value={val}
                             onChange={(e) => {
@@ -540,7 +560,7 @@ export default function FlowsTab({
                               newMap[idx] = e.target.value;
                               updateDraft({ variableMapping: newMap });
                             }}
-                            className="flex-1 p-2 bg-slate-800 border border-white/10 rounded-lg text-xs text-white"
+                            className={`flex-1 p-2 bg-slate-800 border rounded-lg text-xs text-white ${isButton ? 'border-teal-500/30' : 'border-white/10'}`}
                           >
                             {VARIABLE_OPTIONS.map((opt) => (
                               <option key={opt.value} value={opt.value}>
@@ -570,7 +590,8 @@ export default function FlowsTab({
                           </div>
                         )}
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 ) : null;
               })()}
