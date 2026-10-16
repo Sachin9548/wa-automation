@@ -41,6 +41,7 @@ interface FlowDraftItem {
   lang: string;
   discount: string;
   variableMapping: any[];
+  customMessage?: string;
 }
 
 export default function MerchantControlHub() {

@@ -79,6 +79,7 @@ export interface FlowDraftItem {
   active: boolean;
   lang: string;
   discount: string;
+  customMessage?: string;
   variableMapping: string[]; // 👈 Add this
 }
 
@@ -107,6 +108,7 @@ interface FlowsTabProps {
       lang: string;
       discount: string;
       variableMapping: string[];
+      customMessage?: string;
     }
   >;
   setFlowDrafts: React.Dispatch<
@@ -120,6 +122,7 @@ interface FlowsTabProps {
           lang: string;
           discount: string;
           variableMapping: string[];
+          customMessage?: string;
         }
       >
     >
@@ -179,6 +182,7 @@ export default function FlowsTab({
             lang: string;
             discount: string;
             variableMapping: string[];
+            customMessage?: string;
           }>,
         ) => {
           setFlowDrafts((prev) => ({
@@ -195,6 +199,10 @@ export default function FlowsTab({
                 patch.variableMapping !== undefined
                   ? patch.variableMapping
                   : (draft?.variableMapping ?? []),
+              customMessage:
+                patch.customMessage !== undefined
+                  ? patch.customMessage
+                  : (draft?.customMessage ?? ""),
             },
           }));
         };
@@ -217,6 +225,7 @@ export default function FlowsTab({
                 variableMapping: JSON.stringify(draft?.variableMapping || []), // 👈 Zaroori!
                 metaTemplateLang: currentLang,
                 discountCode: currentDiscount || null,
+                customMessage: draft?.customMessage || null,
                 isActive: currentActive,
               },
               { headers: ah() },
@@ -328,15 +337,68 @@ export default function FlowsTab({
                   )}
                   {currentTemplate &&
                     (() => {
-                      const body = metaTemplates
-                        .find((t: any) => t.name === currentTemplate)
-                        ?.components?.find((c: any) => c.type === "BODY");
-                      return body ? (
-                        <div className="mt-2 bg-slate-900 border border-white/5 rounded-lg p-3 text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
-                          {body.text.substring(0, 150)}
-                          {body.text.length > 150 ? "..." : ""}
+                      const tmpl = metaTemplates.find(
+                        (t: any) => t.name === currentTemplate,
+                      );
+                      if (!tmpl) return null;
+
+                      const header = tmpl.components?.find(
+                        (c: any) => c.type === "HEADER",
+                      );
+                      const body = tmpl.components?.find(
+                        (c: any) => c.type === "BODY",
+                      );
+                      const footer = tmpl.components?.find(
+                        (c: any) => c.type === "FOOTER",
+                      );
+                      const buttons = tmpl.components?.find(
+                        (c: any) => c.type === "BUTTONS",
+                      );
+
+                      return (
+                        <div className="mt-2 bg-[#0a1929] border border-white/10 rounded-xl overflow-hidden text-xs">
+                          {/* WhatsApp-style message bubble */}
+                          <div className="bg-slate-800 px-3 py-1.5 border-b border-white/5">
+                            <span className="text-slate-400 text-[10px] font-bold uppercase">
+                              📱 Preview
+                            </span>
+                          </div>
+                          <div className="p-3 space-y-1.5">
+                            {header?.text && (
+                              <p className="text-white font-bold text-sm">
+                                {header.text}
+                              </p>
+                            )}
+                            {body?.text && (
+                              <p className="text-slate-200 leading-relaxed whitespace-pre-wrap">
+                                {body.text}
+                              </p>
+                            )}
+                            {footer?.text && (
+                              <p className="text-slate-500 text-[10px] italic">
+                                {footer.text}
+                              </p>
+                            )}
+                            {buttons?.buttons?.length > 0 && (
+                              <div className="border-t border-white/10 pt-2 space-y-1 mt-1">
+                                {buttons.buttons.map((btn: any, i: number) => (
+                                  <div
+                                    key={i}
+                                    className="text-center py-1.5 border border-teal-500/30 rounded-lg text-teal-400 text-[11px] font-bold"
+                                  >
+                                    {btn.type === "QUICK_REPLY"
+                                      ? "↩ "
+                                      : btn.type === "URL"
+                                        ? "🔗 "
+                                        : "📞 "}
+                                    {btn.text}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      ) : null;
+                      );
                     })()}
                 </div>
 
@@ -387,22 +449,27 @@ export default function FlowsTab({
                 </div>
               </div>
 
-              {/* Discount code */}
-              <div>
-                <label className="text-xs font-bold text-slate-400 mb-2 block">
-                  Discount Code{" "}
-                  <span className="text-slate-600">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. VIP10, SAVE5"
-                  value={currentDiscount}
-                  onChange={(e) =>
-                    updateDraft({ discount: e.target.value.toUpperCase() })
-                  }
-                  className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
-                />
-              </div>
+              {/* Custom message input — sirf tab dikhao jab koi variable "Common Message" select ho */}
+              {draft?.variableMapping?.some(
+                (item: any) =>
+                  (typeof item === "string" ? item : item.key) ===
+                  "Common Message",
+              ) && (
+                <div className="mt-2">
+                  <label className="text-[10px] text-slate-400 font-bold block mb-1">
+                    Custom Message Text (same for all customers)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Happy Diwali! 🎉"
+                    value={draft.customMessage || ""}
+                    onChange={(e) =>
+                      updateDraft({ customMessage: e.target.value })
+                    }
+                    className="w-full p-2 bg-slate-800 border border-white/10 rounded-xl text-xs text-white placeholder-slate-600"
+                  />
+                </div>
+              )}
 
               {draft?.variableMapping?.length > 0 && (
                 <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5 space-y-2">
@@ -410,27 +477,49 @@ export default function FlowsTab({
                     Map Template Variables
                   </label>
                   {draft.variableMapping.map((val, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      <span className="text-[10px] font-mono text-slate-400 w-10">
-                        {"{{"}
-                        {idx + 1}
-                        {"}}"}
-                      </span>
-                      <select
-                        value={val}
-                        onChange={(e) => {
-                          const newMap = [...draft.variableMapping];
-                          newMap[idx] = e.target.value;
-                          updateDraft({ variableMapping: newMap });
-                        }}
-                        className="flex-1 p-2 bg-slate-800 border border-white/10 rounded-lg text-xs text-white"
-                      >
-                        {VARIABLE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                    <div key={idx} className="space-y-1.5">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-mono text-slate-400 w-10">
+                          {`{{${idx + 1}}}`}
+                        </span>
+                        <select
+                          value={val}
+                          onChange={(e) => {
+                            const newMap = [...draft.variableMapping];
+                            newMap[idx] = e.target.value;
+                            updateDraft({ variableMapping: newMap });
+                          }}
+                          className="flex-1 p-2 bg-slate-800 border border-white/10 rounded-lg text-xs text-white"
+                        >
+                          {VARIABLE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Discount code input — sirf jab discount_code select ho */}
+                      {val === "discount_code" && (
+                        <div className="ml-14">
+                          <input
+                            type="text"
+                            placeholder="Enter discount code e.g. VIP10"
+                            value={currentDiscount}
+                            onChange={(e) =>
+                              updateDraft({
+                                discount: e.target.value.toUpperCase(),
+                              })
+                            }
+                            className="w-full p-2 bg-slate-900 border border-teal-500/30 text-white placeholder-slate-600 rounded-lg text-xs font-mono focus:ring-1 focus:ring-teal-500 outline-none"
+                          />
+                          {currentDiscount && (
+                            <p className="text-teal-400 text-[10px] mt-0.5 font-bold">
+                              🎟️ {currentDiscount} will be sent
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
