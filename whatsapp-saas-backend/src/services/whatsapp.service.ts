@@ -44,6 +44,7 @@ export const RATE_LIMIT_CODES = [
 
 
 // ── Send a template message via Meta Cloud API ────────────────────────────────
+// Auto-detects body vs header vs button URL variables from template structure
 export const sendMetaTemplateMessage = async (
   phoneNumberId: string,
   accessToken: string,
@@ -52,43 +53,55 @@ export const sendMetaTemplateMessage = async (
   variables: string[],
   languageCode: string = 'en_US',
   variableSources?: string[],
-
 ): Promise<MetaSendResult> => {
   try {
-    const parameters = variables.map(v => ({ type: 'text', text: String(v) }));
+    if (!variables || variables.length === 0) {
+      // No variables — send as-is
+      await axios.post(
+        `${META_BASE_URL}/${phoneNumberId}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          to: toPhone,
+          type: 'template',
+          template: { name: templateName, language: { code: languageCode }, components: [] }
+        },
+        { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
+      );
+      return { success: true, retryable: false };
+    }
 
+    // ── Smart component builder ───────────────────────────────────────────────
+    // Use variableSources if provided (from flow mapping),
+    // otherwise default all to body — simplest correct behavior
+    const sources: string[] = (variableSources && variableSources.length === variables.length)
+      ? variableSources
+      : variables.map(() => 'body');
 
-    // Parse sources — tells us which variable goes to body vs button
-    const sources: string[] = variableSources || variables.map(() => 'body');
-
-    // Separate by component type
-    const bodyParams: any[] = [];
+    const bodyParams:   any[] = [];
     const headerParams: any[] = [];
     const buttonParams: Record<number, any[]> = {};
 
     variables.forEach((v, i) => {
       const source = sources[i] || 'body';
-      if (source === 'body') {
-        bodyParams.push({ type: 'text', text: String(v) });
-      } else if (source === 'header') {
+      if (source === 'header') {
         headerParams.push({ type: 'text', text: String(v) });
-      }
-      else if (source.startsWith('button_url_')) {
+      } else if (source.startsWith('button_url_')) {
         const btnIdx = parseInt(source.replace('button_url_', '')) || 0;
         if (!buttonParams[btnIdx]) buttonParams[btnIdx] = [];
         buttonParams[btnIdx].push({ type: 'text', text: String(v) });
+      } else {
+        // 'body' or anything else → body
+        bodyParams.push({ type: 'text', text: String(v) });
       }
     });
 
-    // Build components array
     const components: any[] = [];
-    if (bodyParams.length > 0) {
-      components.push({ type: 'body', parameters: bodyParams });
-    }
     if (headerParams.length > 0) {
       components.push({ type: 'header', parameters: headerParams });
     }
-
+    if (bodyParams.length > 0) {
+      components.push({ type: 'body', parameters: bodyParams });
+    }
     Object.entries(buttonParams).forEach(([idx, params]) => {
       components.push({
         type: 'button',
@@ -98,6 +111,7 @@ export const sendMetaTemplateMessage = async (
       });
     });
 
+    console.log(`📤 Sending template "${templateName}" to ${toPhone} | components: ${JSON.stringify(components)}`);
 
     await axios.post(
       `${META_BASE_URL}/${phoneNumberId}/messages`,
@@ -108,16 +122,10 @@ export const sendMetaTemplateMessage = async (
         template: {
           name: templateName,
           language: { code: languageCode },
-          components: components.length > 0 ? components : []
+          components,
         }
-
       },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
     );
 
     return { success: true, retryable: false };

@@ -85,13 +85,16 @@ export interface FlowDraftItem {
 }
 
 const VARIABLE_OPTIONS = [
-  { value: "customer_name", label: "👤 Customer Name" },
-  { value: "product_name", label: "📦 Product Name" },
-  { value: "products_list", label: "🛒 Products List" },
-  { value: "cart_url", label: "🔗 Tracking Link" },
-  { value: "discount_code", label: "🎟️ Discount Code" },
-  { value: "total_price", label: "💰 Total Price" },
-  { value: "Common Message", label: "Common Message" },
+  { value: "customer_name",  label: "👤 Customer Name" },
+  { value: "product_name",   label: "📦 First Product Name" },
+  { value: "products_list",  label: "🛒 All Products (list)" },
+  { value: "cart_url",       label: "🔗 Tracking Link / Cart URL" },
+  { value: "discount_code",  label: "🎟️ Discount Code" },
+  { value: "total_price",    label: "💰 Cart Total Price" },
+  { value: "store_name",     label: "🏪 Store / Brand Name" },
+  { value: "order_number",   label: "📋 Order Number (#1001)" },
+  { value: "store_url",      label: "🌐 Store URL" },
+  { value: "Common Message", label: "✏️ Custom Text (same for all)" },
 ];
 
 interface FlowsTabProps {
@@ -319,71 +322,49 @@ export default function FlowsTab({
                           (t: any) => t.name === selected,
                         );
 
-                        // Body variables
-                        const bodyText =
-                          tmpl?.components?.find((c: any) => c.type === "BODY")
-                            ?.text || "";
-                        const bodyMatches =
-                          bodyText.match(/\{\{\d+\}\}/g) || [];
+                        // ── Auto-detect all variables from template structure ──
+                        // Order: header vars first, then body vars, then button URL vars
+                        // This matches exactly what Meta API expects in components[]
+                        const newMapping: string[] = [];
+                        const newSources: string[] = [];
 
-                        // Header variables (text header with {{1}})
-                        const headerComp = tmpl?.components?.find(
-                          (c: any) => c.type === "HEADER",
-                        );
-                        const headerText =
-                          headerComp?.format === "TEXT"
-                            ? headerComp?.text || ""
-                            : "";
-                        const headerMatches =
-                          headerText.match(/\{\{\d+\}\}/g) || [];
-
-                        // Button URL variables (buttons with example/url containing {{1}})
-                        const buttonsComp = tmpl?.components?.find(
-                          (c: any) => c.type === "BUTTONS",
-                        );
-                        const buttonMatches: string[] = [];
-                        if (buttonsComp?.buttons) {
-                          buttonsComp.buttons.forEach(
-                            (btn: any, btnIdx: number) => {
-                              if (
-                                btn.type === "URL" &&
-                                btn.url &&
-                                btn.url.includes("{{")
-                              ) {
-                                // URL button with variable
-                                (btn.url.match(/\{\{\d+\}\}/g) || []).forEach(
-                                  () => {
-                                    buttonMatches.push(`button_url_${btnIdx}`);
-                                  },
-                                );
-                              }
-                            },
-                          );
+                        // 1. Header text variables
+                        const headerComp = tmpl?.components?.find((c: any) => c.type === "HEADER");
+                        if (headerComp?.format === "TEXT") {
+                          const hMatches = (headerComp.text || "").match(/\{\{\d+\}\}/g) || [];
+                          hMatches.forEach(() => {
+                            newMapping.push("store_name");
+                            newSources.push("header");
+                          });
                         }
 
-                        // Combine all — body first, then header, then button slots
-                        const allSlots = [
-                          ...bodyMatches.map(() => ({
-                            source: "body",
-                            default: "customer_name",
-                          })),
-                          ...headerMatches.map(() => ({
-                            source: "header",
-                            default: "customer_name",
-                          })),
-                          ...buttonMatches.map((btnKey) => ({
-                            source: btnKey,
-                            default: "cart_url",
-                          })),
-                        ];
+                        // 2. Body variables
+                        const bodyText = tmpl?.components?.find((c: any) => c.type === "BODY")?.text || "";
+                        const bMatches = bodyText.match(/\{\{\d+\}\}/g) || [];
+                        const bodyDefaults = ["customer_name", "products_list", "total_price", "discount_code", "store_name"];
+                        bMatches.forEach((_: any, i: number) => {
+                          newMapping.push(bodyDefaults[i] || "customer_name");
+                          newSources.push("body");
+                        });
 
-                        const newMapping = allSlots.map((s) => s.default);
+                        // 3. Button URL variables (dynamic suffix only)
+                        const buttonsComp = tmpl?.components?.find((c: any) => c.type === "BUTTONS");
+                        if (buttonsComp?.buttons) {
+                          buttonsComp.buttons.forEach((btn: any, btnIdx: number) => {
+                            if (btn.type === "URL" && btn.url && btn.url.includes("{{")) {
+                              (btn.url.match(/\{\{\d+\}\}/g) || []).forEach(() => {
+                                newMapping.push("cart_url");
+                                newSources.push(`button_url_${btnIdx}`);
+                              });
+                            }
+                          });
+                        }
 
                         updateDraft({
                           template: selected,
                           lang: tmpl?.language || "en_US",
                           variableMapping: newMapping,
-                          variableSources: allSlots.map((s) => s.source),
+                          variableSources: newSources,
                         });
                       }}
                       className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"

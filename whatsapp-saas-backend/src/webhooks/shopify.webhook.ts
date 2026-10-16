@@ -259,12 +259,14 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
     // ── 1. Dictionary of all available values for Abandoned Cart ──────────
     const valueMap: Record<string, string> = {
       customer_name: cart.customerName || 'there',
-      product_name: firstProductName || 'your item',
+      product_name:  firstProductName || 'your item',
       products_list: productsList || 'your items',
-      cart_url: trackingUrl,
+      cart_url:      trackingUrl,
       discount_code: discountCode || '',
-      total_price: cart.totalPrice ? `₹${cart.totalPrice}` : '',
-      store_name: merchant.brandName || '',
+      total_price:   cart.totalPrice ? `₹${cart.totalPrice}` : '',
+      store_name:    merchant.brandName || '',
+      store_url:     merchant.storeUrl || '',
+      order_number:  '',  // not applicable for cart flow
     };
 
     // ── 2. Read variableMapping from flow (DB) ───────────────────────────
@@ -491,13 +493,15 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
 
         // ── 1. Dictionary of all available values for Upsell ───────────────
         const upsellValueMap: Record<string, string> = {
-          customer_name: customerName,
-          product_name: purchasedProductName,
-          products_list: purchasedProductsList,
-          store_url: trackingUrl,
-          cart_url: trackingUrl,
-          discount_code: discountCode || '',
-          store_name: merchant.brandName || '',
+          customer_name:  customerName,
+          product_name:   purchasedProductName,
+          products_list:  purchasedProductsList,
+          store_url:      trackingUrl,
+          cart_url:       trackingUrl,
+          discount_code:  discountCode || '',
+          store_name:     merchant.brandName || '',
+          total_price:    `₹${orderTotal}`,
+          order_number:   orderNumber,
         };
 
         // ── 2. Read variableMapping from upsellFlow ─────────────────────────
@@ -591,12 +595,15 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         // {{4}} = discount code (optional)
         // valueMap for COD
         const codValueMap: Record<string, string> = {
-          customer_name: orderData.customer?.first_name || orderData.billing_address?.first_name || 'there',
-          order_number: orderNumber,
-          cart_url: trackingUrl,
-          discount_code: discountCode || '',
-          store_name: merchant.brandName || '',
-          total_price: `₹${orderTotal}`,
+          customer_name:  orderData.customer?.first_name || orderData.billing_address?.first_name || 'there',
+          order_number:   orderNumber,
+          cart_url:       trackingUrl,
+          discount_code:  discountCode || '',
+          store_name:     merchant.brandName || '',
+          total_price:    `₹${orderTotal}`,
+          store_url:      merchant.storeUrl || '',
+          product_name:   '',
+          products_list:  '',
         };
 
         // Read mapping from DB

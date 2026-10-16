@@ -197,12 +197,40 @@ app.listen(PORT, async () => {
             const discountCode = (flow as any).discountCode || null;
             const storeUrl = m.storeUrl || 'https://wautomation.shop';
 
-            const variables: string[] = [
-              c.name?.split(' ')[0] || 'there',
-              String(yearsCompleted),
-              storeUrl,
-              ...(discountCode ? [discountCode] : []),
-            ];
+            // valueMap — all possible anniversary values
+            const annivValueMap: Record<string, string> = {
+              customer_name:   c.name?.split(' ')[0] || 'there',
+              years_completed: String(yearsCompleted),
+              store_url:       storeUrl,
+              cart_url:        storeUrl,
+              discount_code:   discountCode || '',
+              store_name:      storeUrl.replace(/^https?:\/\//, '').split('/')[0] || 'our store',
+              total_price: '', order_number: '', product_name: '', products_list: '',
+              'Common Message': (flow as any).customMessage || '',
+            };
+
+            // Read variableMapping + variableSources from DB flow
+            let annivMapping: string[] = [];
+            let annivSources: string[] = [];
+            try {
+              if ((flow as any).variableMapping) {
+                const pm = JSON.parse((flow as any).variableMapping);
+                if (Array.isArray(pm) && pm.length > 0) annivMapping = pm;
+              }
+              if ((flow as any).variableSources) {
+                const ps = JSON.parse((flow as any).variableSources);
+                if (Array.isArray(ps) && ps.length > 0) annivSources = ps;
+              }
+            } catch {}
+
+            // Fallback if mapping not configured
+            if (annivMapping.length === 0) {
+              annivMapping = ['customer_name', 'years_completed', 'store_url'];
+              if (discountCode) annivMapping.push('discount_code');
+              annivSources = annivMapping.map(() => 'body');
+            }
+
+            const variables = annivMapping.map(key => annivValueMap[key] ?? '');
 
             await messageQueue.add('send-automated-msg', {
               cartId: null,
@@ -212,6 +240,7 @@ app.listen(PORT, async () => {
               templateLang: (flow as any).metaTemplateLang || 'en_US',
               discountCode,
               variables,
+              variableSources: annivSources,
               jobType: 'STORE_ANNIVERSARY',
             }, {
               attempts: 2,
