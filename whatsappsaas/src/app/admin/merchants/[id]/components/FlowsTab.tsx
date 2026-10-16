@@ -73,6 +73,25 @@ const FLOW_TYPES = [
   },
 ];
 
+export interface FlowDraftItem {
+  template: string;
+  delay: number;
+  active: boolean;
+  lang: string;
+  discount: string;
+  variableMapping: string[]; // 👈 Add this
+}
+
+const VARIABLE_OPTIONS = [
+  { value: "customer_name", label: "👤 Customer Name" },
+  { value: "product_name", label: "📦 Product Name" },
+  { value: "products_list", label: "🛒 Products List" },
+  { value: "cart_url", label: "🔗 Tracking Link" },
+  { value: "discount_code", label: "🎟️ Discount Code" },
+  { value: "total_price", label: "💰 Total Price" },
+  { value: "Common Message", label: "Common Message" },
+];
+
 interface FlowsTabProps {
   merchantId: string;
   flows: any[];
@@ -87,6 +106,7 @@ interface FlowsTabProps {
       active: boolean;
       lang: string;
       discount: string;
+      variableMapping: string[];
     }
   >;
   setFlowDrafts: React.Dispatch<
@@ -99,6 +119,7 @@ interface FlowsTabProps {
           active: boolean;
           lang: string;
           discount: string;
+          variableMapping: string[];
         }
       >
     >
@@ -157,6 +178,7 @@ export default function FlowsTab({
             active: boolean;
             lang: string;
             discount: string;
+            variableMapping: string[];
           }>,
         ) => {
           setFlowDrafts((prev) => ({
@@ -169,6 +191,10 @@ export default function FlowsTab({
               lang: patch.lang !== undefined ? patch.lang : currentLang,
               discount:
                 patch.discount !== undefined ? patch.discount : currentDiscount,
+              variableMapping:
+                patch.variableMapping !== undefined
+                  ? patch.variableMapping
+                  : (draft?.variableMapping ?? []),
             },
           }));
         };
@@ -188,6 +214,7 @@ export default function FlowsTab({
                 delayMinutes: currentDelay,
                 template: "",
                 metaTemplateName: currentTemplate,
+                variableMapping: JSON.stringify(draft?.variableMapping || []), // 👈 Zaroori!
                 metaTemplateLang: currentLang,
                 discountCode: currentDiscount || null,
                 isActive: currentActive,
@@ -273,9 +300,20 @@ export default function FlowsTab({
                         const tmpl = metaTemplates.find(
                           (t: any) => t.name === selected,
                         );
+
+                        // Meta template ke body text se {{1}}, {{2}} count karo
+                        const bodyText =
+                          tmpl?.components?.find((c: any) => c.type === "BODY")
+                            ?.text || "";
+                        const matches = bodyText.match(/\{\{\d+\}\}/g) || [];
+
+                        // Utne hi dropdown slots banao
+                        const newMapping = matches.map(() => "customer_name");
+
                         updateDraft({
                           template: selected,
                           lang: tmpl?.language || "en_US",
+                          variableMapping: newMapping, // 👈 Auto-create slots
                         });
                       }}
                       className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
@@ -365,6 +403,38 @@ export default function FlowsTab({
                   className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
                 />
               </div>
+
+              {draft?.variableMapping?.length > 0 && (
+                <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5 space-y-2">
+                  <label className="text-xs font-bold text-teal-400 block">
+                    Map Template Variables
+                  </label>
+                  {draft.variableMapping.map((val, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <span className="text-[10px] font-mono text-slate-400 w-10">
+                        {"{{"}
+                        {idx + 1}
+                        {"}}"}
+                      </span>
+                      <select
+                        value={val}
+                        onChange={(e) => {
+                          const newMap = [...draft.variableMapping];
+                          newMap[idx] = e.target.value;
+                          updateDraft({ variableMapping: newMap });
+                        }}
+                        className="flex-1 p-2 bg-slate-800 border border-white/10 rounded-lg text-xs text-white"
+                      >
+                        {VARIABLE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Upsell hint */}
               {ft.type === "POST_PURCHASE_UPSELL" && (
