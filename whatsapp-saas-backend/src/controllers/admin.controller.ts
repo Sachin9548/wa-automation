@@ -381,20 +381,30 @@ export const getMerchantFlows = async (req: Request, res: Response): Promise<any
 // 11. Save/update a flow
 export const saveMerchantFlow = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { merchantId, type, delayMinutes, template, isActive, metaTemplateName, metaTemplateLang, discountCode } = req.body;
+    const { merchantId, type, delayMinutes, template, isActive, metaTemplateName, metaTemplateLang, discountCode, variableMapping } = req.body;
     if (!merchantId || !type || delayMinutes === undefined) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
+
+    // Safety: Array/Object ko string format mein ensure karein
+    const formattedMapping = variableMapping
+      ? (typeof variableMapping === 'string' ? variableMapping : JSON.stringify(variableMapping))
+      : null;
+
+
     const flow = await prisma.automationFlow.upsert({
       where: { merchantId_type: { merchantId, type } },
       update: {
         delayMinutes: parseInt(delayMinutes), template: template || '',
         metaTemplateName: metaTemplateName || null, metaTemplateLang: metaTemplateLang || 'en_US',
+        variableMapping: formattedMapping,
         discountCode: discountCode || null, isActive
       },
       create: {
         merchantId, type, delayMinutes: parseInt(delayMinutes), template: template || '',
         metaTemplateName: metaTemplateName || null, metaTemplateLang: metaTemplateLang || 'en_US',
+        variableMapping: formattedMapping,
+
         discountCode: discountCode || null, isActive
       }
     });

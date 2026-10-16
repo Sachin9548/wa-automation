@@ -256,14 +256,42 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
     // {{2}} = product name / products list
     // {{3}} = tracking URL (for button or inline)
     // {{4}} = discount code (optional)
+    // ── 1. Dictionary of all available values for Abandoned Cart ──────────
+    const valueMap: Record<string, string> = {
+      customer_name: cart.customerName || 'there',
+      product_name: firstProductName || 'your item',
+      products_list: productsList || 'your items',
+      cart_url: trackingUrl,
+      discount_code: discountCode || '',
+      total_price: cart.totalPrice ? `₹${cart.totalPrice}` : '',
+      store_name: merchant.brandName || '',
+    };
+
+    // ── 2. Read variableMapping from flow (DB) ───────────────────────────
+    let mapping: string[] = [];
+    if ((flow as any).variableMapping) {
+      try {
+        const parsed = JSON.parse((flow as any).variableMapping);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          mapping = parsed;
+        }
+      } catch (err) {
+        console.warn('⚠️ Could not parse variableMapping JSON, using fallback');
+      }
+    }
+
+    // ── 3. Fallback (Agar admin ne abhi tak UI me map nahi kiya ho) ───────
+    if (mapping.length === 0) {
+      mapping = ['customer_name', 'products_list', 'cart_url'];
+      if (discountCode) mapping.push('discount_code');
+    }
+
+    // ── 4. Build exact variables array (Meta 132000 Error Safe!) ─────────
     const variables = templateName === 'hello_world'
       ? []
-      : [
-        cart.customerName || 'there',          // {{1}} name
-        productsList,                           // {{2}} products
-        trackingUrl,                            // {{3}} link
-        ...(discountCode ? [discountCode] : []) // {{4}} discount (only if set)
-      ];
+      : mapping.map(key => valueMap[key] !== undefined ? valueMap[key] : '');
+
+    console.log(`📤 Dynamic variables for ${templateName}: [${variables.join(' | ')}]`);
 
     console.log(`📤 Template variables: [${variables.join(' | ')}]`);
 
@@ -453,12 +481,38 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
           || orderData.billing_address?.first_name
           || 'there';
 
-        const variables = [
-          customerName,             // {{1}} name
-          purchasedProductName,     // {{2}} product they bought
-          trackingUrl,              // {{3}} store link
-          ...(discountCode ? [discountCode] : []),  // {{4}} discount
-        ];
+        // ── 1. Dictionary of all available values for Upsell ───────────────
+        const upsellValueMap: Record<string, string> = {
+          customer_name: customerName,
+          product_name: purchasedProductName,
+          products_list: purchasedProductsList,
+          store_url: trackingUrl,
+          cart_url: trackingUrl,
+          discount_code: discountCode || '',
+          store_name: merchant.brandName || '',
+        };
+
+        // ── 2. Read variableMapping from upsellFlow ─────────────────────────
+        let upsellMapping: string[] = [];
+        if ((upsellFlow as any).variableMapping) {
+          try {
+            const parsed = JSON.parse((upsellFlow as any).variableMapping);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              upsellMapping = parsed;
+            }
+          } catch (err) {
+            console.warn('⚠️ Could not parse upsell variableMapping, using fallback');
+          }
+        }
+
+        // ── 3. Fallback ───────────────────────────────────────────────────
+        if (upsellMapping.length === 0) {
+          upsellMapping = ['customer_name', 'product_name', 'store_url'];
+          if (discountCode) upsellMapping.push('discount_code');
+        }
+
+        // ── 4. Build exact variables array ────────────────────────────────
+        const variables = upsellMapping.map(key => upsellValueMap[key] !== undefined ? upsellValueMap[key] : '');
 
         await messageQueue.add('send-automated-msg', {
           // Use cartId as null — this is not a cart, it's a post-purchase upsell

@@ -222,6 +222,10 @@ model AutomationFlow {
   metaTemplateLang  String?  @default("en_US")  // template language code e.g. "en", "en_US", "hi"
   discountCode      String?             // discount code to embed in message e.g. "VIP10"
   
+
+  variableMapping  String?  @db.Text
+
+
   updatedAt     DateTime @updatedAt
 
   merchant      Merchant @relation(fields: [merchantId], references: [id])
