@@ -266,7 +266,7 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
       total_price:   cart.totalPrice ? `₹${cart.totalPrice}` : '',
       store_name:    merchant.brandName || '',
       store_url:     merchant.storeUrl || '',
-      order_number:  '',  // not applicable for cart flow
+      order_number:  '',
     };
 
     // ── 2. Read variableMapping from flow (DB) ───────────────────────────

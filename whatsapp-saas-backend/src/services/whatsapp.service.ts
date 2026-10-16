@@ -94,9 +94,12 @@ export const sendMetaTemplateMessage = async (
         // Extract suffix: remove the base URL portion that's already in the template
         // If value is a full URL, Meta expects only the dynamic part after the base
         const urlValue = String(v);
-        // Check if it looks like a full URL — if so, extract path after last known base
+        // Extract only the last path segment (UUID) as the suffix
+        // Template URL: https://api.wautomation.shop/api/tracking/click/{{1}}
+        // Full URL we have: https://api.wautomation.shop/api/tracking/click/UUID
+        // Meta expects suffix: just UUID (the part that replaces {{1}})
         const suffix = urlValue.startsWith('http')
-          ? urlValue.replace(/^https?:\/\/[^/]+\//, '') // strip scheme+host, keep path
+          ? urlValue.split('/').pop() || urlValue  // get last path segment = UUID
           : urlValue;
         buttonParams[btnIdx].params.push({ type: 'text', text: suffix });
       } else if (source.startsWith('button_coupon_')) {
