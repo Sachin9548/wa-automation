@@ -235,10 +235,111 @@ router.post("/meta", async (req: Request, res: Response): Promise<any> => {
                 content = `📍 ${loc.name || loc.address || `${loc.latitude},${loc.longitude}`}`;
                 mediaData = { mediaType: "location", mediaLat: loc.latitude, mediaLng: loc.longitude, mediaAddress: loc.name || loc.address || null };
               } else if (msgType === "reaction") {
+
                 content = `${message.reaction?.emoji || "👍"} Reaction`;
+              } else if (msgType === "interactive") {
+                // ── Button reply — COD Blast "Place My Order" button ──────────────
+                const btnReply = message.interactive?.button_reply;
+                content = btnReply?.title || `[Interactive: ${message.interactive?.type}]`;
+
+                if (btnReply?.title?.includes('Place My Order') || btnReply?.id === 'place_order') {
+                  // Find pending COD blast customer record
+                  setImmediate(async () => {
+                    try {
+                      // Find merchant
+                      const merchant2 = await prisma.merchant.findFirst({
+                        where: { metaPhoneNumberId: phoneNumberId }
+                      }) as any;
+                      if (!merchant2?.shopifyToken || !merchant2?.storeUrl) return;
+
+                      const cleanUrl = merchant2.storeUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+                      // Get customer's last abandoned cart for product info
+                      const lastCart = await prisma.abandonedCart.findFirst({
+                        where: { merchantId: merchant2.id, customerPhone: from },
+                        orderBy: { createdAt: 'desc' },
+                        select: { lineItems: true, totalPrice: true, customerName: true }
+                      });
+
+                      let lineItems: any[] = [];
+                      try {
+                        if (lastCart?.lineItems) lineItems = JSON.parse(lastCart.lineItems);
+                      } catch { }
+
+                      if (lineItems.length === 0) {
+                        lineItems = [{ title: 'Product (WhatsApp COD)', price: '0.00', quantity: 1 }];
+                      }
+
+                      const shippingAddress = {
+                        first_name: lastCart?.customerName?.split(' ')[0] || 'Customer',
+                        last_name: lastCart?.customerName?.split(' ').slice(1).join(' ') || '',
+                        address1: 'Address to be confirmed via WhatsApp call',
+                        city: 'Pending', province: 'Pending', zip: '000000',
+                        country: 'India', phone: from,
+                      };
+
+                      const axiosLib = await import('axios');
+                      const orderResp = await axiosLib.default.post(
+                        `https://${cleanUrl}/admin/api/2024-01/orders.json`,
+                        {
+                          order: {
+                            line_items: lineItems.map((li: any) => ({
+                              title: li.name || li.title || 'Product',
+                              quantity: li.quantity || 1,
+                              price: li.price ? String(li.price) : '0.00',
+                            })),
+                            customer: { phone: from },
+                            shipping_address: shippingAddress,
+                            billing_address: shippingAddress,
+                            financial_status: 'pending',
+                            tags: 'WA-Automations, WhatsApp-COD, COD-Blast',
+                            note: 'COD order placed via WhatsApp bot (COD Blast button click)',
+                            send_receipt: false,
+                            send_fulfillment_receipt: false,
+                          }
+                        },
+                        { headers: { 'X-Shopify-Access-Token': merchant2.shopifyToken, 'Content-Type': 'application/json' } }
+                      );
+
+                      const shopifyOrder = orderResp.data?.order;
+                      const orderNum = shopifyOrder?.name || String(shopifyOrder?.id);
+
+                      // Confirm message to customer
+                      const { sendMetaTextMessage } = await import('../services/whatsapp.service');
+                      await sendMetaTextMessage(
+                        phoneNumberId,
+                        merchant2.metaAccessToken,
+                        from,
+                        `🎉 Order ${orderNum} placed successfully!\n\nOur team will call you shortly to confirm your address.\n\nThank you for shopping with us! 🛍️`
+                      );
+
+                      // Save order message
+                      await prisma.message.create({
+                        data: {
+                          merchantId: merchant2.id,
+                          customerPhone: from,
+                          content: `✅ COD order placed: ${orderNum}`,
+                          direction: 'OUTGOING',
+                          status: 'SENT',
+                        }
+                      });
+
+                      // Update recovered revenue
+                      await prisma.merchant.update({
+                        where: { id: merchant2.id },
+                        data: { totalConverted: { increment: 1 }, recoveredRevenue: { increment: parseFloat(shopifyOrder?.total_price || '0') } }
+                      });
+
+                      console.log(`🛒 COD Blast order placed: ${orderNum} for ${from}`);
+                    } catch (e: any) {
+                      console.error('❌ COD Blast auto-order error:', e.message);
+                    }
+                  });
+                }
               } else {
                 content = `[${msgType}]`;
               }
+
 
               console.log(`📨 Incoming WA from ${from} [${msgType}]: ${content}`);
 

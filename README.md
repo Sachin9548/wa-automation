@@ -197,30 +197,8 @@ With AI: "Yes! We have Margherita Pizza (₹299), Veggie Supreme (₹329)..."
 
 
 
+5. COD → Prepaid Converter
+temple me prepaid order karnne ka prepaid ka link hona chiye directly paymemnt karne ka 
 
-Shop Now Link now wokring need to fix.
-
-
-perfect abhi jo humne kiya ahi wo sam ething hum abhi hai Campaign tab  me "📢 Launch Bulk Campaign" ka option hai waha per if me koe temple selct karta hu to waha per koe bhi veriable mappingka logic nahi hai need the sam flow me jo lofic hai sma eeway me hum so campign tab me bhi add karn ahai liek jaise se mene koe tepmple selct ki waise hi uske veriable mapping karn epadega ok
-Campaign tap need to fix.
-COD Blast tab me bhi temple selct karke usko temple sedn karne ka option hai so that nend to hanel veriable mapping ke liye ok .
-
-
-
-inbox tab me prcing ke accoding ab message sedning hanle hon achiye or acountign of free 1000 message ka count hona chiye jo abhi 24 hors ki window hai 
-Meta WhatsApp Pricing Update (Oct 2026 Summary)
-1. Service Conversations ab Free nahi hain (The Big Change!)
-Pehle: Agar koi customer aapko message karta tha, toh uske 24 ghante ke window mein jitne bhi "Service/Support" message aap bhejte the, wo free hote the.
-Ab: Meta ne "Service Conversations" par bhi charge karna shuru kar diya hai.
-The Good News: Meta ne 1,000 "Service Conversations" har mahine FREE diye hain.
-Aapke liye: 90% chhote clients ke liye support messages free hi rahenge kyunki wo 1,000 limit cross nahi karenge. Bas jo bade clients hain, unka thoda kharcha badhega.
-2. Utility Messages par charges (The New Reality)
-Ab tak "Utility" messages (Order confirmation, Delivery updates) jo 24-hour window mein hote the, wo free the. Ab wo paid hain.
-Impact: Aapka tool jo Order Confirmation bhej raha hai, ab us par Meta charge kaatega.
-3. "Max Price" Bidding (The Marketing Strategy)
-Meta ne marketing messages ke liye ek naya option nikala hai: Max Price (Bidding).
-Yeh bilkul Facebook Ads jaisa hai. Aap Meta ko bol sakte ho: "Bhai, main is marketing message ke liye maximum 90 paise dene ko taiyar hu."
-Fayda: Agar traffic kam hai, toh Meta aapko sasta charge karega. Agar traffic bohot zyada hai, toh aapki bid (max price) ke hisaab se Meta aapko priority dega.
-4. India Specific: UPI Payments
-Meta ne India ke liye UPI integration launch kar diya hai.
-Aapke client ke liye: Ab unhe Meta Business Manager mein credit card lagane ki zaroorat nahi hai. Wo seedha UPI se ₹500 ya ₹1,000 ka recharge kar sakte hain. Yeh India ke chhote merchants ke liye bohot badi relief hai!
+7. COD Blast (Retargeting)
+it is for the direct order basically like user ko direct message ayega like place order ke liye and it take the like iintersetin the product name and buttion is there as the place order ka click karte hi cod order place kar dena liek this is type 

@@ -315,15 +315,18 @@ router.post('/send/:merchantId', async (req: Request, res: Response): Promise<an
         });
         // ── Update service conversation count (Meta new pricing) ────────────
         const currentMonth = new Date().toISOString().slice(0, 7); // "2026-10"
-        const freshMerchant = await prisma.merchant.findUnique({
+
+
+        const freshMerchant = await (prisma as any).merchant.findUnique({
           where: { id: merchantId },
           select: { serviceConvCount: true, serviceConvMonth: true }
         });
 
+
         const isNewMonth = (freshMerchant as any)?.serviceConvMonth !== currentMonth;
         const newCount = isNewMonth ? 1 : ((freshMerchant as any)?.serviceConvCount || 0) + 1;
 
-        await prisma.merchant.update({
+        await (prisma as any).merchant.update({
           where: { id: merchantId },
           data: {
             totalSent: { increment: 1 },
@@ -331,6 +334,7 @@ router.post('/send/:merchantId', async (req: Request, res: Response): Promise<an
             serviceConvMonth: currentMonth,
           }
         });
+
 
         if (newCount > 900) {
           console.warn(`⚠️ Merchant ${merchantId} service conv count: ${newCount}/1000 this month`);

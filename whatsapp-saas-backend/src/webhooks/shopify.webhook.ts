@@ -259,14 +259,14 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
     // ── 1. Dictionary of all available values for Abandoned Cart ──────────
     const valueMap: Record<string, string> = {
       customer_name: cart.customerName || 'there',
-      product_name:  firstProductName || 'your item',
+      product_name: firstProductName || 'your item',
       products_list: productsList || 'your items',
-      cart_url:      trackingUrl,
+      cart_url: trackingUrl,
       discount_code: discountCode || '',
-      total_price:   cart.totalPrice ? `₹${cart.totalPrice}` : '',
-      store_name:    merchant.brandName || '',
-      store_url:     merchant.storeUrl || '',
-      order_number:  '',
+      total_price: cart.totalPrice ? `₹${cart.totalPrice}` : '',
+      store_name: merchant.brandName || '',
+      store_url: merchant.storeUrl || '',
+      order_number: '',
     };
 
     // ── 2. Read variableMapping from flow (DB) ───────────────────────────
@@ -493,15 +493,15 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
 
         // ── 1. Dictionary of all available values for Upsell ───────────────
         const upsellValueMap: Record<string, string> = {
-          customer_name:  customerName,
-          product_name:   purchasedProductName,
-          products_list:  purchasedProductsList,
-          store_url:      trackingUrl,
-          cart_url:       trackingUrl,
-          discount_code:  discountCode || '',
-          store_name:     merchant.brandName || '',
-          total_price:    `₹${orderTotal}`,
-          order_number:   orderNumber,
+          customer_name: customerName,
+          product_name: purchasedProductName,
+          products_list: purchasedProductsList,
+          store_url: trackingUrl,
+          cart_url: trackingUrl,
+          discount_code: discountCode || '',
+          store_name: merchant.brandName || '',
+          total_price: `₹${orderTotal}`,
+          order_number: orderNumber,
         };
 
         // ── 2. Read variableMapping from upsellFlow ─────────────────────────
@@ -571,22 +571,33 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         const discountCode = (codFlow as any).discountCode || null;
 
         // Create tracking link — Shopify payment link ya store URL
-        const storeUrl = merchant.storeUrl || '';
+        // Payment link — Shopify checkout token se direct payment URL
+        const checkoutToken = orderData.checkout_token;
+        const cleanStoreUrl = (merchant.storeUrl || '')
+          .replace(/^https?:\/\//, '')
+          .replace(/\/$/, '');
+
+        const paymentUrl = checkoutToken
+          ? `https://${cleanStoreUrl}/checkouts/${checkoutToken}/pay`
+          : merchant.storeUrl || '';
+
         let codTrackingLink: any = null;
-        if (storeUrl) {
+        if (paymentUrl) {
           codTrackingLink = await (prisma as any).trackingLink.create({
             data: {
               merchantId,
               customerPhone: phone,
-              originalUrl: storeUrl,
+              originalUrl: paymentUrl,  // ← payment URL, not store URL
               discountCode,
             }
           });
         }
 
+
+
         const trackingUrl = codTrackingLink
           ? `${backendUrl}/api/tracking/click/${codTrackingLink.id}`
-          : storeUrl;
+          : cleanStoreUrl;
 
         // Template variables:
         // {{1}} = customer name
@@ -595,15 +606,15 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         // {{4}} = discount code (optional)
         // valueMap for COD
         const codValueMap: Record<string, string> = {
-          customer_name:  orderData.customer?.first_name || orderData.billing_address?.first_name || 'there',
-          order_number:   orderNumber,
-          cart_url:       trackingUrl,
-          discount_code:  discountCode || '',
-          store_name:     merchant.brandName || '',
-          total_price:    `₹${orderTotal}`,
-          store_url:      merchant.storeUrl || '',
-          product_name:   '',
-          products_list:  '',
+          customer_name: orderData.customer?.first_name || orderData.billing_address?.first_name || 'there',
+          order_number: orderNumber,
+          cart_url: trackingUrl,
+          discount_code: discountCode || '',
+          store_name: merchant.brandName || '',
+          total_price: `₹${orderTotal}`,
+          store_url: paymentUrl,
+          product_name: '',
+          products_list: '',
         };
 
         // Read mapping from DB
