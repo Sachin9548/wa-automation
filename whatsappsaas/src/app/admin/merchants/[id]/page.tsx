@@ -291,6 +291,8 @@ export default function MerchantControlHub() {
   );
   const [campScheduledAt, setCampScheduledAt] = useState("");
   const [campCustomerFilter, setCampCustomerFilter] = useState("all");
+  const [campVariableMapping, setCampVariableMapping] = useState<string[]>([]);
+  const [campVariableSources, setCampVariableSources] = useState<string[]>([]);
 
   // ── MPM ───────────────────────────────────────────────────────────────────
   const [mpmTemplate, setMpmTemplate] = useState("");
@@ -891,6 +893,9 @@ export default function MerchantControlHub() {
           metaTemplateLang: campMetaLang,
           discountCode: campDiscountCode || undefined,
           customerFilter: campCustomerFilter,
+          variableMapping: JSON.stringify(campVariableMapping),
+          variableSources: JSON.stringify(campVariableSources),
+
           scheduledAt:
             campScheduleMode === "later"
               ? new Date(campScheduledAt).toISOString()
@@ -1329,6 +1334,10 @@ export default function MerchantControlHub() {
             setCampScheduledAt={setCampScheduledAt}
             campCustomerFilter={campCustomerFilter}
             setCampCustomerFilter={setCampCustomerFilter}
+            campVariableMapping={campVariableMapping}
+            setCampVariableMapping={setCampVariableMapping}
+            campVariableSources={campVariableSources}
+            setCampVariableSources={setCampVariableSources}
             handleLaunchCampaign={handleLaunchCampaign}
             handleCancelCampaign={handleCancelCampaign}
           />

@@ -1,5 +1,18 @@
 "use client";
+import React from "react";
 import { FaSpinner, FaPlay, FaClock } from "react-icons/fa";
+
+const VARIABLE_OPTIONS = [
+  { value: "customer_name",  label: "👤 Customer Name" },
+  { value: "discount_code",  label: "🎟️ Discount Code" },
+  { value: "product_name",   label: "📦 First Product Name" },
+  { value: "products_list",  label: "🛒 All Products (list)" },
+  { value: "store_name",     label: "🏪 Store / Brand Name" },
+  { value: "store_url",      label: "🌐 Store URL" },
+  { value: "order_number",   label: "📋 Order Number" },
+  { value: "total_price",    label: "💰 Total Price" },
+  { value: "Common Message", label: "✏️ Custom Text (same for all)" },
+];
 
 interface CampaignTabProps {
   merchantId: string;
@@ -9,7 +22,6 @@ interface CampaignTabProps {
   customerTotal: number;
   metaTemplates: any[];
   setActiveTab: (tab: any) => void;
-  // campaign form state
   campaignName: string; setCampaignName: (v: string) => void;
   campMetaTemplate: string; setCampMetaTemplate: (v: string) => void;
   campMetaLang: string; setCampMetaLang: (v: string) => void;
@@ -17,6 +29,8 @@ interface CampaignTabProps {
   campScheduleMode: "now" | "later"; setCampScheduleMode: (v: "now" | "later") => void;
   campScheduledAt: string; setCampScheduledAt: (v: string) => void;
   campCustomerFilter: string; setCampCustomerFilter: (v: string) => void;
+  campVariableMapping: string[]; setCampVariableMapping: (v: string[]) => void;
+  campVariableSources: string[]; setCampVariableSources: (v: string[]) => void;
   handleLaunchCampaign: (e: React.FormEvent) => void;
   handleCancelCampaign: (id: string) => void;
 }
@@ -29,8 +43,61 @@ export default function CampaignTab({
   campScheduleMode, setCampScheduleMode,
   campScheduledAt, setCampScheduledAt,
   campCustomerFilter, setCampCustomerFilter,
+  campVariableMapping, setCampVariableMapping,
+  campVariableSources, setCampVariableSources,
   handleLaunchCampaign, handleCancelCampaign,
 }: CampaignTabProps) {
+
+  // Auto-detect variables from template structure
+  const handleTemplateChange = (name: string) => {
+    setCampMetaTemplate(name);
+    const tmpl = metaTemplates.find((t: any) => t.name === name);
+    if (tmpl?.language) setCampMetaLang(tmpl.language);
+
+    const newMapping: string[] = [];
+    const newSources: string[] = [];
+
+    // Header text variables
+    const headerComp = tmpl?.components?.find((c: any) => c.type === "HEADER");
+    if (headerComp?.format === "TEXT") {
+      (headerComp.text || "").match(/\{\{\d+\}\}/g)?.forEach(() => {
+        newMapping.push("store_name"); newSources.push("header");
+      });
+    }
+
+    // Body variables
+    const bodyText = tmpl?.components?.find((c: any) => c.type === "BODY")?.text || "";
+    const bodyDefaults = ["customer_name", "discount_code", "product_name", "store_name", "total_price"];
+    (bodyText.match(/\{\{\d+\}\}/g) || []).forEach((_: any, i: number) => {
+      newMapping.push(bodyDefaults[i] || "customer_name");
+      newSources.push("body");
+    });
+
+    // Button variables
+    const buttonsComp = tmpl?.components?.find((c: any) => c.type === "BUTTONS");
+    if (buttonsComp?.buttons) {
+      buttonsComp.buttons.forEach((btn: any, btnIdx: number) => {
+        if (btn.type === "URL" && btn.url && btn.url.includes("{{")) {
+          newMapping.push("store_url"); newSources.push(`button_url_${btnIdx}`);
+        } else if (btn.type === "COPY_CODE") {
+          newMapping.push("discount_code"); newSources.push(`button_coupon_${btnIdx}`);
+        }
+      });
+    }
+
+    setCampVariableMapping(newMapping);
+    setCampVariableSources(newSources);
+  };
+
+  const approvedTemplates = metaTemplates.filter((t: any) => t.status === "APPROVED");
+
+  // Template preview
+  const selectedTmpl = metaTemplates.find((t: any) => t.name === campMetaTemplate);
+  const previewHeader  = selectedTmpl?.components?.find((c: any) => c.type === "HEADER");
+  const previewBody    = selectedTmpl?.components?.find((c: any) => c.type === "BODY");
+  const previewFooter  = selectedTmpl?.components?.find((c: any) => c.type === "FOOTER");
+  const previewButtons = selectedTmpl?.components?.find((c: any) => c.type === "BUTTONS");
+
   return (
     <div className="space-y-6 max-w-3xl">
       {/* ── Launch Form ── */}
@@ -40,6 +107,7 @@ export default function CampaignTab({
           <p className="text-slate-400 text-xs mt-0.5">Send Meta-approved template to your customers · 15s per message</p>
         </div>
         <form onSubmit={handleLaunchCampaign} className="p-6 space-y-5">
+
           {/* Campaign Name */}
           <div>
             <label className="text-xs font-bold text-slate-400 mb-2 block">Campaign Name <span className="text-red-400">*</span></label>
@@ -48,58 +116,108 @@ export default function CampaignTab({
               className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-500 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
           </div>
 
-          {/* Meta Template Selector */}
+          {/* Template Selector */}
           <div>
             <label className="text-xs font-bold text-slate-400 mb-2 block">WhatsApp Template <span className="text-red-400">*</span></label>
-            {metaTemplates.filter((t: any) => t.status === "APPROVED").length === 0 ? (
+            {approvedTemplates.length === 0 ? (
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-center gap-2">
-                ⚠️ No approved templates found.
+                ⚠️ No approved templates.
                 <button type="button" onClick={() => setActiveTab("templates")} className="underline font-bold">Create one →</button>
               </div>
             ) : (
               <select required value={campMetaTemplate}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  setCampMetaTemplate(name);
-                  const tmpl = metaTemplates.find((t: any) => t.name === name);
-                  if (tmpl?.language) setCampMetaLang(tmpl.language);
-                }}
+                onChange={(e) => handleTemplateChange(e.target.value)}
                 className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
                 <option value="">— Select an approved template —</option>
-                {metaTemplates.filter((t: any) => t.status === "APPROVED").map((t: any) => (
+                {approvedTemplates.map((t: any) => (
                   <option key={t.name} value={t.name}>{t.name} ({t.language})</option>
                 ))}
               </select>
             )}
-            {campMetaTemplate && (() => {
-              const tmpl = metaTemplates.find((t: any) => t.name === campMetaTemplate);
-              const body = tmpl?.components?.find((c: any) => c.type === "BODY");
-              return body ? (
-                <div className="mt-2 bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
-                  <span className="text-slate-500 text-[10px] font-bold uppercase block mb-1">Preview</span>
-                  {body.text.substring(0, 200)}{body.text.length > 200 ? "..." : ""}
+
+            {/* Template Preview */}
+            {campMetaTemplate && (
+              <div className="mt-2 bg-[#0a1929] border border-white/10 rounded-xl overflow-hidden text-xs">
+                <div className="bg-slate-800 px-3 py-1.5 border-b border-white/5">
+                  <span className="text-slate-400 text-[10px] font-bold uppercase">📱 Preview</span>
                 </div>
-              ) : null;
-            })()}
+                <div className="p-3 space-y-1.5">
+                  {previewHeader?.text && <p className="text-white font-bold text-sm">{previewHeader.text}</p>}
+                  {previewBody?.text && <p className="text-slate-200 leading-relaxed whitespace-pre-wrap">{previewBody.text}</p>}
+                  {previewFooter?.text && <p className="text-slate-500 text-[10px] italic">{previewFooter.text}</p>}
+                  {previewButtons?.buttons?.length > 0 && (
+                    <div className="border-t border-white/10 pt-2 space-y-1 mt-1">
+                      {previewButtons.buttons.map((btn: any, i: number) => (
+                        <div key={i} className="text-center py-1.5 border border-teal-500/30 rounded-lg text-teal-400 text-[11px] font-bold">
+                          {btn.type === "QUICK_REPLY" ? "↩ " : btn.type === "URL" ? "🔗 " : btn.type === "COPY_CODE" ? "📋 " : "📞 "}
+                          {btn.text}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Variable Mapping */}
+            {campVariableMapping.length > 0 && (
+              <div className="mt-3 bg-slate-900/60 p-4 rounded-xl border border-white/5 space-y-2">
+                <label className="text-xs font-bold text-teal-400 block">Map Template Variables</label>
+                {campVariableMapping.map((val, idx) => {
+                  const src = campVariableSources[idx] || "body";
+                  const isButton = src.startsWith("button_");
+                  const isCoupon = src.startsWith("button_coupon_");
+                  return (
+                    <div key={idx} className="space-y-1.5">
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-center w-16 shrink-0">
+                          <span className="text-[10px] font-mono text-slate-400">{`{{${idx + 1}}}`}</span>
+                          {isButton && (
+                            <span className={`text-[8px] font-bold px-1 rounded mt-0.5 ${isCoupon ? "bg-yellow-500/20 text-yellow-400" : "bg-teal-500/20 text-teal-400"}`}>
+                              {isCoupon ? "COUPON" : "URL BTN"}
+                            </span>
+                          )}
+                        </div>
+                        <select
+                          value={val}
+                          onChange={(e) => {
+                            const newMap = [...campVariableMapping];
+                            newMap[idx] = e.target.value;
+                            setCampVariableMapping(newMap);
+                          }}
+                          className={`flex-1 p-2 bg-slate-800 border rounded-lg text-xs text-white ${isButton ? "border-teal-500/30" : "border-white/10"}`}
+                        >
+                          {VARIABLE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Discount code input when discount_code selected */}
+                      {val === "discount_code" && !isButton && (
+                        <div className="ml-16">
+                          <input type="text" placeholder="Enter discount code e.g. DIWALI20"
+                            value={campDiscountCode}
+                            onChange={(e) => setCampDiscountCode(e.target.value.toUpperCase())}
+                            className="w-full p-2 bg-slate-900 border border-teal-500/30 text-white placeholder-slate-600 rounded-lg text-xs font-mono outline-none" />
+                          {campDiscountCode && <p className="text-teal-400 text-[10px] mt-0.5 font-bold">🎟️ {campDiscountCode} will be sent</p>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Discount + Filter */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold text-slate-400 mb-2 block">Discount Code <span className="text-slate-600">(optional)</span></label>
-              <input type="text" placeholder="e.g. DIWALI20" value={campDiscountCode}
-                onChange={(e) => setCampDiscountCode(e.target.value.toUpperCase())}
-                className="w-full p-3 bg-slate-900 border border-white/10 text-white placeholder-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-400 mb-2 block">Send To</label>
-              <select value={campCustomerFilter} onChange={(e) => setCampCustomerFilter(e.target.value)}
-                className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                <option value="all">All Customers ({customerTotal})</option>
-                <option value="abandoned">Abandoned Cart only</option>
-                <option value="ordered">Placed Order only</option>
-              </select>
-            </div>
+          {/* Send To */}
+          <div>
+            <label className="text-xs font-bold text-slate-400 mb-2 block">Send To</label>
+            <select value={campCustomerFilter} onChange={(e) => setCampCustomerFilter(e.target.value)}
+              className="w-full p-3 bg-slate-900 border border-white/10 text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+              <option value="all">All Customers ({customerTotal})</option>
+              <option value="abandoned">Abandoned Cart only</option>
+              <option value="ordered">Placed Order only</option>
+            </select>
           </div>
 
           {/* Schedule Toggle */}

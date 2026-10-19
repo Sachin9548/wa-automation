@@ -272,6 +272,8 @@ export const launchCampaign = async (
       discountCode,
       scheduledAt,
       customerFilter,
+      variableMapping,
+      variableSources,
     } = req.body;
 
     if (!merchantId || !campaignName || !metaTemplateName) {
@@ -343,6 +345,34 @@ export const launchCampaign = async (
     });
 
     for (let i = 0; i < customers.length; i++) {
+      // ── Build variables from mapping ──────────────────────────────────────
+      let parsedMapping: string[] = [];
+      let parsedSources: string[] = [];
+      try {
+        if (variableMapping) parsedMapping = JSON.parse(variableMapping);
+        if (variableSources) parsedSources = JSON.parse(variableSources);
+      } catch {}
+
+      let jobVariables: string[];
+      if (parsedMapping.length > 0) {
+        const valueMap: Record<string, string> = {
+          customer_name:    customers[i].name || 'there',
+          discount_code:    discountCode || '',
+          product_name:     '',
+          products_list:    '',
+          store_name:       merchant.brandName || '',
+          cart_url:         merchant.storeUrl || '',
+          store_url:        merchant.storeUrl || '',
+          order_number:     '',
+          total_price:      '',
+          'Common Message': '',
+        };
+        jobVariables = parsedMapping.map((key: string) => valueMap[key] ?? '');
+      } else {
+        // Fallback — just customer name
+        jobVariables = [customers[i].name || 'there'];
+      }
+
       await messageQueue.add(
         "send-campaign-msg",
         {
@@ -351,7 +381,8 @@ export const launchCampaign = async (
           phone: customers[i].phone,
           templateName: metaTemplateName,
           templateLang: metaTemplateLang || "en_US",
-          variables: [customers[i].name || "there"],
+          variables: jobVariables,
+          variableSources: parsedSources,
           discountCode: discountCode || null,
         },
         {
