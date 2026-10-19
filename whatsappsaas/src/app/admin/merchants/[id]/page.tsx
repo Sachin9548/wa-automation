@@ -1276,6 +1276,8 @@ export default function MerchantControlHub() {
           <InboxTab
             merchantId={merchantId}
             metaTemplates={metaTemplates}
+            merchant={merchant}
+
             setActiveTab={setActiveTab}
             inboxConversations={inboxConversations}
             inboxLoading={inboxLoading}

@@ -462,6 +462,9 @@ export const getMerchantDetail = async (
         shopifyClientSecret: true,
         serviceActive: true,
         isFree: true,
+        serviceConvCount: true,
+serviceConvMonth: true,
+
         igAccountId: true,
         igAccessToken: true,
         igTokenExpiresAt: true,

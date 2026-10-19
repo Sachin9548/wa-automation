@@ -267,10 +267,29 @@ router.post('/send/:merchantId', async (req: Request, res: Response): Promise<an
             templateName,
           }
         });
+        // ── Update service conversation count (Meta new pricing) ────────────
+        const currentMonth = new Date().toISOString().slice(0, 7); // "2026-10"
+        const freshMerchant = await prisma.merchant.findUnique({
+          where: { id: merchantId },
+          select: { serviceConvCount: true, serviceConvMonth: true }
+        });
+
+        const isNewMonth = (freshMerchant as any)?.serviceConvMonth !== currentMonth;
+        const newCount = isNewMonth ? 1 : ((freshMerchant as any)?.serviceConvCount || 0) + 1;
+
         await prisma.merchant.update({
           where: { id: merchantId },
-          data: { totalSent: { increment: 1 } },
+          data: {
+            totalSent: { increment: 1 },
+            serviceConvCount: newCount,
+            serviceConvMonth: currentMonth,
+          }
         });
+
+        if (newCount > 900) {
+          console.warn(`⚠️ Merchant ${merchantId} service conv count: ${newCount}/1000 this month`);
+        }
+
       } else {
         return res.status(500).json({ message: `Meta error: ${result.errorMessage}`, code: result.errorCode });
       }
@@ -294,10 +313,29 @@ router.post('/send/:merchantId', async (req: Request, res: Response): Promise<an
             status: 'SENT',
           }
         });
+        // ── Update service conversation count (Meta new pricing) ────────────
+        const currentMonth = new Date().toISOString().slice(0, 7); // "2026-10"
+        const freshMerchant = await prisma.merchant.findUnique({
+          where: { id: merchantId },
+          select: { serviceConvCount: true, serviceConvMonth: true }
+        });
+
+        const isNewMonth = (freshMerchant as any)?.serviceConvMonth !== currentMonth;
+        const newCount = isNewMonth ? 1 : ((freshMerchant as any)?.serviceConvCount || 0) + 1;
+
         await prisma.merchant.update({
           where: { id: merchantId },
-          data: { totalSent: { increment: 1 } },
+          data: {
+            totalSent: { increment: 1 },
+            serviceConvCount: newCount,
+            serviceConvMonth: currentMonth,
+          }
         });
+
+        if (newCount > 900) {
+          console.warn(`⚠️ Merchant ${merchantId} service conv count: ${newCount}/1000 this month`);
+        }
+
       } else {
         return res.status(500).json({ message: 'Failed to send message — check Meta credentials' });
       }

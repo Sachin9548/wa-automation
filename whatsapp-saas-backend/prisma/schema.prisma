@@ -44,6 +44,9 @@ model Merchant {
   isFree            Boolean  @default(false)  // free merchant flag
   inboxEnabled      Boolean  @default(false)  // admin toggle: merchant can see inbox
 
+  serviceConvCount  Int      @default(0)   // current month service conversations
+  serviceConvMonth  String?                // "2026-10" format — reset when month changes
+
 
   // AI Auto-Reply (Point 9)
   aiAutoReply       Boolean  @default(false)  // ON = AI replies to customer messages
