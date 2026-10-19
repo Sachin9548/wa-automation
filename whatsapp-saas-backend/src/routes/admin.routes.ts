@@ -1305,10 +1305,10 @@ router.get(
             : `last ${days} days`;
       const expiryStr = merchant.subscriptionExpiry
         ? new Date(merchant.subscriptionExpiry).toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
         : "N/A";
 
       const whatsappMessage = `📊 *WA-Automation Monthly Report*
@@ -2055,12 +2055,12 @@ router.get(
         ...log,
         metadata: log.metadata
           ? (() => {
-              try {
-                return JSON.parse(log.metadata);
-              } catch {
-                return null;
-              }
-            })()
+            try {
+              return JSON.parse(log.metadata);
+            } catch {
+              return null;
+            }
+          })()
           : null,
       }));
 
@@ -2220,7 +2220,7 @@ router.get(
       if (merchant.subscriptionExpiry) {
         const daysLeft = Math.ceil(
           (merchant.subscriptionExpiry.getTime() - now.getTime()) /
-            (1000 * 60 * 60 * 24),
+          (1000 * 60 * 60 * 24),
         );
         if (daysLeft < 0) {
           flags.push({
@@ -2346,10 +2346,10 @@ router.get(
           : qualityFlag?.code === "META_QUALITY_YELLOW"
             ? "YELLOW"
             : flags.some(
-                  (f) =>
-                    f.code === "META_CREDS_MISSING" ||
-                    f.code === "META_TOKEN_EXPIRED",
-                )
+              (f) =>
+                f.code === "META_CREDS_MISSING" ||
+                f.code === "META_TOKEN_EXPIRED",
+            )
               ? "UNKNOWN"
               : "GREEN";
 
@@ -2391,16 +2391,16 @@ router.get(
             customerPhone: { not: "NO_PHONE" },
             ...(search
               ? {
-                  OR: [
-                    {
-                      customerName: {
-                        contains: search,
-                        mode: "insensitive" as const,
-                      },
+                OR: [
+                  {
+                    customerName: {
+                      contains: search,
+                      mode: "insensitive" as const,
                     },
-                    { customerPhone: { contains: search } },
-                  ],
-                }
+                  },
+                  { customerPhone: { contains: search } },
+                ],
+              }
               : {}),
           },
           orderBy: { createdAt: "desc" },
@@ -2435,7 +2435,7 @@ router.get(
                   .join(", ");
               }
             }
-          } catch {}
+          } catch { }
 
           return {
             phone: c.customerPhone,
@@ -2467,11 +2467,11 @@ router.get(
           phone: { not: "NO_PHONE" },
           ...(search
             ? {
-                OR: [
-                  { name: { contains: search, mode: "insensitive" as const } },
-                  { phone: { contains: search } },
-                ],
-              }
+              OR: [
+                { name: { contains: search, mode: "insensitive" as const } },
+                { phone: { contains: search } },
+              ],
+            }
             : {}),
         };
 
@@ -2527,13 +2527,14 @@ router.get(
 router.post("/cod-blast", async (req: Request, res: Response): Promise<any> => {
   try {
     const {
-      merchantId,
-      templateName,
-      templateLang,
-      customers, // [{ phone, name, products, cartUrl, cartId, lineItems }]
+      merchantId, templateName, templateLang,
+      customers,
       blastName,
       discountCode,
+      variableMapping,
+      variableSources,
     } = req.body;
+
 
     if (!merchantId || !templateName || !customers?.length) {
       return res
@@ -2589,12 +2590,29 @@ router.post("/cod-blast", async (req: Request, res: Response): Promise<any> => {
       const trackingUrl = `${backendUrl}/api/tracking/click/${trackingLink.id}`;
 
       // Template variables: {{1}} name, {{2}} products, {{3}} link, {{4}} discount (optional)
-      const variables: string[] = [
-        c.name || "there",
-        c.products || "your items",
-        trackingUrl,
-        ...(discountCode ? [discountCode] : []),
-      ];
+      let parsedMapping: string[] = [];
+      let parsedSources: string[] = [];
+      try {
+        if (variableMapping) parsedMapping = JSON.parse(variableMapping);
+        if (variableSources) parsedSources = JSON.parse(variableSources);
+      } catch { }
+
+      const codValueMap: Record<string, string> = {
+        customer_name: c.name || 'there',
+        product_name: c.products || 'your items',
+        products_list: c.products || 'your items',
+        cart_url: trackingUrl,
+        store_url: trackingUrl,
+        discount_code: discountCode || '',
+        total_price: c.totalPrice ? `₹${c.totalPrice}` : '',
+        store_name: '',
+        order_number: '',
+        'Common Message': '',
+      };
+
+      const variables: string[] = parsedMapping.length > 0
+        ? parsedMapping.map((key: string) => codValueMap[key] ?? '')
+        : [c.name || 'there', c.products || 'your items', trackingUrl, ...(discountCode ? [discountCode] : [])];
 
       await messageQueue.add(
         "send-automated-msg",
@@ -2607,6 +2625,8 @@ router.post("/cod-blast", async (req: Request, res: Response): Promise<any> => {
           discountCode: discountCode || null,
           trackingLinkId: trackingLink.id,
           variables,
+          variableSources: parsedSources,
+
           blastId: blast.id,
           jobType: "COD_BLAST",
         },
@@ -2684,7 +2704,7 @@ router.post(
             price: li.price ? String(li.price) : "0.00",
           }));
         }
-      } catch {}
+      } catch { }
 
       // Fallback if no line items
       if (lineItems.length === 0) {
@@ -2742,7 +2762,7 @@ router.post(
             where: { id: cartId },
             data: { status: "RECOVERED" },
           })
-          .catch(() => {}); // ignore if not found
+          .catch(() => { }); // ignore if not found
       }
 
       // Update blast stats
@@ -2755,7 +2775,7 @@ router.post(
               revenue: { increment: orderTotal },
             },
           })
-          .catch(() => {});
+          .catch(() => { });
       }
 
       // Update merchant recovered revenue
