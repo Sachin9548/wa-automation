@@ -247,8 +247,9 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
     }
 
     const trackingUrl = trackingLink
-      ? `${backendUrl}/api/tracking/click/${trackingLink.id}`
+      ? `${backendUrl}/t/${trackingLink.id}`
       : (cart.cartUrl || '');
+
 
     // ── Build template variables ─────────────────────────────────────────
     // Standard mapping (matches most approved templates):
@@ -481,7 +482,8 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         }
 
         const trackingUrl = trackingLink
-          ? `${backendUrl}/api/tracking/click/${trackingLink.id}`
+          ? `${backendUrl}/t/${trackingLink.id}`
+
           : storeUrl;
 
         // Template variables:
@@ -600,7 +602,8 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
 
 
         const trackingUrl = codTrackingLink
-          ? `${backendUrl}/api/tracking/click/${codTrackingLink.id}`
+          ? `${backendUrl}/t/${codTrackingLink.id}`
+
           : cleanStoreUrl;
 
         // Template variables:

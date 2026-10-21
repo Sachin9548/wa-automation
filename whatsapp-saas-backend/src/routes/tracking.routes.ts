@@ -9,7 +9,10 @@ const router = Router();
 // Customer clicks this URL in WhatsApp message
 // We record the click, then redirect to actual cart URL
 router.get('/click/:trackingId', async (req: Request, res: Response): Promise<any> => {
-  const { trackingId } = req.params;
+  // Strip any URL-encoded {{1}} prefix that Meta adds to dynamic URL buttons
+  const raw = req.params.trackingId;
+  const trackingId = Array.isArray(raw) ? raw[0] : String(raw);
+
 
   try {
     const link = await (prisma as any).trackingLink.findUnique({

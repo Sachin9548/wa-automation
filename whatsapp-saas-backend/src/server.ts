@@ -59,6 +59,56 @@ app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "OK", message: "WA-Automation Backend running!" });
 });
 
+// ── Short tracking redirect — /t/:id ─────────────────────────────────────────
+// Template button URL: https://api.wautomation.shop/t/{{1}}
+// Meta replaces {{1}} with UUID → /t/4aafa16b-... → redirect to cart URL
+app.get('/t/:trackingId', async (req: Request, res: Response) => {
+  const raw = req.params.trackingId;
+  // Cast to string (Express can return string[] for some configs)
+  const trackingId = Array.isArray(raw) ? raw[0] : raw;
+
+  try {
+    const link = await (prisma as any).trackingLink.findUnique({
+      where: { id: trackingId }
+    });
+
+    if (!link) {
+      console.warn(`⚠️ Tracking link not found: ${trackingId}`);
+      return res.redirect(302, 'https://wautomation.shop');
+    }
+
+    // Record click (only once)
+    if (!link.clicked) {
+      await (prisma as any).trackingLink.update({
+        where: { id: trackingId },
+        data: { clicked: true, clickedAt: new Date() }
+      });
+      await prisma.merchant.update({
+        where: { id: link.merchantId },
+        data: { totalClicked: { increment: 1 } }
+      });
+      console.log(`🖱️ Click: ${trackingId} | phone: ${link.customerPhone}`);
+    }
+
+    // Build redirect URL with discount + UTM
+    let redirectUrl = link.originalUrl;
+    if (link.discountCode && !redirectUrl.includes('discount=')) {
+      const sep = redirectUrl.includes('?') ? '&' : '?';
+      redirectUrl += `${sep}discount=${link.discountCode}`;
+    }
+    if (!redirectUrl.includes('utm_source=')) {
+      const sep = redirectUrl.includes('?') ? '&' : '?';
+      redirectUrl += `${sep}utm_source=whatsapp&utm_medium=wa_automations&utm_campaign=cart_recovery`;
+    }
+
+    return res.redirect(302, redirectUrl);
+  } catch (e: any) {
+    console.error('Tracking redirect error:', e.message);
+    return res.redirect(302, 'https://wautomation.shop');
+  }
+});
+
+
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,  // 15 min
