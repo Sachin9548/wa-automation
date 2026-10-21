@@ -539,11 +539,23 @@ export default function FlowsTab({
               </div>
 
               {/* Custom message input — sirf tab dikhao jab koi variable "Common Message" select ho */}
-              {draft?.variableMapping?.some(
-                (item: any) =>
-                  (typeof item === "string" ? item : item.key) ===
-                  "Common Message",
-              ) && (
+              {(() => {
+                const mappingToCheck =
+                  draft?.variableMapping?.length > 0
+                    ? draft.variableMapping
+                    : (() => {
+                        try {
+                          return JSON.parse(db?.variableMapping || "[]");
+                        } catch {
+                          return [];
+                        }
+                      })();
+                return mappingToCheck.some(
+                  (item: any) =>
+                    (typeof item === "string" ? item : item.key) ===
+                    "Common Message",
+                );
+              })() && (
                 <div className="mt-2">
                   <label className="text-[10px] text-slate-400 font-bold block mb-1">
                     Custom Message Text (same for all customers)
@@ -551,7 +563,9 @@ export default function FlowsTab({
                   <input
                     type="text"
                     placeholder="e.g. Happy Diwali! 🎉"
-                    value={draft.customMessage || ""}
+                    value={
+                      draft?.customMessage ?? (db as any)?.customMessage ?? ""
+                    }
                     onChange={(e) =>
                       updateDraft({ customMessage: e.target.value })
                     }

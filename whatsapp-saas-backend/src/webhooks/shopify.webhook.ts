@@ -267,6 +267,8 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
       store_name: merchant.brandName || '',
       store_url: merchant.storeUrl || '',
       order_number: '',
+      'Common Message': (flow as any).customMessage || '',
+
     };
 
     // ── 2. Read variableMapping from flow (DB) ───────────────────────────
@@ -502,6 +504,8 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
           store_name: merchant.brandName || '',
           total_price: `₹${orderTotal}`,
           order_number: orderNumber,
+          'Common Message': (upsellFlow as any).customMessage || '',
+
         };
 
         // ── 2. Read variableMapping from upsellFlow ─────────────────────────
@@ -615,6 +619,8 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
           store_url: paymentUrl,
           product_name: '',
           products_list: '',
+          'Common Message': (codFlow as any).customMessage || '',
+
         };
 
         // Read mapping from DB
