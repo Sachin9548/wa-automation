@@ -85,15 +85,15 @@ export interface FlowDraftItem {
 }
 
 const VARIABLE_OPTIONS = [
-  { value: "customer_name",  label: "👤 Customer Name" },
-  { value: "product_name",   label: "📦 First Product Name" },
-  { value: "products_list",  label: "🛒 All Products (list)" },
-  { value: "cart_url",       label: "🔗 Tracking Link / Cart URL" },
-  { value: "discount_code",  label: "🎟️ Discount Code" },
-  { value: "total_price",    label: "💰 Cart Total Price" },
-  { value: "store_name",     label: "🏪 Store / Brand Name" },
-  { value: "order_number",   label: "📋 Order Number (#1001)" },
-  { value: "store_url",      label: "🌐 Store URL" },
+  { value: "customer_name", label: "👤 Customer Name" },
+  { value: "product_name", label: "📦 First Product Name" },
+  { value: "products_list", label: "🛒 All Products (list)" },
+  { value: "cart_url", label: "🔗 Tracking Link / Cart URL" },
+  { value: "discount_code", label: "🎟️ Discount Code" },
+  { value: "total_price", label: "💰 Cart Total Price" },
+  { value: "store_name", label: "🏪 Store / Brand Name" },
+  { value: "order_number", label: "📋 Order Number (#1001)" },
+  { value: "store_url", label: "🌐 Store URL" },
   { value: "Common Message", label: "✏️ Custom Text (same for all)" },
 ];
 
@@ -233,8 +233,29 @@ export default function FlowsTab({
                 delayMinutes: currentDelay,
                 template: "",
                 metaTemplateName: currentTemplate,
-                variableMapping: JSON.stringify(draft?.variableMapping || []),
-                variableSources: JSON.stringify(draft?.variableSources || []),
+                variableMapping: JSON.stringify(
+                  draft?.variableMapping?.length > 0
+                    ? draft.variableMapping
+                    : (() => {
+                        try {
+                          return JSON.parse(db?.variableMapping || "[]");
+                        } catch {
+                          return [];
+                        }
+                      })(),
+                ),
+                variableSources: JSON.stringify(
+                  (draft?.variableSources ?? []).length > 0
+                    ? (draft?.variableSources ?? [])
+                    : (() => {
+                        try {
+                          return JSON.parse(db?.variableSources || "[]");
+                        } catch {
+                          return [];
+                        }
+                      })(),
+                ),
+
                 metaTemplateLang: currentLang,
                 discountCode: currentDiscount || null,
                 customMessage: draft?.customMessage || null,
@@ -329,9 +350,12 @@ export default function FlowsTab({
                         const newSources: string[] = [];
 
                         // 1. Header text variables
-                        const headerComp = tmpl?.components?.find((c: any) => c.type === "HEADER");
+                        const headerComp = tmpl?.components?.find(
+                          (c: any) => c.type === "HEADER",
+                        );
                         if (headerComp?.format === "TEXT") {
-                          const hMatches = (headerComp.text || "").match(/\{\{\d+\}\}/g) || [];
+                          const hMatches =
+                            (headerComp.text || "").match(/\{\{\d+\}\}/g) || [];
                           hMatches.forEach(() => {
                             newMapping.push("store_name");
                             newSources.push("header");
@@ -339,30 +363,48 @@ export default function FlowsTab({
                         }
 
                         // 2. Body variables
-                        const bodyText = tmpl?.components?.find((c: any) => c.type === "BODY")?.text || "";
+                        const bodyText =
+                          tmpl?.components?.find((c: any) => c.type === "BODY")
+                            ?.text || "";
                         const bMatches = bodyText.match(/\{\{\d+\}\}/g) || [];
-                        const bodyDefaults = ["customer_name", "products_list", "total_price", "discount_code", "store_name"];
+                        const bodyDefaults = [
+                          "customer_name",
+                          "products_list",
+                          "total_price",
+                          "discount_code",
+                          "store_name",
+                        ];
                         bMatches.forEach((_: any, i: number) => {
                           newMapping.push(bodyDefaults[i] || "customer_name");
                           newSources.push("body");
                         });
 
                         // 3. Button variables
-                        const buttonsComp = tmpl?.components?.find((c: any) => c.type === "BUTTONS");
+                        const buttonsComp = tmpl?.components?.find(
+                          (c: any) => c.type === "BUTTONS",
+                        );
                         if (buttonsComp?.buttons) {
-                          buttonsComp.buttons.forEach((btn: any, btnIdx: number) => {
-                            if (btn.type === "URL" && btn.url && btn.url.includes("{{")) {
-                              // URL button with dynamic suffix
-                              (btn.url.match(/\{\{\d+\}\}/g) || []).forEach(() => {
-                                newMapping.push("cart_url");
-                                newSources.push(`button_url_${btnIdx}`);
-                              });
-                            } else if (btn.type === "COPY_CODE") {
-                              // Copy code button — needs discount code
-                              newMapping.push("discount_code");
-                              newSources.push(`button_coupon_${btnIdx}`);
-                            }
-                          });
+                          buttonsComp.buttons.forEach(
+                            (btn: any, btnIdx: number) => {
+                              if (
+                                btn.type === "URL" &&
+                                btn.url &&
+                                btn.url.includes("{{")
+                              ) {
+                                // URL button with dynamic suffix
+                                (btn.url.match(/\{\{\d+\}\}/g) || []).forEach(
+                                  () => {
+                                    newMapping.push("cart_url");
+                                    newSources.push(`button_url_${btnIdx}`);
+                                  },
+                                );
+                              } else if (btn.type === "COPY_CODE") {
+                                // Copy code button — needs discount code
+                                newMapping.push("discount_code");
+                                newSources.push(`button_coupon_${btnIdx}`);
+                              }
+                            },
+                          );
                         }
 
                         updateDraft({
@@ -535,62 +577,71 @@ export default function FlowsTab({
                       Map Template Variables
                     </label>
                     {activeMapping.map((val: string, idx: number) => {
-                      const activeSources = (draft?.variableSources ?? []).length > 0
-                        ? (draft?.variableSources ?? [])
-                        : (() => { try { return JSON.parse(db?.variableSources || '[]'); } catch { return []; } })();
-                      const src = activeSources[idx] || 'body';
-                      const isButton = src.startsWith('button_');
-                      const isCoupon = src.startsWith('button_coupon_');
-                      const isUrl    = src.startsWith('button_url_');
-                      return (
-                      <div key={idx} className="space-y-1.5">
-                        <div className="flex items-center gap-3">
-                          <div className="flex flex-col items-center w-14 shrink-0">
-                            <span className="text-[10px] font-mono text-slate-400">{`{{${idx + 1}}}`}</span>
-                            {isButton && (
-                              <span className={`text-[8px] font-bold px-1 rounded mt-0.5 ${isCoupon ? 'bg-yellow-500/20 text-yellow-400' : 'bg-teal-500/20 text-teal-400'}`}>
-                                {isCoupon ? 'BTN COUPON' : 'BTN URL'}
-                              </span>
-                            )}
-                          </div>
-                          <select
-                            value={val}
-                            onChange={(e) => {
-                              const newMap = [...activeMapping];
-                              newMap[idx] = e.target.value;
-                              updateDraft({ variableMapping: newMap });
-                            }}
-                            className={`flex-1 p-2 bg-slate-800 border rounded-lg text-xs text-white ${isButton ? 'border-teal-500/30' : 'border-white/10'}`}
-                          >
-                            {VARIABLE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {val === "discount_code" && (
-                          <div className="ml-14">
-                            <input
-                              type="text"
-                              placeholder="Enter discount code e.g. VIP10"
-                              value={currentDiscount}
-                              onChange={(e) =>
-                                updateDraft({
-                                  discount: e.target.value.toUpperCase(),
-                                })
+                      const activeSources =
+                        (draft?.variableSources ?? []).length > 0
+                          ? (draft?.variableSources ?? [])
+                          : (() => {
+                              try {
+                                return JSON.parse(db?.variableSources || "[]");
+                              } catch {
+                                return [];
                               }
-                              className="w-full p-2 bg-slate-900 border border-teal-500/30 text-white placeholder-slate-600 rounded-lg text-xs font-mono focus:ring-1 focus:ring-teal-500 outline-none"
-                            />
-                            {currentDiscount && (
-                              <p className="text-teal-400 text-[10px] mt-0.5 font-bold">
-                                🎟️ {currentDiscount} will be sent
-                              </p>
-                            )}
+                            })();
+                      const src = activeSources[idx] || "body";
+                      const isButton = src.startsWith("button_");
+                      const isCoupon = src.startsWith("button_coupon_");
+                      const isUrl = src.startsWith("button_url_");
+                      return (
+                        <div key={idx} className="space-y-1.5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col items-center w-14 shrink-0">
+                              <span className="text-[10px] font-mono text-slate-400">{`{{${idx + 1}}}`}</span>
+                              {isButton && (
+                                <span
+                                  className={`text-[8px] font-bold px-1 rounded mt-0.5 ${isCoupon ? "bg-yellow-500/20 text-yellow-400" : "bg-teal-500/20 text-teal-400"}`}
+                                >
+                                  {isCoupon ? "BTN COUPON" : "BTN URL"}
+                                </span>
+                              )}
+                            </div>
+                            <select
+                              value={val}
+                              onChange={(e) => {
+                                const newMap = [...activeMapping];
+                                newMap[idx] = e.target.value;
+                                updateDraft({ variableMapping: newMap });
+                              }}
+                              className={`flex-1 p-2 bg-slate-800 border rounded-lg text-xs text-white ${isButton ? "border-teal-500/30" : "border-white/10"}`}
+                            >
+                              {VARIABLE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
                           </div>
-                        )}
-                      </div>
-                    );
+                          {val === "discount_code" && (
+                            <div className="ml-14">
+                              <input
+                                type="text"
+                                placeholder="Enter discount code e.g. VIP10"
+                                value={currentDiscount}
+                                onChange={(e) =>
+                                  updateDraft({
+                                    discount: e.target.value.toUpperCase(),
+                                  })
+                                }
+                                className="w-full p-2 bg-slate-900 border border-teal-500/30 text-white placeholder-slate-600 rounded-lg text-xs font-mono focus:ring-1 focus:ring-teal-500 outline-none"
+                              />
+                              {currentDiscount && (
+                                <p className="text-teal-400 text-[10px] mt-0.5 font-bold">
+                                  🎟️ {currentDiscount} will be sent
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
                     })}
                   </div>
                 ) : null;
