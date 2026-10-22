@@ -247,7 +247,7 @@ async function queueAbandonedCartJobs(merchant: any, cart: any, phone: string) {
     }
 
     const trackingUrl = trackingLink
-      ? `${backendUrl}/t/${trackingLink.id}`
+      ? `${backendUrl}/api/tracking/click/${trackingLink.id}`
       : (cart.cartUrl || '');
 
 
@@ -482,7 +482,8 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
         }
 
         const trackingUrl = trackingLink
-          ? `${backendUrl}/t/${trackingLink.id}`
+          ? `${backendUrl}/api/tracking/click/${trackingLink.id}`
+
 
           : storeUrl;
 
@@ -602,7 +603,7 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
 
 
         const trackingUrl = codTrackingLink
-          ? `${backendUrl}/t/${codTrackingLink.id}`
+          ? `${backendUrl}/api/tracking/click/${codTrackingLink.id}`
 
           : cleanStoreUrl;
 

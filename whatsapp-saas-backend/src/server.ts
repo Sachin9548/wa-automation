@@ -74,6 +74,8 @@ app.get('/t/:trackingId', async (req: Request, res: Response) => {
 
     if (!link) {
       console.warn(`⚠️ Tracking link not found: ${trackingId}`);
+      // Redirect to merchant store — but we don't know which merchant without link
+      // So use generic fallback
       return res.redirect(302, 'https://wautomation.shop');
     }
 
@@ -197,7 +199,7 @@ app.listen(PORT, async () => {
     console.log("📦 Database connected!");
     initMessageWorker();
 
-    
+
     // ── Daily Anniversary Check ───────────────────────────────────────────────────
     const runAnniversaryCheck = async () => {
       try {
@@ -249,12 +251,12 @@ app.listen(PORT, async () => {
 
             // valueMap — all possible anniversary values
             const annivValueMap: Record<string, string> = {
-              customer_name:   c.name?.split(' ')[0] || 'there',
+              customer_name: c.name?.split(' ')[0] || 'there',
               years_completed: String(yearsCompleted),
-              store_url:       storeUrl,
-              cart_url:        storeUrl,
-              discount_code:   discountCode || '',
-              store_name:      storeUrl.replace(/^https?:\/\//, '').split('/')[0] || 'our store',
+              store_url: storeUrl,
+              cart_url: storeUrl,
+              discount_code: discountCode || '',
+              store_name: storeUrl.replace(/^https?:\/\//, '').split('/')[0] || 'our store',
               total_price: '', order_number: '', product_name: '', products_list: '',
               'Common Message': (flow as any).customMessage || '',
             };
@@ -271,7 +273,7 @@ app.listen(PORT, async () => {
                 const ps = JSON.parse((flow as any).variableSources);
                 if (Array.isArray(ps) && ps.length > 0) annivSources = ps;
               }
-            } catch {}
+            } catch { }
 
             // Fallback if mapping not configured
             if (annivMapping.length === 0) {
