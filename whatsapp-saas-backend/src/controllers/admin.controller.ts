@@ -6,6 +6,7 @@ import { messageQueue } from "../lib/queue";
 import { resumeWorkerIfPaused } from "../workers/message.worker";
 import { resolveShopifyDomain } from "../utils/domainFinder";
 import { getMetaTemplateDetails } from "../services/whatsapp.service";
+import { syncMerchantMissedOrders } from "../services/shopify/orderSync.service";
 
 // ── Activity Log helper ────────────────────────────────────────────────────────
 // Fire-and-forget — never blocks the main response
@@ -896,5 +897,23 @@ export const getTemplateVariables = async (
     res.status(200).json(details);
   } catch (error) {
     res.status(500).json({ message: "Error fetching template variables" });
+  }
+};
+
+
+export const triggerOrderReconciliation = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { merchantId } = req.body;
+    if (!merchantId) return res.status(400).json({ message: 'merchantId required' });
+
+    const result = await syncMerchantMissedOrders(merchantId);
+
+    res.status(200).json({
+      message: `Sync complete! Processed ${result.newOrdersCount} orders. Recovered ${result.recoveredCount} carts (+₹${result.addedRevenue}).`,
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('Order Reconciliation Error:', error);
+    res.status(500).json({ message: error.message || 'Order sync failed' });
   }
 };

@@ -20,6 +20,7 @@ import {
   getPaymentHistory,
   logActivity,
   getTemplateVariables,
+  triggerOrderReconciliation,
 } from "../controllers/admin.controller";
 import { adminProtect } from "../middleware/admin.middleware";
 import { checkShopifyDomain } from "../controllers/admin.controller";
@@ -2862,5 +2863,5 @@ router.get(
   "/templates/:merchantId/:templateName/variables",
   getTemplateVariables,
 );
-
+router.post('/reconcile-orders', triggerOrderReconciliation);
 export default router;

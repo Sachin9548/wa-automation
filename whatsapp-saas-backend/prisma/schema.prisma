@@ -46,6 +46,8 @@ model Merchant {
 
   serviceConvCount  Int      @default(0)   // current month service conversations
   serviceConvMonth  String?                // "2026-10" format — reset when month changes
+  
+  lastSyncedOrderId String? // Aakhiri processed Shopify Order ID
 
 
   // AI Auto-Reply (Point 9)

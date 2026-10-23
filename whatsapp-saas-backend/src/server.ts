@@ -59,6 +59,42 @@ app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "OK", message: "WA-Automation Backend running!" });
 });
 
+// ── Late Night (3:00 AM IST) Order Reconciliation Cron ───────────────────────
+const runNightlyOrderSync = async () => {
+  try {
+    // Check if current time is around 3:00 AM to 3:15 AM IST
+    const nowUtc = Date.now();
+    const nowIst = new Date(nowUtc + 5.5 * 60 * 60 * 1000);
+    const hourIst = nowIst.getUTCHours();
+
+    if (hourIst === 3) {
+      console.log('🌙 Running nightly order reconciliation for all active merchants...');
+      const activeMerchants = await prisma.merchant.findMany({
+        where: { status: 'ACTIVE', serviceActive: true },
+        select: { id: true, brandName: true },
+      });
+
+      const { syncMerchantMissedOrders } = await import('./services/shopify/orderSync.service');
+
+      for (const m of activeMerchants) {
+        try {
+          const res = await syncMerchantMissedOrders(m.id);
+          if (res.recoveredCount > 0) {
+            console.log(`✅ [${m.brandName}] Auto-recovered ${res.recoveredCount} missed orders (+₹${res.addedRevenue})`);
+          }
+        } catch (mErr: any) {
+          console.error(`❌ [${m.brandName}] Nightly sync error:`, mErr.message);
+        }
+      }
+    }
+  } catch (e: any) {
+    console.error('❌ Nightly order sync loop error:', e.message);
+  }
+};
+
+// Check every 30 minutes in the background
+setInterval(runNightlyOrderSync, 30 * 60 * 1000);
+
 // ── Short tracking redirect — /t/:id ─────────────────────────────────────────
 // Template button URL: https://api.wautomation.shop/t/{{1}}
 // Meta replaces {{1}} with UUID → /t/4aafa16b-... → redirect to cart URL
