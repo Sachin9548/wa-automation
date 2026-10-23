@@ -7,6 +7,7 @@ import {
   FaSpinner,
   FaCheckCircle,
   FaInstagram,
+  FaSync,
 } from "react-icons/fa";
 
 interface CredentialsTabProps {
@@ -43,6 +44,7 @@ interface CredentialsTabProps {
   setCredIgAppSecret: (v: string) => void;
   credIgUsername: string;
   setCredIgUsername: (v: string) => void;
+  handleReconcileOrders: () => void;
 }
 
 export default function CredentialsTab({
@@ -79,7 +81,7 @@ export default function CredentialsTab({
   setCredIgAppSecret,
   credIgUsername,
   setCredIgUsername,
-  
+  handleReconcileOrders,
 }: CredentialsTabProps) {
   return (
     <div className="max-w-2xl space-y-6">
@@ -390,6 +392,25 @@ export default function CredentialsTab({
             ) : (
               <>
                 <FaLink /> Register Webhooks in Shopify/Meta
+              </>
+            )}
+          </button>
+
+
+          {/* ── Naya Button: Reconcile Missed Orders ── */}
+          <button
+            type="button"
+            onClick={handleReconcileOrders}
+            disabled={loading === "reconcile"}
+            className="w-full bg-slate-900 hover:bg-slate-700 border border-white/10 text-white font-bold py-3.5 rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 transition text-sm mt-3"
+          >
+            {loading === "reconcile" ? (
+              <>
+                <FaSpinner className="animate-spin" /> Checking Shopify Orders...
+              </>
+            ) : (
+              <>
+                <FaSync /> 🔄 Sync &amp; Recover Missed Orders
               </>
             )}
           </button>

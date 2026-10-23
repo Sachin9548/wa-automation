@@ -794,6 +794,24 @@ export default function MerchantControlHub() {
     }
   };
 
+  // ── Sync & Recover Missed Orders Handler ──────────────────────────────────
+  const handleReconcileOrders = async () => {
+    setLoading("reconcile");
+    try {
+      const r = await axios.post(
+        `${API_URL}/admin/reconcile-orders`,
+        { merchantId },
+        { headers: ah() }
+      );
+      alert(`✅ ${r.data.message}`);
+      await fetchAll(); // Screen ke saare revenue aur stats turant refresh ho jayenge!
+    } catch (e: any) {
+      alert(e.response?.data?.message || "Reconciliation failed");
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     for (const btn of tmplButtons) {
@@ -1460,6 +1478,7 @@ export default function MerchantControlHub() {
             webhookResults={webhookResults}
             handleUpdateCredentials={handleUpdateCredentials}
             handleRegisterWebhooks={handleRegisterWebhooks}
+            handleReconcileOrders={handleReconcileOrders}
             wabaSubResult={wabaSubResult}
           />
         )}
