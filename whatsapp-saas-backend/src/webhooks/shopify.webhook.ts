@@ -378,21 +378,29 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
     // ── Recovery tracking: did our message lead to this order? ────────────
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentMessage = await prisma.message.findFirst({
-      where: { merchantId, customerPhone: phone, direction: 'OUTGOING', timestamp: { gte: sevenDaysAgo } }
+      where: {
+        merchantId,
+        customerPhone: { contains: phone.slice(-10) },
+        direction: 'OUTGOING',
+        timestamp: { gte: sevenDaysAgo }
+      }
     });
-
 
     if (recentMessage) {
       await prisma.merchant.update({
         where: { id: merchantId },
         data: { totalConverted: { increment: 1 }, recoveredRevenue: { increment: orderTotal } }
       });
+
+      // 🚨 NEW: Contains last 10 digits
       await prisma.abandonedCart.updateMany({
-        where: { merchantId, customerPhone: phone, status: 'SENT' },
+        where: { merchantId, customerPhone: { contains: phone.slice(-10) }, status: 'SENT' },
         data: { status: 'RECOVERED' }
       });
+
+      // 🚨 NEW: Contains last 10 digits
       await (prisma as any).trackingLink.updateMany({
-        where: { merchantId, customerPhone: phone, converted: false },
+        where: { merchantId, customerPhone: { contains: phone.slice(-10) }, converted: false },
         data: { converted: true, convertedAt: new Date(), convertedRevenue: orderTotal }
       });
       console.log(`💰 Revenue recovered: ₹${orderTotal} for ${merchant.brandName}`);
