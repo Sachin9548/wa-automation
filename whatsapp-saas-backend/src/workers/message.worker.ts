@@ -183,10 +183,34 @@ export const initMessageWorker = () => {
       }
 
       // ── Cart status check (skip for upsell jobs — no cart record) ────
+      // if (!isUpsell && cartId) {
+      //   const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
+      //   if (!cart || cart.status !== 'PENDING') {
+      //     console.log(`ℹ️ Cart ${cartId} already processed (status: ${cart?.status}). Skipping.`);
+      //     return;
+      //   }
+      // }
+
+      // ── Cart & Template Check: Kya ye specific reminder pehle ja chuka hai? ────
       if (!isUpsell && cartId) {
         const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
-        if (!cart || cart.status !== 'PENDING') {
-          console.log(`ℹ️ Cart ${cartId} already processed (status: ${cart?.status}). Skipping.`);
+        if (!cart) {
+          console.log(`ℹ️ Cart ${cartId} not found. Skipping.`);
+          return;
+        }
+
+        // Check if THIS exact template was already sent for this cart
+        const alreadySent = await prisma.message.findFirst({
+          where: {
+            merchantId,
+            customerPhone: toPhone,
+            templateName: templateName, // e.g. abandoned_cart_reminder_2_discount
+            cartId: cartId,
+          }
+        });
+
+        if (alreadySent) {
+          console.log(`ℹ️ Template ${templateName} already sent for cart ${cartId}. Skipping duplicate.`);
           return;
         }
       }
