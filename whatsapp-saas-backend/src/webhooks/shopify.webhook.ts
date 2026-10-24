@@ -450,6 +450,76 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
 
     }
 
+
+    // ── 1. ORDER_CONFIRM flow ──────────────────────────────────────────────
+    const orderConfirmFlow = await prisma.automationFlow.findFirst({
+      where: { merchantId, type: 'ORDER_CONFIRM', isActive: true }
+    });
+
+    if (orderConfirmFlow && orderConfirmFlow.metaTemplateName && phone) {
+      const backendUrl = process.env.BACKEND_URL || 'https://api.wautomation.shop';
+      
+      let orderTrackingLink: any = null;
+      if (merchant.storeUrl) {
+        orderTrackingLink = await (prisma as any).trackingLink.create({
+          data: {
+            merchantId,
+            customerPhone: phone,
+            originalUrl: merchant.storeUrl,
+          }
+        });
+      }
+      
+      const trackingUrl = orderTrackingLink
+        ? `${backendUrl}/api/tracking/click/${orderTrackingLink.id}`
+        : merchant.storeUrl || '';
+
+      const customerName = orderData.customer?.first_name || orderData.billing_address?.first_name || 'there';
+
+      // Dictionary of values for Order Confirmation
+      const confirmValueMap: Record<string, string> = {
+        customer_name: customerName,
+        order_number: orderNumber,
+        product_name: purchasedProductName,
+        products_list: purchasedProductsList,
+        store_url: trackingUrl,
+        cart_url: trackingUrl,
+        store_name: merchant.brandName || '',
+      };
+
+      let confirmMapping: string[] = [];
+      try {
+        if ((orderConfirmFlow as any).variableMapping) {
+          const parsed = JSON.parse((orderConfirmFlow as any).variableMapping);
+          if (Array.isArray(parsed) && parsed.length > 0) confirmMapping = parsed;
+        }
+      } catch (err) {}
+
+      if (confirmMapping.length === 0) {
+        confirmMapping = ['customer_name', 'order_number', 'store_url'];
+      }
+
+      const variables = confirmMapping.map(key => confirmValueMap[key] !== undefined ? confirmValueMap[key] : '');
+
+      await messageQueue.add('send-automated-msg', {
+        cartId: null,
+        merchantId,
+        phone,
+        templateName: orderConfirmFlow.metaTemplateName,
+        templateLang: (orderConfirmFlow as any).metaTemplateLang || 'en_US',
+        trackingLinkId: orderTrackingLink?.id,
+        variables,
+        jobType: 'ORDER_CONFIRM',
+      }, {
+         delay: (orderConfirmFlow.delayMinutes || 0) * 60 * 1000, 
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 30000 },
+      });
+      
+      await resumeWorkerIfPaused();
+      console.log(`✅ Order Confirmation message queued for ${phone} | order: ${orderNumber}`);
+    }
+
     // ── POST_PURCHASE_UPSELL flow ─────────────────────────────────────────
     // Check if merchant has an active upsell flow configured
     const upsellFlow = await prisma.automationFlow.findFirst({
@@ -672,7 +742,7 @@ export const handleOrderCreatedWebhook = async (req: any, res: Response): Promis
           variableSources: codVariableSources,   // ADD
           jobType: 'COD_CONVERT',
         }, {
-          delay: 2 * 60 * 1000,  // 2 min delay — order confirm hone do pehle
+          delay: (codFlow.delayMinutes || 2) * 60 * 1000,  
           attempts: 2,
           backoff: { type: 'exponential', delay: 30000 },
         });
