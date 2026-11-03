@@ -572,3 +572,144 @@ Backend at send time:
 
 *Document generated: November 2026*
 *Project: WA-Automations — WhatsApp Marketing SaaS*
+
+---
+
+## 14. 🔄 HOW TO ADD A NEW FEATURE (Step-by-Step)
+
+Jab bhi naya feature add karna ho, yeh order follow karo:
+
+```
+Step 1: Schema change karo (schema.prisma) → npx prisma db push
+Step 2: Backend route/controller banao (admin.routes.ts ya naya file)
+Step 3: Webhook handler update karo (agar Shopify/Meta event se trigger ho)
+Step 4: Worker mein naya job type add karo (agar message bhejni ho)
+Step 5: valueMap mein naya variable add karo (shopify.webhook.ts)
+Step 6: Frontend tab/component banao
+Step 7: TypeScript check → npx tsc --noEmit
+Step 8: Git commit + push
+```
+
+---
+
+## 15. 📁 PROJECT FILE STRUCTURE
+
+```
+whatsapp-saas-backend/
+├── src/
+│   ├── server.ts              ← Express app + routes mount + anniversary cron
+│   ├── controllers/
+│   │   ├── admin.controller.ts    ← Merchant activate, launch campaign, flows save
+│   │   └── merchant.controller.ts ← Merchant stats, analytics
+│   ├── routes/
+│   │   ├── admin.routes.ts        ← All admin endpoints (2500+ lines)
+│   │   ├── merchant.routes.ts     ← Merchant-facing endpoints
+│   │   ├── webhook.routes.ts      ← Meta + Shopify webhook handlers
+│   │   ├── inbox.routes.ts        ← 2-way chat endpoints
+│   │   ├── tracking.routes.ts     ← Click tracking redirect
+│   │   └── shopify.oauth.routes.ts← Shopify permanent token callback
+│   ├── services/
+│   │   ├── whatsapp.service.ts    ← sendMetaTemplateMessage (body/header/button split)
+│   │   ├── ai.service.ts          ← Groq API, conversation history
+│   │   └── shopify/
+│   │       ├── customer.service.ts← Customer sync
+│   │       ├── full-sync.service.ts← Full Shopify sync
+│   │       └── polling.service.ts ← Abandoned cart polling
+│   ├── webhooks/
+│   │   └── shopify.webhook.ts     ← Cart + Order webhook handlers
+│   ├── workers/
+│   │   └── message.worker.ts      ← BullMQ worker (3 job types)
+│   ├── lib/
+│   │   ├── queue.ts               ← BullMQ queue setup
+│   │   ├── redis.ts               ← Redis client
+│   │   ├── prisma.ts              ← Prisma client
+│   │   └── shopify.security.ts    ← HMAC verification
+│   └── middleware/
+│       ├── auth.middleware.ts     ← JWT protect
+│       └── admin.middleware.ts    ← Admin API key check
+└── prisma/
+    └── schema.prisma              ← All DB models
+
+whatsappsaas/ (Frontend)
+├── src/app/
+│   ├── admin/
+│   │   ├── page.tsx               ← Admin dashboard (merchants list, guides)
+│   │   └── merchants/[id]/
+│   │       ├── page.tsx           ← Merchant control hub (all tabs)
+│   │       └── components/
+│   │           ├── OverviewTab.tsx
+│   │           ├── FlowsTab.tsx   ← Variable mapping UI
+│   │           ├── CampaignTab.tsx← Campaign + variable mapping
+│   │           ├── CODBlastTab.tsx← COD blast + variable mapping
+│   │           ├── InboxTab.tsx   ← 2-way chat
+│   │           ├── CredentialsTab.tsx
+│   │           ├── InstagramTab.tsx
+│   │           └── ...
+│   └── dashboard/
+│       ├── page.tsx               ← Merchant dashboard
+│       └── inbox/page.tsx         ← Merchant inbox
+```
+
+---
+
+## 16. 🌊 COMPLETE DATA FLOW EXAMPLE (Abandoned Cart)
+
+```
+[Time 0] Customer adds product → Shopify checkout page kholti hai
+
+[Time 0:01] Customer checkout chhod deta hai
+    → Shopify fires POST /api/webhooks/shopify/abandoned-cart/{merchantId}
+    → HMAC verify (App Client Secret se)
+    → Cart save in DB (status: PENDING)
+    → Phone nahi hai → wait
+
+[Time 0:05] Customer phone number dalta hai
+    → Shopify fires checkouts/update webhook
+    → DB mein phone update
+    → Active flows check (ABANDONED_CART_1 isActive: true)
+    → TrackingLink create (cart URL → /api/tracking/click/UUID)
+    → BullMQ job add: delay = 30 min
+
+[Time 0:30] Worker job process kare
+    → Sending window check (7am-12am IST)
+    → Rate limit check (Redis: ratelimit:{merchantId})
+    → valueMap build: { customer_name: "Rahul", products_list: "Nike Air", ... }
+    → variableMapping se variables array build
+    → whatsapp.service.ts → components split (body/coupon/url)
+    → Meta API POST /{phoneNumberId}/messages
+    → Message status: SENT
+
+[Later] Customer message READ kare → webhook → status: READ
+
+[Customer clicks button]
+    → GET /api/tracking/click/{UUID}
+    → clicked: true, clickedAt saved
+    → merchant.totalClicked++
+    → Redirect to cart URL with UTM params
+
+[Customer places order]
+    → orders/create webhook
+    → 7-day phone match: message found ✅
+    → merchant.recoveredRevenue += ₹2499
+    → merchant.totalConverted++
+    → cart.status = RECOVERED
+    → trackingLink.converted = true, convertedRevenue = 2499
+    → Shopify order tagged: WA-Recovered
+```
+
+---
+
+## 17. 💡 KEY DESIGN DECISIONS & WHY
+
+| Decision | Reason |
+|----------|--------|
+| BullMQ instead of setTimeout | Server restart pe jobs survive karte hain (Redis-backed) |
+| Per-merchant rate limit in Redis | In-memory Map restart pe reset hoti — Redis persist karta hai |
+| Random delay 15-30s | Fixed delay = bot-like → Meta spam detection. Random = human-like |
+| QueueEvents removed | Ek dedicated Redis connection 24/7 chalta tha = 500k+ requests/month waste |
+| Custom App (not Partner App) | Per-client permanent tokens, no App Review needed, instant setup |
+| /api/tracking/click/ for URL buttons | Meta URL button mein template URL base hoti hai, {{1}} = UUID suffix only |
+| variableMapping + variableSources JSON | Har template alag hota hai — dynamic mapping DB mein store karo |
+| `(prisma as any)` for new fields | Prisma client auto-generate lag jaata hai — type safety ke liye |
+| lazyConnect: true for Redis | Startup pe connection nahi khulta — sirf use hone pe |
+| Fallback in valueMap | Agar key na mile toh empty string — no crash |
